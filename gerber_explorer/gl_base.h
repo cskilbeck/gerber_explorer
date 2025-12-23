@@ -304,19 +304,18 @@ namespace gerber_3d
 
 //////////////////////////////////////////////////////////////////////
 
-#if defined(_DEBUG)
-#define GL_CHECK(x)                                                                                         \
-    do {                                                                                                    \
-        x;                                                                                                  \
-        GLenum __err = glGetError();                                                                        \
-        if(__err != 0) {                                                                                    \
-            char const *__err_text = (char const *)gluErrorString(__err);                                   \
-            LOG_ERROR("ERROR {} ({}) from {} at line {} of {}", __err, __err_text, #x, __LINE__, __FILE__); \
-        }                                                                                                   \
+#if defined(_DEBUG) || 1
+#define GL_CHECK(x)                                                                                                                                            \
+    do {                                                                                                                                                       \
+        x;                                                                                                                                                     \
+        GLenum __err = glGetError();                                                                                                                           \
+        if(__err != 0) {                                                                                                                                       \
+            LOG_ERROR("ERROR {} from {} at line {} of {}", __err, #x, __LINE__, __FILE__);                                                                     \
+        }                                                                                                                                                      \
     } while(0)
 #else
-#define GL_CHECK(x) \
-    do {            \
-        x;          \
+#define GL_CHECK(x)                                                                                                                                            \
+    do {                                                                                                                                                       \
+        x;                                                                                                                                                     \
     } while(0)
 #endif

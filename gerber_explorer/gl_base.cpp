@@ -5,14 +5,10 @@
 #include "gerber_2d.h"
 #include "gerber_util.h"
 
-#include <gl/GL.h>
-
-#include "Wglext.h"
-#include "glcorearb.h"
+#include "glad/glad.h"
 
 #include "gl_base.h"
 #include "gl_colors.h"
-#include "gl_functions.h"
 
 LOG_CONTEXT("gl_base", debug);
 
@@ -531,8 +527,8 @@ namespace gerber_3d
         GL_CHECK(glGenTextures(1, &texture_id));
         GL_CHECK(glBindTexture(GL_TEXTURE_2D, texture_id));
         GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data));
-        GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP));
-        GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP));
+        GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+        GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
         GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
         GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
         width = w;

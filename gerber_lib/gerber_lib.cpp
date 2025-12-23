@@ -15,6 +15,7 @@
 #include "gerber_util.h"
 #include "gerber_lib.h"
 #include "gerber_net.h"
+#include "gerber_draw.h"
 #include "gerber_aperture.h"
 #include "gerber_image.h"
 #include "gerber_reader.h"
@@ -2358,9 +2359,9 @@ namespace gerber_lib
         auto draw_rectangle = [&](vec2d const &bottom_left, vec2d const &top_right) {
             gerber_draw_element el[4];
             el[0] = gerber_draw_element(bottom_left, { top_right.x, bottom_left.y });
-            el[1] = gerber_draw_element(el[0].line_end, top_right);
-            el[2] = gerber_draw_element(el[1].line_end, { bottom_left.x, top_right.y });
-            el[3] = gerber_draw_element(el[2].line_end, el[0].line_start);
+            el[1] = gerber_draw_element(el[0].line.end, top_right);
+            el[2] = gerber_draw_element(el[1].line.end, { bottom_left.x, top_right.y });
+            el[3] = gerber_draw_element(el[2].line.end, el[0].line.start);
             drawer.fill_elements(el, 4, net->level->polarity, net->entity_id);
         };
 
@@ -2713,6 +2714,7 @@ namespace gerber_lib
                         default:
                             break;
                         }
+                        drawer.finish_element(net->entity_id);
                     } break;
 
                     // interpolate the aperture
@@ -2752,6 +2754,7 @@ namespace gerber_lib
                         }
                         break;
                     }
+                    drawer.finish_element(net->entity_id);
                     break;
                 }
             }

@@ -38,11 +38,11 @@ namespace gerber_lib
         double image_scale_b{ 1.0 };
         double image_rotation{ 0.0 };
 
-        matrix aperture_matrix;
+        gerber_2d::matrix aperture_matrix;
 
         bool knockout_measure{ false };
-        vec2d knockout_limit_min{};
-        vec2d knockout_limit_max{};
+        gerber_2d::vec2d knockout_limit_min{};
+        gerber_2d::vec2d knockout_limit_max{};
 
         gerber_level knockout_level{};
 
@@ -65,11 +65,11 @@ namespace gerber_lib
 
         void cleanup();
 
-        void update_net_bounds(rect &bounds, std::vector<vec2d> const &points) const;
-        void update_net_bounds(rect &bounds, double x, double y, double w, double h) const;
-        void update_image_bounds(rect &bounds, double repeat_offset_x, double repeat_offset_y, gerber_image &cur_image) const;
+        void update_net_bounds(gerber_2d::rect &bounds, std::vector<gerber_2d::vec2d> const &points) const;
+        void update_net_bounds(gerber_2d::rect &bounds, double x, double y, double w, double h) const;
+        void update_image_bounds(gerber_2d::rect &bounds, double repeat_offset_x, double repeat_offset_y, gerber_image &cur_image) const;
 
-        gerber_error_code get_aperture_points(gerber_macro_parameters const &macro, gerber_net *net, std::vector<vec2d> &points);
+        gerber_error_code get_aperture_points(gerber_macro_parameters const &macro, gerber_net *net, std::vector<gerber_2d::vec2d> &points);
 
         gerber_error_code parse_file(char const *file_path);
         gerber_error_code parse_memory(char const *data, size_t size);
@@ -85,8 +85,8 @@ namespace gerber_lib
         gerber_error_code draw_macro(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *macro_aperture) const;
         gerber_error_code draw_capsule(gerber_draw_interface &drawer, gerber_net *net, double width, double height) const;
         gerber_error_code draw_arc(gerber_draw_interface &drawer, gerber_net *net, double thickness) const;
-        gerber_error_code draw_circle(gerber_draw_interface &drawer, gerber_net *net, vec2d const &pos, double radius) const;
-        gerber_error_code draw_rectangle(gerber_draw_interface &drawer, gerber_net *net, rect const &draw_rect) const;
+        gerber_error_code draw_circle(gerber_draw_interface &drawer, gerber_net *net, gerber_2d::vec2d const &pos, double radius) const;
+        gerber_error_code draw_rectangle(gerber_draw_interface &drawer, gerber_net *net, gerber_2d::rect const &draw_rect) const;
 
         gerber_error_code fill_polygon(gerber_draw_interface &drawer, double diameter, int num_sides, double angle_degrees) const;
 

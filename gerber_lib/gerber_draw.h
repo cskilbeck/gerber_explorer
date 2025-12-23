@@ -11,8 +11,6 @@ namespace gerber_lib
 {
     struct gerber;
 
-    using namespace gerber_2d;
-
     //////////////////////////////////////////////////////////////////////
 
     enum gerber_hide_elements
@@ -42,23 +40,34 @@ namespace gerber_lib
     {
         gerber_draw_element_type draw_element_type;
 
-        vec2d line_start;
-        vec2d line_end;
-        vec2d arc_center;
-        double start_degrees;
-        double end_degrees;
-        double radius;
+        union
+        {
+            struct
+            {
+                gerber_2d::vec2d start;
+                gerber_2d::vec2d end;
+            } line;
 
+            struct
+            {
+                gerber_2d::vec2d center;
+                double start_degrees;
+                double end_degrees;
+                double radius;
+            } arc;
+        };
+
+        // ReSharper disable once CppPossiblyUninitializedMember
         gerber_draw_element()
         {
         }
 
-        gerber_draw_element(vec2d const &start, vec2d const &end) : draw_element_type(draw_element_line), line_start(start), line_end(end)
+        explicit gerber_draw_element(gerber_2d::vec2d const &start, gerber_2d::vec2d const &end) : draw_element_type(draw_element_line), line{ start, end }
         {
         }
 
-        gerber_draw_element(vec2d const &center, double start_degrees, double end_degrees, double radius)
-            : draw_element_type(draw_element_arc), arc_center(center), start_degrees(start_degrees), end_degrees(end_degrees), radius(radius)
+        explicit gerber_draw_element(gerber_2d::vec2d const &center, double start_degrees, double end_degrees, double radius)
+            : draw_element_type(draw_element_arc), arc{ center, start_degrees, end_degrees, radius }
         {
         }
 
@@ -66,9 +75,9 @@ namespace gerber_lib
         {
             switch(draw_element_type) {
             case draw_element_line:
-                return std::format("line: {},{}", line_start, line_end);
+                return std::format("line: {},{}", line.start, line.end);
             case draw_element_arc:
-                return std::format("arc: at {}, from {} to {}, radius {}", arc_center, start_degrees, end_degrees, radius);
+                return std::format("arc: at {}, from {} to {}, radius {}", arc.center, arc.start_degrees, arc.end_degrees, arc.radius);
             }
             return std::string{ "huih?" };
         }
@@ -81,6 +90,8 @@ namespace gerber_lib
         virtual ~gerber_draw_interface() = default;
         virtual void set_gerber(gerber *g) = 0;
         virtual void on_finished_loading() = 0;
+        virtual void finish_element(int entity_id) = 0;
+
 
         // draw a filled shape of lines/arcs
         virtual void fill_elements(gerber_draw_element const *elements, size_t num_elements, gerber_polarity polarity, int entity_id) = 0;
