@@ -174,8 +174,12 @@ bool gerber_explorer::on_init()
     window_rect = { { 0, 0 }, window_size };
     view_rect = window_rect.offset(window_size.scale(-0.5));
 
-    solid.init();
-    solid.set_color(0xff00ffff);
+    solid_program.init();
+    solid_program.set_color(0xff00ffff);
+
+    color_program.init();
+
+    overlay.init(color_program);
 
     gerber_lib::gerber *g = new gerber_lib::gerber();
     g->parse_file("../../gerber_test_files/SMD_prim_20_X1.gbr");
@@ -183,7 +187,7 @@ bool gerber_explorer::on_init()
     gerber_layer *layer = new gerber_layer();
     layer->layer = new gl_drawer();
     layer->layer->set_gerber(g);
-    layer->layer->program = &solid;
+    layer->layer->program = &solid_program;
     layer->layer->on_finished_loading();
     layer->fill_color = layer_colors[layers.size() % gerber_util::array_length(layer_colors)];
     layer->clear_color = gl_color::cyan;
@@ -218,7 +222,6 @@ bool gerber_explorer::on_update()
     gl_matrix projection_matrix_invert_y;
     gl_matrix projection_matrix;
     gl_matrix view_matrix;
-    gl_matrix screen_matrix;
 
     // make a 1:1 screen matrix with origin in top left
 
@@ -249,14 +252,62 @@ void gerber_explorer::on_render()
         gerber_layer *layer = layers[--n];
 
         if(!layer->hide) {
-            solid.use();
-            GL_CHECK(glUniformMatrix4fv(solid.transform_location, 1, true, world_transform_matrix));
+            solid_program.use();
+            GL_CHECK(glUniformMatrix4fv(solid_program.transform_location, 1, true, world_transform_matrix));
 
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
             layer->draw(false, 1.0f);
         }
     }
+
+    glLineWidth(1);
+
+    overlay.reset();
+
+    if(mouse_mode == mouse_drag_zoom_select) {
+        rect drag_rect_corrected = correct_aspect_ratio(window_rect.aspect_ratio(), drag_rect, aspect_expand);
+        overlay.add_rect(drag_rect_corrected, 0x80ffff00);
+        overlay.add_rect(drag_rect, 0x800000ff);
+        overlay.add_outline_rect(drag_rect, 0xffffffff);
+    }
+
+    vec2d origin = window_pos_from_world_pos({ 0, 0 });
+
+    bool show_axes = true;
+    bool show_extent = true;
+    uint32_t axes_color = gl_color::cyan;
+    uint32_t extent_color = gl_color::yellow;
+
+    if(show_axes) {    // show_axes
+        overlay.lines();
+        overlay.add_line({ 0, origin.y }, { window_size.x, origin.y }, axes_color);
+        overlay.add_line({ origin.x, 0 }, { origin.x, window_size.y }, axes_color);
+    }
+
+    if(show_extent && selected_layer != nullptr) {
+        rect const &extent = selected_layer->layer->gerber_file->image.info.extent;
+        rect s{ window_pos_from_world_pos(extent.min_pos), window_pos_from_world_pos(extent.max_pos) };
+        overlay.add_outline_rect(s, extent_color);
+    }
+
+    if(mouse_mode == mouse_drag_select) {
+        rect f{ drag_mouse_start_pos, drag_mouse_cur_pos };
+        uint32_t color = 0x60ff8020;
+        if(f.min_pos.x > f.max_pos.x) {
+            color = 0x6080ff20;
+        }
+        overlay.add_rect(f, color);
+        overlay.add_outline_rect(f, 0xffffffff);
+    }
+
+    // draw overlay
+
+    color_program.use();
+
+    GL_CHECK(glUniformMatrix4fv(color_program.transform_location, 1, true, screen_matrix));
+
+    overlay.draw();
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -281,7 +332,7 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
     case GLFW_PRESS:
         switch(button) {
         case GLFW_MOUSE_BUTTON_LEFT:
-            if(glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) || glfwGetKey(window, GLFW_KEY_LEFT_CONTROL)) {
+            if((mods & GLFW_MOD_CONTROL) != 0) {
                 set_mouse_mode(mouse_drag_zoom_select, mouse_pos);
             } else {
                 set_mouse_mode(mouse_drag_maybe_select, mouse_pos);
@@ -380,22 +431,15 @@ void gerber_explorer::on_closed()
 
 void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
 {
-    auto show_mouse = [this] { glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); };
-
-    auto hide_mouse = [this] { glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN); };
-
-    auto begin = [&]() {
+    auto begin = [&]{
         zoom_anim = false;
-        show_mouse();
-        // SetCapture(hwnd);
     };
 
     switch(action) {
 
     case mouse_drag_none:
         zoom_anim = mouse_mode == mouse_drag_zoom_select;
-        show_mouse();
-        // ReleaseCapture();
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         break;
 
     case mouse_drag_pan:
@@ -405,8 +449,7 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
 
     case mouse_drag_zoom:
         zoom_anim = false;
-        hide_mouse();
-        // SetCapture(hwnd);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
         drag_mouse_start_pos = pos;
         break;
 
@@ -419,7 +462,7 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
     case mouse_drag_maybe_select: {
         begin();
         drag_mouse_start_pos = pos;
-        vec2d world_pos = world_pos_from_window_pos(pos);
+        // vec2d world_pos = world_pos_from_window_pos(pos);
         // for(auto const &l : layers) {
         //     l->layer->tesselator.pick_entities(world_pos, l->selected_entities);
         // }

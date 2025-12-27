@@ -51,29 +51,35 @@ struct gerber_explorer : gl_window {
     void set_mouse_mode(mouse_drag_action action, vec2d const &pos);
 
     mouse_drag_action mouse_mode{};
-
     vec2d drag_mouse_cur_pos{};
     vec2d drag_mouse_start_pos{};
-
     vec2d mouse_world_pos{};
     rect drag_rect{};
 
     rect view_rect{};
     rect window_rect{};
     vec2d window_size{};
+
     gerber_layer *selected_layer{ nullptr };
     std::vector<gerber_layer *> layers;
+
     rect target_view_rect{};
     rect source_view_rect{};
     bool zoom_anim{ false };
     std::chrono::time_point<std::chrono::high_resolution_clock> target_view_time{};
-    gerber_3d::gl_solid_program solid{};
     gerber_3d::gl_matrix world_transform_matrix{};
+    gerber_3d::gl_matrix screen_matrix{};
+
     gerber_lib::gerber g{};
+
+    gerber_3d::gl_drawlist overlay;
 
     gerber_3d::gl_drawer drawer{};
 
     vec2d mouse_pos{};
+
+    gerber_3d::gl_solid_program solid_program{};
+    gerber_3d::gl_color_program color_program{};
 
     vec2d world_pos_from_window_pos(vec2d const &p) const;
     vec2d window_pos_from_world_pos(vec2d const &p) const;
