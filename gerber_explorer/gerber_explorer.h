@@ -38,6 +38,26 @@ struct gerber_explorer : gl_window {
     using vec2d = gerber_lib::gerber_2d::vec2d;
     using matrix = gerber_lib::gerber_2d::matrix;
 
+    enum mouse_drag_action
+    {
+        mouse_drag_none = 0,
+        mouse_drag_pan,
+        mouse_drag_zoom,
+        mouse_drag_zoom_select,
+        mouse_drag_maybe_select,
+        mouse_drag_select
+    };
+
+    void set_mouse_mode(mouse_drag_action action, vec2d const &pos);
+
+    mouse_drag_action mouse_mode{};
+
+    vec2d drag_mouse_cur_pos{};
+    vec2d drag_mouse_start_pos{};
+
+    vec2d mouse_world_pos{};
+    rect drag_rect{};
+
     rect view_rect{};
     rect window_rect{};
     vec2d window_size{};
@@ -53,6 +73,8 @@ struct gerber_explorer : gl_window {
 
     gerber_3d::gl_drawer drawer{};
 
+    vec2d mouse_pos{};
+
     vec2d world_pos_from_window_pos(vec2d const &p) const;
     vec2d window_pos_from_world_pos(vec2d const &p) const;
     void fit_to_window();
@@ -65,4 +87,7 @@ struct gerber_explorer : gl_window {
     void on_render() override;
     void on_closed() override;
     void on_key(int key, int scancode, int action, int mods) override;
+    void on_scroll(double xoffset, double yoffset) override;
+    void on_mouse_button(int button, int action, int mods) override;
+    void on_mouse_move(double xpos, double ypos) override;
 };

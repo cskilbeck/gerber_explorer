@@ -32,5 +32,9 @@ struct gl_window
     {
     }
 
+    virtual void on_scroll(double xoffset, double yoffset)
+    {
+    }
+
     GLFWwindow *window{};
 };

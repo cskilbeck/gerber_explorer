@@ -27,19 +27,24 @@ namespace
 
     //////////////////////////////////////////////////////////////////////
 
-    void on_glfw_mouse_button(GLFWwindow* window, int button, int action, int mods)
+    void on_glfw_mouse_button(GLFWwindow *window, int button, int action, int mods)
     {
         gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
         glwindow->on_mouse_button(button, action, mods);
-
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void on_glfw_cursor_pos(GLFWwindow* window, double xpos, double ypos)
+    void on_glfw_cursor_pos(GLFWwindow *window, double xpos, double ypos)
     {
         gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
         glwindow->on_mouse_move(xpos, ypos);
+    }
+
+    void on_glfw_scroll(GLFWwindow *window, double xoffset, double yoffset)
+    {
+        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
+        glwindow->on_scroll(xoffset, yoffset);
     }
 
 }    // namespace
@@ -62,6 +67,7 @@ void gl_window::init()
     glfwSetKeyCallback(window, on_glfw_key);
     glfwSetMouseButtonCallback(window, on_glfw_mouse_button);
     glfwSetCursorPosCallback(window, on_glfw_cursor_pos);
+    glfwSetScrollCallback(window, on_glfw_scroll);
     glfwMakeContextCurrent(window);
 
     if(!gladLoadGL()) {

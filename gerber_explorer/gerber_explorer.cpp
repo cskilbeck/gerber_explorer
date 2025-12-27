@@ -14,6 +14,8 @@ namespace
 
     long long const zoom_lerp_time_ms = 700;
 
+    double const drag_select_offset_start_distance = 16;
+
     uint32_t layer_colors[] = { gl_color::yellow,           gl_color::green, gl_color::dark_cyan, gl_color::lime_green, gl_color::antique_white,
                                 gl_color::corn_flower_blue, gl_color::gold };
 
@@ -154,7 +156,6 @@ void gerber_explorer::update_view_rect()
         vec2d wv = window_pos_from_world_pos(view_rect.min_pos);
         vec2d tv = window_pos_from_world_pos(target_view_rect.min_pos);
         if(wv.subtract(tv).length() <= 1) {
-            LOG_INFO("View zoom complete: {}", view_rect);
             view_rect = target_view_rect;
             zoom_anim = false;
         }
@@ -266,6 +267,169 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
 
 //////////////////////////////////////////////////////////////////////
 
+void gerber_explorer::on_scroll(double xoffset, double yoffset)
+{
+    double scale_factor = (yoffset > 0) ? 1.1 : 0.9;
+    zoom_image(mouse_pos, scale_factor);
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::on_mouse_button(int button, int action, int mods)
+{
+    switch(action) {
+    case GLFW_PRESS:
+        switch(button) {
+        case GLFW_MOUSE_BUTTON_LEFT:
+            if(glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) || glfwGetKey(window, GLFW_KEY_LEFT_CONTROL)) {
+                set_mouse_mode(mouse_drag_zoom_select, mouse_pos);
+            } else {
+                set_mouse_mode(mouse_drag_maybe_select, mouse_pos);
+            }
+            break;
+        case GLFW_MOUSE_BUTTON_RIGHT:
+            set_mouse_mode(mouse_drag_pan, mouse_pos);
+            break;
+        case GLFW_MOUSE_BUTTON_MIDDLE:
+            set_mouse_mode(mouse_drag_zoom, mouse_pos);
+            break;
+        }
+        break;
+    case GLFW_RELEASE:
+        switch(button) {
+        case GLFW_MOUSE_BUTTON_LEFT:
+            if(mouse_mode == mouse_drag_zoom_select) {
+                rect drag_rect_corrected = correct_aspect_ratio(window_rect.aspect_ratio(), drag_rect, aspect_expand);
+                vec2d mn = drag_rect_corrected.min_pos;
+                vec2d mx = drag_rect_corrected.max_pos;
+                rect d = rect{ mn, mx }.normalize();
+                if(d.width() > 2 && d.height() > 2) {
+                    zoom_to_rect({ world_pos_from_window_pos(vec2d{ mn.x, mx.y }), world_pos_from_window_pos(vec2d{ mx.x, mn.y }) });
+                }
+            }
+            set_mouse_mode(mouse_drag_none, {});
+            break;
+        case GLFW_MOUSE_BUTTON_RIGHT:
+            set_mouse_mode(mouse_drag_none, {});
+            break;
+        case GLFW_MOUSE_BUTTON_MIDDLE:
+            set_mouse_mode(mouse_drag_none, {});
+            break;
+        }
+        break;
+    }
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::on_mouse_move(double xpos, double ypos)
+{
+    mouse_pos = { xpos, ypos };
+
+    switch(mouse_mode) {
+
+    case mouse_drag_pan: {
+        vec2d new_mouse_pos = world_pos_from_window_pos(mouse_pos);
+        vec2d old_mouse_pos = world_pos_from_window_pos(drag_mouse_start_pos);
+        view_rect = view_rect.offset(new_mouse_pos.subtract(old_mouse_pos).negate());
+        drag_mouse_start_pos = mouse_pos;
+    } break;
+
+    case mouse_drag_zoom: {
+        vec2d d = mouse_pos.subtract(drag_mouse_start_pos);
+        zoom_image(drag_mouse_start_pos, 1.0 + (d.x - d.y) * 0.01);
+        drag_mouse_cur_pos = mouse_pos;
+        glfwSetCursorPos(window, drag_mouse_start_pos.x, drag_mouse_start_pos.y);
+    } break;
+
+    case mouse_drag_zoom_select: {
+        drag_mouse_cur_pos = mouse_pos;
+        if(drag_mouse_cur_pos.subtract(drag_mouse_start_pos).length() > 4) {
+            drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos }.normalize();
+        }
+    } break;
+
+    case mouse_drag_maybe_select: {
+        if(mouse_pos.subtract(drag_mouse_start_pos).length() > drag_select_offset_start_distance) {
+            set_mouse_mode(mouse_drag_select, mouse_pos);
+            mouse_world_pos = world_pos_from_window_pos(mouse_pos);
+        }
+    } break;
+
+    case mouse_drag_select: {
+        drag_mouse_cur_pos = mouse_pos;
+        drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
+        // select_entities(drag_rect, (GetKeyState(VK_SHIFT) & 0x8000) == 0);
+    } break;
+
+    case mouse_drag_none: {
+    } break;
+
+    default:
+        break;
+    }
+}
+
+//////////////////////////////////////////////////////////////////////
+
 void gerber_explorer::on_closed()
 {
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
+{
+    auto show_mouse = [this] { glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); };
+
+    auto hide_mouse = [this] { glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN); };
+
+    auto begin = [&]() {
+        zoom_anim = false;
+        show_mouse();
+        // SetCapture(hwnd);
+    };
+
+    switch(action) {
+
+    case mouse_drag_none:
+        zoom_anim = mouse_mode == mouse_drag_zoom_select;
+        show_mouse();
+        // ReleaseCapture();
+        break;
+
+    case mouse_drag_pan:
+        drag_mouse_start_pos = pos;
+        begin();
+        break;
+
+    case mouse_drag_zoom:
+        zoom_anim = false;
+        hide_mouse();
+        // SetCapture(hwnd);
+        drag_mouse_start_pos = pos;
+        break;
+
+    case mouse_drag_zoom_select:
+        begin();
+        drag_mouse_start_pos = pos;
+        drag_rect = {};
+        break;
+
+    case mouse_drag_maybe_select: {
+        begin();
+        drag_mouse_start_pos = pos;
+        vec2d world_pos = world_pos_from_window_pos(pos);
+        // for(auto const &l : layers) {
+        //     l->layer->tesselator.pick_entities(world_pos, l->selected_entities);
+        // }
+    } break;
+
+    case mouse_drag_select:
+        begin();
+        drag_mouse_cur_pos = pos;
+        drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
+        break;
+    }
+    mouse_mode = action;
 }
