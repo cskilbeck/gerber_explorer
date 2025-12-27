@@ -55,7 +55,7 @@ namespace gerber_3d
         index_array.init((int)indices.size());
         index_array.activate();
         void *i;
-        GL_CHECK(i= glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(uint32_t) * indices.size(), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT));
+        GL_CHECK(i = glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(uint32_t) * indices.size(), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT));
         memcpy(i, indices.data(), indices.size() * sizeof(uint32_t));
         GL_CHECK(glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER));
     }
@@ -186,14 +186,51 @@ namespace gerber_3d
     }
 
 
-    void gl_drawer::render(uint32_t color)
+    void gl_drawer::draw(bool fill, bool outline, bool wireframe, float outline_thickness)
     {
-        program->set_color(color);
+        program->use();
         vertex_array.activate();
         index_array.activate();
+
+        // glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+        // glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        uint32_t constexpr fill_cover = 0xff0000ff;
+        uint32_t constexpr clear_cover = 0xff00ff00;
+        uint32_t constexpr outline_cover = 0xffff0000;
+
+        program->set_color(fill_cover);
+
         for(auto const &s : draw_calls) {
             GL_CHECK(glDrawElements(GL_TRIANGLES, s.length, GL_UNSIGNED_INT, (void *)(s.start * sizeof(GLuint))));
         }
+
+        // for(auto const &e : tesselator.entities) {
+        //     if(fill) {
+        //         glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
+        //         glLineWidth(1.0f);
+        //         if(e.flags & 1) {
+        //             program->set_color(clear_cover);
+        //         } else {
+        //             program->set_color(fill_cover);
+        //         }
+        //         int end = e.num_fills + e.first_fill;
+        //         for(int i = e.first_fill; i < end; ++i) {
+        //             tesselator_span const &s = tesselator.fills[i];
+        //             glDrawElements(GL_TRIANGLES, s.length, GL_UNSIGNED_INT, (void *)(s.start * sizeof(GLuint)));
+        //         }
+        //     }
+        //     if(outline) {
+        //         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        //         glLineWidth(outline_thickness);
+        //         program->set_color(outline_cover);
+        //         int end = e.num_outlines + e.first_outline;
+        //         for(int i = e.first_outline; i < end; ++i) {
+        //             tesselator_span const &s = tesselator.boundaries[i];
+        //             glDrawArrays(GL_LINE_LOOP, s.start, s.length);
+        //         }
+        //     }
+        // }
     }
 
     void gl_drawer::render_triangle(int draw_call_index, int triangle_index, uint32_t color)

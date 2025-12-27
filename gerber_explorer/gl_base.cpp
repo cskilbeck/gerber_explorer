@@ -106,7 +106,7 @@ namespace gerber_3d
         out vec4 fragment;
 
         void main() {
-            fragment = vec4(cover);
+            fragment = cover;
         }
 
     )!";

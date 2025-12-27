@@ -1,0 +1,68 @@
+#pragma once
+
+#include "gl_window.h"
+#include "gl_base.h"
+#include "gl_matrix.h"
+
+struct gerber_explorer : gl_window {
+
+    //////////////////////////////////////////////////////////////////////
+
+    struct gerber_layer
+    {
+        int index;
+        gerber_3d::gl_drawer *layer{ nullptr };
+        bool hide{ false };
+        bool outline{ false };
+        bool fill{ true };
+        bool expanded{ false };
+        bool selected{ false };
+        int alpha{ 255 };
+        std::string filename;
+        uint32_t fill_color;
+        uint32_t clear_color;
+        uint32_t outline_color;
+
+        void draw(bool wireframe, float outline_thickness)
+        {
+            layer->draw(fill, outline, wireframe, outline_thickness);
+        }
+
+        bool operator<(gerber_layer const &other)
+        {
+            return index < other.index;
+        }
+    };
+
+    using rect = gerber_lib::gerber_2d::rect;
+    using vec2d = gerber_lib::gerber_2d::vec2d;
+    using matrix = gerber_lib::gerber_2d::matrix;
+
+    rect view_rect{};
+    rect window_rect{};
+    vec2d window_size{};
+    gerber_layer *selected_layer{ nullptr };
+    std::vector<gerber_layer *> layers;
+    rect target_view_rect{};
+    rect source_view_rect{};
+    bool zoom_anim{ false };
+    std::chrono::time_point<std::chrono::high_resolution_clock> target_view_time{};
+    gerber_3d::gl_solid_program solid{};
+    gerber_3d::gl_matrix world_transform_matrix{};
+    gerber_lib::gerber g{};
+
+    gerber_3d::gl_drawer drawer{};
+
+    vec2d world_pos_from_window_pos(vec2d const &p) const;
+    vec2d window_pos_from_world_pos(vec2d const &p) const;
+    void fit_to_window();
+    void zoom_to_rect(rect const &zoom_rect, double border_ratio = 1.1);
+    void zoom_image(vec2d const &pos, double zoom_scale);
+    void update_view_rect();
+
+    bool on_init() override;
+    bool on_update() override;
+    void on_render() override;
+    void on_closed() override;
+    void on_key(int key, int scancode, int action, int mods) override;
+};

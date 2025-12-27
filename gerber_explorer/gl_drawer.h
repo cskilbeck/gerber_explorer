@@ -34,7 +34,7 @@ namespace gerber_3d
         void on_finished_loading() override;
         void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, int entity_id) override;
         void finish_element(int entity_id) override;
-        void render(uint32_t color);
+        void draw(bool fill, bool outline, bool wireframe, float outline_thickness);
         void render_triangle(int draw_call_index, int triangle_index, uint32_t color);
 
         gerber_lib::gerber *gerber_file{};

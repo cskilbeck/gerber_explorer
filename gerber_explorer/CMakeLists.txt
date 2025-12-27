@@ -18,15 +18,19 @@ find_package(OpenGL REQUIRED)
 
 add_executable(${PROJECT}
         main.cpp
+        gl_colors.h
         log_drawer.h
         log_drawer.cpp
         gl_base.h
         gl_base.cpp
         gl_matrix.h
         gl_matrix.cpp
-        gl_colors.h
         gl_drawer.h
-        gl_drawer.cpp)
+        gl_drawer.cpp
+        gl_window.h
+        gl_window.cpp
+        gerber_explorer.cpp
+        gerber_explorer.h)
 
 target_include_directories(${PROJECT} PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

@@ -1,5 +1,10 @@
 #pragma once
 
+#include <cstdint>
+
+#include "gerber_log.h"
+#include "gerber_2d.h"
+
 namespace gerber_3d
 {
     //////////////////////////////////////////////////////////////////////
