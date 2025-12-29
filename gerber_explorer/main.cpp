@@ -2,7 +2,6 @@
 #include <glad/glad.h>
 
 #include "gerber_lib.h"
-#include "gl_base.h"
 #include "gerber_explorer.h"
 
 LOG_CONTEXT("main", info);
@@ -26,4 +25,6 @@ int main(int, char **)
 
     while(window.update()) {
     }
+
+    return 0;
 }

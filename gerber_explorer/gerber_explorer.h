@@ -69,6 +69,8 @@ struct gerber_explorer : gl_window {
     std::chrono::time_point<std::chrono::high_resolution_clock> target_view_time{};
     gerber_3d::gl_matrix world_transform_matrix{};
     gerber_3d::gl_matrix screen_matrix{};
+    gerber_3d::gl_matrix projection_matrix{};
+    gerber_3d::gl_matrix pixel_matrix{};
 
     gerber_lib::gerber g{};
 
@@ -77,6 +79,9 @@ struct gerber_explorer : gl_window {
     gerber_3d::gl_drawer drawer{};
 
     vec2d mouse_pos{};
+
+    int debug_draw_call = 0;
+    int debug_outline_line = 0;
 
     gerber_3d::gl_solid_program solid_program{};
     gerber_3d::gl_color_program color_program{};

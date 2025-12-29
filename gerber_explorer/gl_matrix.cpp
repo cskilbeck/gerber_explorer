@@ -1,8 +1,32 @@
 #include "gl_matrix.h"
-#include <string.h>
 
 namespace gerber_3d
 {
+    //////////////////////////////////////////////////////////////////////
+
+    void set_identity(gl_matrix mat)
+    {
+        mat[0] = 1;
+        mat[1] = 0;
+        mat[2] = 0;
+        mat[3] = 0;
+
+        mat[4] = 0;
+        mat[5] = 1;
+        mat[6] = 0;
+        mat[7] = 0;
+
+        mat[8] = 0;
+        mat[9] = 0;
+        mat[10] = 1;
+        mat[11] = 0;
+
+        mat[12] = 0;
+        mat[13] = 0;
+        mat[14] = 0;
+        mat[15] = 1;
+    }
+
     //////////////////////////////////////////////////////////////////////
 
     void make_ortho(gl_matrix mat, int w, int h)
@@ -90,6 +114,13 @@ namespace gerber_3d
             t[i + 3] = a[i] * b[3] + a[i + 1] * b[7] + a[i + 2] * b[11] + a[i + 3] * b[15];
         }
         memcpy(out, t, sizeof(gl_matrix));
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    gerber_lib::gerber_2d::vec2f matrix_apply(gerber_lib::gerber_2d::vec2f const &v, gl_matrix const m)
+    {
+        return gerber_lib::gerber_2d::vec2f{ v.x * m[0] + v.y * m[4] + m[12], v.x * m[1] + v.y * m[5] + m[13] };
     }
 
 }    // namespace gerber_3d

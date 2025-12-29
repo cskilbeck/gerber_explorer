@@ -20,7 +20,7 @@
 #include "gerber_image.h"
 #include "gerber_reader.h"
 
-LOG_CONTEXT("gerber_lib", debug);
+LOG_CONTEXT("gerber_lib", info);
 
 namespace
 {
@@ -1505,7 +1505,7 @@ namespace gerber_lib
             if(macro.parameters.size() > circle_rotation) {
                 rotation = macro.parameters[circle_rotation];
             }
-            vec2d center({ macro.parameters[circle_centre_x], macro.parameters[circle_centre_y] });
+            vec2d center{ macro.parameters[circle_centre_x], macro.parameters[circle_centre_y] };
             matrix apm = matrix::multiply(aperture_matrix, matrix::rotate(rotation));
             apm = matrix::multiply(apm, matrix::translate(net->end));
             center = vec2d(center, apm);
@@ -2714,7 +2714,6 @@ namespace gerber_lib
                         default:
                             break;
                         }
-                        drawer.finish_element(net->entity_id);
                     } break;
 
                     // interpolate the aperture
@@ -2729,7 +2728,7 @@ namespace gerber_lib
                             } else {
                                 if(!should_hide(hide_element_lines)) {
                                     if(aperture->aperture_type != aperture_type_circle) {
-                                        LOG_DEBUG("{}", aperture->aperture_type);
+                                        // LOG_DEBUG("{}", aperture->aperture_type);
                                     }
                                     CHECK(draw_linear_interpolation(drawer, net, aperture));
                                 }
@@ -2754,7 +2753,6 @@ namespace gerber_lib
                         }
                         break;
                     }
-                    drawer.finish_element(net->entity_id);
                     break;
                 }
             }

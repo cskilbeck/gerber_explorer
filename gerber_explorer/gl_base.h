@@ -203,6 +203,17 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
+    template <int X, typename T> void update_buffer(T const &elems)
+    {
+        using V = typename T::value_type;
+        auto total = sizeof(V) * elems.size();
+        void *v = glMapBufferRange(X, 0, total, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+        memcpy(v, elems.data(), total);
+        glUnmapBuffer(X);
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
     struct gl_texture
     {
         GLuint texture_id{};

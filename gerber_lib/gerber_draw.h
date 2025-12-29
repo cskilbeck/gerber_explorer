@@ -90,8 +90,6 @@ namespace gerber_lib
         virtual ~gerber_draw_interface() = default;
         virtual void set_gerber(gerber *g) = 0;
         virtual void on_finished_loading() = 0;
-        virtual void finish_element(int entity_id) = 0;
-
 
         // draw a filled shape of lines/arcs
         virtual void fill_elements(gerber_draw_element const *elements, size_t num_elements, gerber_polarity polarity, int entity_id) = 0;

@@ -16,6 +16,14 @@ namespace gerber_lib
 
         //////////////////////////////////////////////////////////////////////
 
+        struct vec2f
+        {
+            float x;
+            float y;
+        };
+
+        //////////////////////////////////////////////////////////////////////
+
         struct vec2d
         {
             double x{};
@@ -25,6 +33,10 @@ namespace gerber_lib
             vec2d(double x, double y);
             vec2d(double x, double y, matrix const &transform_matrix);
             vec2d(vec2d const &o, matrix const &transform_matrix);
+
+            explicit vec2d(vec2f const &v) : x{ v.x }, y{ v.y }
+            {
+            }
 
             //////////////////////////////////////////////////////////////////////
 
@@ -182,7 +194,7 @@ namespace gerber_lib
             }
 
             //////////////////////////////////////////////////////////////////////
- 
+
             rect offset(vec2d o)
             {
                 return { min_pos.add(o), max_pos.add(o) };

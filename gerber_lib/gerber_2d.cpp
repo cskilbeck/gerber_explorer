@@ -98,16 +98,16 @@ namespace gerber_lib
 
         matrix matrix::world_to_window_transform(rect const &window, rect const &view)
         {
-            matrix origin = matrix::translate(view.min_pos.negate());
+            matrix origin = translate(view.min_pos.negate());
             matrix scale = matrix::scale({ window.width() / view.width(), window.height() / view.height() });
             matrix flip = matrix::scale({ 1, -1 });
-            matrix offset = matrix::translate({ 0, window.height() });
+            matrix offset = translate({ 0, window.height() });
 
-            matrix m = matrix::identity();
-            m = matrix::multiply(m, origin);
-            m = matrix::multiply(m, scale);
-            m = matrix::multiply(m, flip);
-            m = matrix::multiply(m, offset);
+            matrix m = identity();
+            m = multiply(m, origin);
+            m = multiply(m, scale);
+            m = multiply(m, flip);
+            m = multiply(m, offset);
             return m;
         }
 

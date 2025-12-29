@@ -48,18 +48,6 @@ namespace
         return rect{ center.subtract(n), center.add(n) };
     }
 
-    //////////////////////////////////////////////////////////////////////
-
-    void make_world_to_window_transform(gl_matrix result, rect const &window, rect const &view)
-    {
-        gl_matrix scale;
-        gl_matrix origin;
-
-        make_scale(scale, (float)(window.width() / view.width()), (float)(window.height() / view.height()));
-        make_translate(origin, -(float)view.min_pos.x, -(float)view.min_pos.y);
-        matrix_multiply(scale, origin, result);
-    }
-
 }    // namespace
 
 //////////////////////////////////////////////////////////////////////
@@ -164,156 +152,51 @@ void gerber_explorer::update_view_rect()
 
 //////////////////////////////////////////////////////////////////////
 
-bool gerber_explorer::on_init()
-{
-    int window_width;
-    int window_height;
-    glfwGetWindowSize(window, &window_width, &window_height);
-    window_size.x = window_width;
-    window_size.y = window_height;
-    window_rect = { { 0, 0 }, window_size };
-    view_rect = window_rect.offset(window_size.scale(-0.5));
-
-    solid_program.init();
-    solid_program.set_color(0xff00ffff);
-
-    color_program.init();
-
-    overlay.init(color_program);
-
-    gerber_lib::gerber *g = new gerber_lib::gerber();
-    g->parse_file("../../gerber_test_files/SMD_prim_20_X1.gbr");
-
-    gerber_layer *layer = new gerber_layer();
-    layer->layer = new gl_drawer();
-    layer->layer->set_gerber(g);
-    layer->layer->program = &solid_program;
-    layer->layer->on_finished_loading();
-    layer->fill_color = layer_colors[layers.size() % gerber_util::array_length(layer_colors)];
-    layer->clear_color = gl_color::cyan;
-    layer->outline_color = gl_color::magenta;
-    layer->outline = true;
-    layer->filename = std::filesystem::path(g->filename).filename().string();
-    layers.push_back(layer);
-    fit_to_window();
-    return true;
-}
-
-//////////////////////////////////////////////////////////////////////
-
-bool gerber_explorer::on_update()
-{
-    int window_width;
-    int window_height;
-    vec2d new_window_size;
-    glfwGetWindowSize(window, &window_width, &window_height);
-    new_window_size.x = window_width;
-    new_window_size.y = window_height;
-    if(new_window_size.x != window_size.x || new_window_size.y != window_size.y) {
-        vec2d scale_factor = new_window_size.divide(window_size);
-        window_size = new_window_size;
-        window_rect = { { 0, 0 }, window_size };
-        vec2d new_view_size = view_rect.size().multiply(scale_factor);
-        view_rect.max_pos = view_rect.min_pos.add(new_view_size);
-    }
-
-    update_view_rect();
-
-    gl_matrix projection_matrix_invert_y;
-    gl_matrix projection_matrix;
-    gl_matrix view_matrix;
-
-    // make a 1:1 screen matrix with origin in top left
-
-    make_ortho(projection_matrix_invert_y, window_width, -window_height);
-    make_translate(view_matrix, 0, (float)-window_size.y);
-    matrix_multiply(projection_matrix_invert_y, view_matrix, screen_matrix);
-
-    // make world to window matrix with origin in bottom left
-
-    make_ortho(projection_matrix, window_width, window_height);
-    make_world_to_window_transform(view_matrix, window_rect, view_rect);
-    matrix_multiply(projection_matrix, view_matrix, world_transform_matrix);
-
-    return true;
-}
-
-//////////////////////////////////////////////////////////////////////
-
-void gerber_explorer::on_render()
-{
-    GL_CHECK(glViewport(0, 0, window_size.x, window_size.y));
-    GL_CHECK(glClearColor(0.1f, 0.2f, 0.3f, 1.0f));
-    GL_CHECK(glDisable(GL_DEPTH_TEST));
-    GL_CHECK(glDisable(GL_CULL_FACE));
-    GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
-
-    for(size_t n = layers.size(); n != 0;) {
-        gerber_layer *layer = layers[--n];
-
-        if(!layer->hide) {
-            solid_program.use();
-            GL_CHECK(glUniformMatrix4fv(solid_program.transform_location, 1, true, world_transform_matrix));
-
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-            layer->draw(false, 1.0f);
-        }
-    }
-
-    glLineWidth(1);
-
-    overlay.reset();
-
-    if(mouse_mode == mouse_drag_zoom_select) {
-        rect drag_rect_corrected = correct_aspect_ratio(window_rect.aspect_ratio(), drag_rect, aspect_expand);
-        overlay.add_rect(drag_rect_corrected, 0x80ffff00);
-        overlay.add_rect(drag_rect, 0x800000ff);
-        overlay.add_outline_rect(drag_rect, 0xffffffff);
-    }
-
-    vec2d origin = window_pos_from_world_pos({ 0, 0 });
-
-    bool show_axes = true;
-    bool show_extent = true;
-    uint32_t axes_color = gl_color::cyan;
-    uint32_t extent_color = gl_color::yellow;
-
-    if(show_axes) {    // show_axes
-        overlay.lines();
-        overlay.add_line({ 0, origin.y }, { window_size.x, origin.y }, axes_color);
-        overlay.add_line({ origin.x, 0 }, { origin.x, window_size.y }, axes_color);
-    }
-
-    if(show_extent && selected_layer != nullptr) {
-        rect const &extent = selected_layer->layer->gerber_file->image.info.extent;
-        rect s{ window_pos_from_world_pos(extent.min_pos), window_pos_from_world_pos(extent.max_pos) };
-        overlay.add_outline_rect(s, extent_color);
-    }
-
-    if(mouse_mode == mouse_drag_select) {
-        rect f{ drag_mouse_start_pos, drag_mouse_cur_pos };
-        uint32_t color = 0x60ff8020;
-        if(f.min_pos.x > f.max_pos.x) {
-            color = 0x6080ff20;
-        }
-        overlay.add_rect(f, color);
-        overlay.add_outline_rect(f, 0xffffffff);
-    }
-
-    // draw overlay
-
-    color_program.use();
-
-    GL_CHECK(glUniformMatrix4fv(color_program.transform_location, 1, true, screen_matrix));
-
-    overlay.draw();
-}
-
-//////////////////////////////////////////////////////////////////////
-
 void gerber_explorer::on_key(int key, int scancode, int action, int mods)
 {
+    // auto layer = layers[0];
+    // auto calls = layer->layer->draw_calls;
+    // switch(action) {
+    // case GLFW_PRESS:
+    // case GLFW_REPEAT:
+    //     switch(key) {
+    //     case GLFW_KEY_UP: {
+    //         debug_draw_call += 1;
+    //         if(debug_draw_call >= calls.size()) {
+    //             debug_draw_call = calls.size() - 1;
+    //         }
+    //         LOG_INFO("draw_call {}", debug_draw_call);
+    //     } break;
+    //     case GLFW_KEY_DOWN: {
+    //         debug_draw_call -= 1;
+    //         if(debug_draw_call < 0) {
+    //             debug_draw_call = 0;
+    //         }
+    //         LOG_INFO("draw_call {}", debug_draw_call);
+    //     } break;
+    //     case GLFW_KEY_LEFT: {
+    //         debug_outline_line -= 1;
+    //         auto const &call = calls[debug_draw_call];
+    //         auto const &verts = layer->layer->outline_vertices;
+    //         if(debug_outline_line < 0) {
+    //             debug_outline_line = 0;
+    //         }
+    //         LOG_INFO("line {}", debug_outline_line);
+    //     } break;
+    //     case GLFW_KEY_RIGHT: {
+    //         debug_outline_line += 1;
+    //         auto const &call = calls[debug_draw_call];
+    //         auto const &verts = layer->layer->outline_vertices;
+    //         if(debug_outline_line >= call.outline_length) {
+    //             debug_outline_line = call.outline_length - 1;
+    //         }
+    //         LOG_INFO("line {}", debug_outline_line);
+    //     } break;
+    //     }
+    //     break;
+    // case GLFW_RELEASE:
+    //     break;
+    // }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -431,9 +314,7 @@ void gerber_explorer::on_closed()
 
 void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
 {
-    auto begin = [&]{
-        zoom_anim = false;
-    };
+    auto begin = [&] { zoom_anim = false; };
 
     switch(action) {
 
@@ -475,4 +356,168 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
         break;
     }
     mouse_mode = action;
+}
+
+//////////////////////////////////////////////////////////////////////
+
+bool gerber_explorer::on_init()
+{
+    int window_width;
+    int window_height;
+    glfwGetWindowSize(window, &window_width, &window_height);
+    window_size.x = window_width;
+    window_size.y = window_height;
+    window_rect = { { 0, 0 }, window_size };
+    view_rect = window_rect.offset(window_size.scale(-0.5));
+
+    solid_program.init();
+    solid_program.set_color(0xff00ffff);
+
+    color_program.init();
+
+    overlay.init(color_program);
+
+    gerber_lib::gerber *g = new gerber_lib::gerber();
+    g->parse_file("../../gerber_test_files/TimerSwitch_Copper_Signal_Top.gbr");
+
+    gerber_layer *layer = new gerber_layer();
+    layer->layer = new gl_drawer();
+    layer->layer->set_gerber(g);
+    layer->layer->program = &solid_program;
+    layer->layer->on_finished_loading();
+    layer->fill_color = layer_colors[layers.size() % gerber_util::array_length(layer_colors)];
+    layer->clear_color = gl_color::cyan;
+    layer->outline_color = gl_color::magenta;
+    layer->outline = true;
+    layer->filename = std::filesystem::path(g->filename).filename().string();
+    layers.push_back(layer);
+    selected_layer = layer;
+    fit_to_window();
+    return true;
+}
+
+//////////////////////////////////////////////////////////////////////
+
+bool gerber_explorer::on_update()
+{
+    int window_width;
+    int window_height;
+    vec2d new_window_size;
+    glfwGetWindowSize(window, &window_width, &window_height);
+    new_window_size.x = window_width;
+    new_window_size.y = window_height;
+    if(new_window_size.x != window_size.x || new_window_size.y != window_size.y) {
+        vec2d scale_factor = new_window_size.divide(window_size);
+        window_size = new_window_size;
+        window_rect = { { 0, 0 }, window_size };
+        vec2d new_view_size = view_rect.size().multiply(scale_factor);
+        view_rect.max_pos = view_rect.min_pos.add(new_view_size);
+    }
+
+    update_view_rect();
+
+    // make a 1:1 screen matrix with origin in top left
+
+    gl_matrix projection_matrix_invert_y;
+    make_ortho(projection_matrix_invert_y, window_width, -window_height);
+
+    gl_matrix view_matrix;
+    make_translate(view_matrix, 0, (float)-window_size.y);
+
+    matrix_multiply(projection_matrix_invert_y, view_matrix, screen_matrix);
+
+    // make world to window matrix with origin in bottom left
+
+    make_ortho(projection_matrix, window_width, window_height);
+
+    gl_matrix scale;
+    make_scale(scale, (float)(window_rect.width() / view_rect.width()), (float)(window_rect.height() / view_rect.height()));
+
+    gl_matrix origin;
+    make_translate(origin, -(float)view_rect.min_pos.x, -(float)view_rect.min_pos.y);
+
+    matrix_multiply(scale, origin, view_matrix);
+
+    matrix_multiply(projection_matrix, view_matrix, world_transform_matrix);
+
+    // make reverse transform matrix from screen to world
+
+    float scale_x = window_rect.width() / view_rect.width();
+    float scale_y = window_rect.height() / view_rect.height();
+    set_identity(pixel_matrix);
+    pixel_matrix[0] = scale_x;
+    pixel_matrix[5] = -scale_y;
+    pixel_matrix[12] = -view_rect.min_pos.x * scale_x;
+    pixel_matrix[13] = (view_rect.min_pos.y + view_rect.height()) * scale_y;
+
+    return true;
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::on_render()
+{
+    GL_CHECK(glViewport(0, 0, window_size.x, window_size.y));
+    GL_CHECK(glClearColor(0.1f, 0.2f, 0.3f, 1.0f));
+    GL_CHECK(glDisable(GL_DEPTH_TEST));
+    GL_CHECK(glDisable(GL_CULL_FACE));
+    GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+
+    for(size_t n = layers.size(); n != 0;) {
+        gerber_layer *layer = layers[--n];
+
+        if(!layer->hide) {
+            solid_program.use();
+            GL_CHECK(glUniformMatrix4fv(solid_program.transform_location, 1, true, world_transform_matrix));
+
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+            layer->draw(false, 1.0f);
+        }
+    }
+    glLineWidth(1);
+
+    overlay.reset();
+
+    if(mouse_mode == mouse_drag_zoom_select) {
+        rect drag_rect_corrected = correct_aspect_ratio(window_rect.aspect_ratio(), drag_rect, aspect_expand);
+        overlay.add_rect(drag_rect_corrected, 0x80ffff00);
+        overlay.add_rect(drag_rect, 0x800000ff);
+        overlay.add_outline_rect(drag_rect, 0xffffffff);
+    }
+
+    vec2d origin = window_pos_from_world_pos({ 0, 0 });
+
+    bool show_axes = true;
+    bool show_extent = true;
+    uint32_t axes_color = gl_color::cyan;
+    uint32_t extent_color = gl_color::yellow;
+
+    if(show_axes) {    // show_axes
+        overlay.lines();
+        overlay.add_line({ 0, origin.y }, { window_size.x, origin.y }, axes_color);
+        overlay.add_line({ origin.x, 0 }, { origin.x, window_size.y }, axes_color);
+    }
+
+    if(show_extent && selected_layer != nullptr) {
+        rect const &extent = selected_layer->layer->gerber_file->image.info.extent;
+        rect s{ window_pos_from_world_pos(extent.min_pos), window_pos_from_world_pos(extent.max_pos) };
+        overlay.add_outline_rect(s, extent_color);
+    }
+
+    if(mouse_mode == mouse_drag_select) {
+        rect f{ drag_mouse_start_pos, drag_mouse_cur_pos };
+        uint32_t color = 0x60ff8020;
+        if(f.min_pos.x > f.max_pos.x) {
+            color = 0x6080ff20;
+        }
+        overlay.add_rect(f, color);
+        overlay.add_outline_rect(f, 0xffffffff);
+    }
+
+    color_program.use();
+
+    GL_CHECK(glUniformMatrix4fv(color_program.transform_location, 1, true, screen_matrix));
+
+    overlay.draw();
 }
