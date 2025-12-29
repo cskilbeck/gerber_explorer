@@ -1,6 +1,10 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 #include "gerber_log.h"
 #include "gl_window.h"
 
@@ -21,6 +25,10 @@ namespace
 
     void on_glfw_key(GLFWwindow *window, int key, [[maybe_unused]] int scancode, int action, [[maybe_unused]] int mods)
     {
+        ImGuiIO& io = ImGui::GetIO();
+        if(io.WantCaptureKeyboard) {
+            return;
+        }
         gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
         glwindow->on_key(key, scancode, action, mods);
     }
@@ -29,6 +37,10 @@ namespace
 
     void on_glfw_mouse_button(GLFWwindow *window, int button, int action, int mods)
     {
+        ImGuiIO& io = ImGui::GetIO();
+        if(io.WantCaptureMouse) {
+            return;
+        }
         gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
         glwindow->on_mouse_button(button, action, mods);
     }
@@ -37,12 +49,20 @@ namespace
 
     void on_glfw_cursor_pos(GLFWwindow *window, double xpos, double ypos)
     {
+        ImGuiIO& io = ImGui::GetIO();
+        if(io.WantCaptureMouse) {
+            return;
+        }
         gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
         glwindow->on_mouse_move(xpos, ypos);
     }
 
     void on_glfw_scroll(GLFWwindow *window, double xoffset, double yoffset)
     {
+        ImGuiIO& io = ImGui::GetIO();
+        if(io.WantCaptureMouse) {
+            return;
+        }
         gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
         glwindow->on_scroll(xoffset, yoffset);
     }
@@ -58,6 +78,7 @@ void gl_window::init()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // Required on macOS
 
     // glfwWindowHint(GLFW_MAXIMIZED, 1);
 
@@ -82,6 +103,15 @@ void gl_window::init()
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 410");
+
     if(!on_init()) {
         glfwSetWindowShouldClose(window, 1);
     }
@@ -93,11 +123,36 @@ bool gl_window::update()
 {
     glfwPollEvents();
     if(!glfwWindowShouldClose(window)) {
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+        ImGui::Begin("Hello, OpenGL 4.1!");
+        ImGui::Text("This is a minimal ImGui window.");
+        ImGui::End();
         on_render();
-        glfwSwapBuffers(window);
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            GLFWwindow* backup_current_context = glfwGetCurrentContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            glfwMakeContextCurrent(backup_current_context);
+        }        glfwSwapBuffers(window);
         return true;
     }
     on_closed();
     glfwTerminate();
     return false;
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gl_window::on_closed()
+{
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 }

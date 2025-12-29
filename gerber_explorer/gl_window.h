@@ -17,7 +17,8 @@ struct gl_window
 
     virtual bool on_init() = 0;
     virtual void on_render() = 0;
-    virtual void on_closed() = 0;
+
+    virtual void on_closed();
 
     virtual void on_key(int key, int scancode, int action, int mods)
     {

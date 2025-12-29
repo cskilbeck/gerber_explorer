@@ -272,8 +272,10 @@ namespace gerber_3d
         vertex_array.activate();
         index_array.activate();
 
-        // glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-        // glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        glEnable(GL_BLEND);
 
         uint32_t constexpr fill_color = 0xff0000ff;
         uint32_t constexpr clear_color = 0xff00ff00;

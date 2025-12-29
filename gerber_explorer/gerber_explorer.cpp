@@ -1,5 +1,7 @@
 #include <filesystem>
 
+#include "imgui.h"
+
 #include "gerber_explorer.h"
 #include "gl_matrix.h"
 #include "gl_colors.h"
@@ -308,6 +310,7 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
 
 void gerber_explorer::on_closed()
 {
+    gl_window::on_closed();
 }
 
 //////////////////////////////////////////////////////////////////////

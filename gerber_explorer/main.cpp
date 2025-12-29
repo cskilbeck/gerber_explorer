@@ -1,8 +1,9 @@
 //
 // X offscreen render
 //
-// proper picking / selection
 // ImGui
+// inverted layer
+// proper picking / selection
 // render-on-window-resize
 // gerber spec compliance (polygons, holes)
 // save/restore settings
@@ -12,7 +13,6 @@
 // measure tool
 // export PNG
 //
-
 
 #include <cstdio>
 #include <filesystem>
