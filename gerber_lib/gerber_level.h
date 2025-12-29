@@ -64,7 +64,7 @@ namespace gerber_lib
 
         gerber_level() = default;
 
-        gerber_level(gerber_image *image);
+        explicit gerber_level(gerber_image *image);
     };
 
 }    // namespace gerber_lib

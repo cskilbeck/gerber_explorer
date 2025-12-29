@@ -16,7 +16,7 @@ namespace
 
     double const drag_select_offset_start_distance = 16;
 
-    uint32_t layer_colors[] = { gl_color::yellow,           gl_color::green, gl_color::dark_cyan, gl_color::lime_green, gl_color::antique_white,
+    uint32_t layer_colors[] = { gl_color::dark_green,       gl_color::green, gl_color::dark_cyan, gl_color::lime_green, gl_color::antique_white,
                                 gl_color::corn_flower_blue, gl_color::gold };
 
     uint32_t layer_color = gl_color::red;

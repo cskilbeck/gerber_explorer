@@ -9,22 +9,19 @@
 
 //////////////////////////////////////////////////////////////////////
 
-namespace
+static constexpr char const *get_file_name(char const *const path)
 {
-    constexpr char const *get_file_name(char const *const path)
-    {
-        char const *start_position = path;
-        for(char const *c = path; *c != '\0'; ++c) {
-            if(*c == '\\' || *c == '/') {
-                start_position = c;
-            }
+    char const *start_position = path;
+    for(char const *c = path; *c != '\0'; ++c) {
+        if(*c == '\\' || *c == '/') {
+            start_position = c;
         }
-        if(start_position != path) {
-            ++start_position;
-        }
-        return start_position;
     }
-}    // namespace
+    if(start_position != path) {
+        ++start_position;
+    }
+    return start_position;
+}
 
 //////////////////////////////////////////////////////////////////////
 

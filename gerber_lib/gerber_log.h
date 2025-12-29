@@ -3,7 +3,6 @@
 #pragma once
 
 #include <chrono>
-#include <string>
 #include <format>
 
 namespace gerber_lib

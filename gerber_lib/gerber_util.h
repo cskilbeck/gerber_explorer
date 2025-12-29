@@ -4,7 +4,6 @@
 #include <iterator>
 #include <string>
 #include <locale>
-#include <codecvt>
 #include <map>
 #include <chrono>
 
@@ -76,7 +75,7 @@ namespace gerber_util
             FUNC lambda;
             bool cancelled;
 
-            template <typename T> defer_finalizer(T &&f) : lambda(std::forward<T>(f)), cancelled(false)
+            template <typename T> explicit defer_finalizer(T &&f) : lambda(std::forward<T>(f)), cancelled(false)
             {
             }
 

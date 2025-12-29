@@ -8,7 +8,7 @@ namespace
 {
     using namespace std::chrono;
 
-    time_point<system_clock> log_startup_timestamp{ system_clock::now() };
+    time_point log_startup_timestamp{ system_clock::now() };
 
     constexpr char const *black = "\x1b[30m";
     constexpr char const *red = "\x1b[31m";
@@ -28,7 +28,7 @@ namespace
 
     constexpr char const *log_color(gerber_lib::gerber_log_level level)
     {
-        int l = static_cast<int>(level);
+        int l = level;
         return log_level_colors[l];
     }
 
@@ -36,7 +36,7 @@ namespace
 
     constexpr char const *log_name(gerber_lib::gerber_log_level level)
     {
-        int l = static_cast<int>(level);
+        int l = level;
         return log_level_names[l];
     }
 

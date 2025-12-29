@@ -3,8 +3,6 @@
 #include <format>
 #include <map>
 
-#include <stdint.h>
-
 namespace gerber_lib
 {
     //////////////////////////////////////////////////////////////////////

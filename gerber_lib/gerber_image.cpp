@@ -1,6 +1,5 @@
 //////////////////////////////////////////////////////////////////////
 
-#include "gerber_enums.h"
 #include "gerber_aperture.h"
 #include "gerber_net.h"
 #include "gerber_level.h"

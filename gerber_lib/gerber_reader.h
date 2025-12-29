@@ -58,10 +58,9 @@ namespace gerber_lib
     template <typename T> void tokenize(std::string const &str, T &tokens, std::string const &delimiter, tokenize_option option)
     {
         size_t start = str.find_first_not_of(delimiter);
-        size_t end = start;
 
         while(start != std::string::npos) {
-            end = str.find_first_of(delimiter, start);
+            size_t end = str.find_first_of(delimiter, start);
             if(end != start || option == tokenize_keep_empty) {
                 tokens.push_back(str.substr(start, end - start));
             }

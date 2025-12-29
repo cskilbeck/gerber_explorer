@@ -10,12 +10,12 @@ namespace gl_color
 
         float4() = default;
 
-        float4(float *v)
+        explicit float4(float *v)
         {
             memcpy(f, v, sizeof(float) * 4);
         }
 
-        float4(uint32_t color)
+        explicit float4(uint32_t color)
         {
             float constexpr s = 1.0f / 255.0f;
             f[0] = (color & 0xff) * s;
@@ -34,7 +34,8 @@ namespace gl_color
 
         float4 &operator=(float *v)
         {
-            return *this = v;
+            memcpy(f, v, sizeof(float) * 4);
+            return *this;
         }
 
         float4 &operator=(uint32_t color)
@@ -42,12 +43,12 @@ namespace gl_color
             return *this = float4(color);
         }
 
-        operator float *()
+        explicit operator float *()
         {
             return f;
         }
 
-        operator float const *() const
+        explicit operator float const *() const
         {
             return f;
         }

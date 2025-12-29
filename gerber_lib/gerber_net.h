@@ -56,7 +56,7 @@ namespace gerber_lib
 
         gerber_net() = default;
 
-        gerber_net(gerber_image *img);
+        explicit gerber_net(gerber_image *img);
 
         gerber_net(gerber_image *img, gerber_net *cur_net, gerber_level *lvl, gerber_net_state *state);
     };

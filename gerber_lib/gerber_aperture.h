@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "gerber_error.h"
+#include "gerber_enums.h"
 #include "gerber_util.h"
 
 namespace gerber_lib
@@ -48,7 +49,7 @@ namespace gerber_lib
 
         gerber_instruction() = default;
 
-        gerber_instruction(gerber_opcode code) : gerber_instruction()
+        explicit gerber_instruction(gerber_opcode code) : gerber_instruction()
         {
             opcode = code;
         }

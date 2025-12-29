@@ -14,13 +14,14 @@ namespace gerber_lib
 
         //////////////////////////////////////////////////////////////////////
 
-        vec2d::vec2d(double x, double y, matrix const &m) : x(x * m.A + y * m.C + m.X), y(x * m.B + y * m.D + m.Y)
+        vec2d::vec2d(double x, double y, matrix const &transform)
+            : x(x * transform.A + y * transform.C + transform.X), y(x * transform.B + y * transform.D + transform.Y)
         {
         }
 
         //////////////////////////////////////////////////////////////////////
 
-        vec2d::vec2d(vec2d const &o, matrix const &m) : vec2d(o.x, o.y, m)
+        vec2d::vec2d(vec2d const &o, matrix const &transform) : vec2d(o.x, o.y, transform)
         {
         }
 

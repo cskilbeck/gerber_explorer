@@ -8,7 +8,6 @@
 #include "gerber_error.h"
 #include "gerber_util.h"
 #include "gerber_reader.h"
-#include "gerber_state.h"
 #include "gerber_aperture.h"
 
 LOG_CONTEXT("aperture", info);
@@ -244,9 +243,8 @@ namespace gerber_lib
                 // syntax: can't have open bracket after a literal or reference
                 if(!ops.empty() && (ops.top() == opcode_push_parameter || ops.top() == opcode_push_value)) {
                     return error_syntax_error;
-                } else {
-                    CHECK(push_opcode(opcode_open_bracket));
                 }
+                CHECK(push_opcode(opcode_open_bracket));
                 break;
 
             case ')':
@@ -254,10 +252,9 @@ namespace gerber_lib
                 // syntax: can't have close bracket after anything except a literal or reference
                 if(ops.empty() || (ops.top() != opcode_push_parameter && ops.top() != opcode_push_value)) {
                     return error_syntax_error;
-                } else {
-                    flush_stack(opcode_close_bracket);
-                    unary_available = false;
                 }
+                flush_stack(opcode_close_bracket);
+                unary_available = false;
                 break;
 
             case '+':
@@ -363,9 +360,9 @@ namespace gerber_lib
 
         std::vector<double> macro_stack;
 
-        auto stack_string = [&]() { return std::format("[{}]", join(macro_stack, ",")); };
+        auto stack_string = [&macro_stack] { return std::format("[{}]", join(macro_stack, ",")); };
 
-        auto pop = [&](double *d) {
+        auto pop = [&macro_stack](double *d) {
             if(d == nullptr) {
                 return error_internal_bad_pointer;
             }
@@ -643,22 +640,22 @@ namespace gerber_lib
         switch(aperture_type) {
         case aperture_type_none: {
             return "None";
-        } break;
+        }
         case aperture_type_circle: {
             return std::format("Circle, radius {:g}{}", parameters[0] / scale, units);
-        } break;
+        }
         case aperture_type_rectangle: {
             return std::format("Rect, {:g}x{:g}{}", parameters[0] / scale, parameters[1] / scale, units);
-        } break;
+        }
         case aperture_type_oval: {
             return std::format("Oval, {:g}x{:g}{}", parameters[0] / scale, parameters[1] / scale, units);
-        } break;
+        }
         case aperture_type_polygon: {
             return std::format("Polygon");
-        } break;
+        }
         case aperture_type_macro: {
             return std::format("Macro");
-        } break;
+        }
         default:
             return std::format("Invalid {} ?", (int)aperture_type);
         }
@@ -666,7 +663,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_aperture ::~gerber_aperture()
+    gerber_aperture::~gerber_aperture()
     {
         for(auto p : macro_parameters_list) {
             delete p;

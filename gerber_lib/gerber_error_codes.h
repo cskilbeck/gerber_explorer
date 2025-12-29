@@ -1,3 +1,4 @@
+// ReSharper disable once CppMissingIncludeGuard
 #define GERBER_ERROR_CODES                          \
     GERBER_ERROR_CODE(unspecified)                  \
     GERBER_ERROR_CODE(out_of_range)                 \

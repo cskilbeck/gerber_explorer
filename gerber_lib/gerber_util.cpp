@@ -1,9 +1,10 @@
 #include <gerber_util.h>
 #include <algorithm>
+#include <codecvt>
 
 namespace
 {
-    static std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t> converter{};
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter{};
 
 }    // namespace
 

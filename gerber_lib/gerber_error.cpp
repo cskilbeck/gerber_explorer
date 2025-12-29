@@ -19,7 +19,7 @@ namespace gerber_lib
 
     char const *get_error_text(gerber_error_code error_code)
     {
-        auto f = error_names_map.find(static_cast<uint32_t>(error_code));
+        auto f = error_names_map.find(error_code);
         if(f == error_names_map.end()) {
             return "?";
         }
