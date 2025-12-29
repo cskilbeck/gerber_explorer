@@ -362,8 +362,6 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
 
 bool gerber_explorer::on_init()
 {
-    int window_width;
-    int window_height;
     glfwGetWindowSize(window, &window_width, &window_height);
     window_size.x = window_width;
     window_size.y = window_height;
@@ -371,11 +369,21 @@ bool gerber_explorer::on_init()
     view_rect = window_rect.offset(window_size.scale(-0.5));
 
     solid_program.init();
-    solid_program.set_color(0xff00ffff);
-
     color_program.init();
+    layer_program.init();
+    textured_program.init();
 
     overlay.init(color_program);
+
+    fullscreen_blit_verts.init(textured_program, 3);
+
+    glGetInternalformativ(GL_TEXTURE_2D_MULTISAMPLE, GL_RGBA, GL_SAMPLES, 1, &max_multisamples);
+
+    LOG_INFO("MAX GL Multisamples: {}", max_multisamples);
+
+    if(multisample_count > max_multisamples) {
+        multisample_count = max_multisamples;
+    }
 
     gerber_lib::gerber *g = new gerber_lib::gerber();
     g->parse_file("../../gerber_test_files/TimerSwitch_Copper_Signal_Top.gbr");
@@ -383,12 +391,12 @@ bool gerber_explorer::on_init()
     gerber_layer *layer = new gerber_layer();
     layer->layer = new gl_drawer();
     layer->layer->set_gerber(g);
-    layer->layer->program = &solid_program;
+    layer->layer->program = &layer_program;
     layer->layer->on_finished_loading();
     layer->fill_color = layer_colors[layers.size() % gerber_util::array_length(layer_colors)];
-    layer->clear_color = gl_color::cyan;
+    layer->clear_color = gl_color::clear;
     layer->outline_color = gl_color::magenta;
-    layer->outline = true;
+    layer->outline = false;
     layer->filename = std::filesystem::path(g->filename).filename().string();
     layers.push_back(layer);
     selected_layer = layer;
@@ -398,10 +406,8 @@ bool gerber_explorer::on_init()
 
 //////////////////////////////////////////////////////////////////////
 
-bool gerber_explorer::on_update()
+void gerber_explorer::on_render()
 {
-    int window_width;
-    int window_height;
     vec2d new_window_size;
     glfwGetWindowSize(window, &window_width, &window_height);
     new_window_size.x = window_width;
@@ -416,63 +422,91 @@ bool gerber_explorer::on_update()
 
     update_view_rect();
 
-    // make a 1:1 screen matrix with origin in top left
-
-    gl_matrix projection_matrix_invert_y;
-    make_ortho(projection_matrix_invert_y, window_width, -window_height);
-
-    gl_matrix view_matrix;
-    make_translate(view_matrix, 0, (float)-window_size.y);
-
-    matrix_multiply(projection_matrix_invert_y, view_matrix, screen_matrix);
-
-    // make world to window matrix with origin in bottom left
-
-    make_ortho(projection_matrix, window_width, window_height);
-
-    gl_matrix scale;
-    make_scale(scale, (float)(window_rect.width() / view_rect.width()), (float)(window_rect.height() / view_rect.height()));
-
-    gl_matrix origin;
-    make_translate(origin, -(float)view_rect.min_pos.x, -(float)view_rect.min_pos.y);
-
-    matrix_multiply(scale, origin, view_matrix);
-
-    matrix_multiply(projection_matrix, view_matrix, world_transform_matrix);
+    gl_matrix flip_y_matrix = make_ortho(window_width, -window_height);
+    gl_matrix offset_y_matrix = make_translate(0, (float)-window_size.y);
+    screen_matrix = matrix_multiply(flip_y_matrix, offset_y_matrix);
+    projection_matrix = make_ortho(window_width, window_height);
+    gl_matrix scale_matrix = make_scale((float)(window_rect.width() / view_rect.width()), (float)(window_rect.height() / view_rect.height()));
+    gl_matrix origin_matrix = make_translate(-(float)view_rect.min_pos.x, -(float)view_rect.min_pos.y);
+    gl_matrix view_matrix = matrix_multiply(scale_matrix, origin_matrix);
+    world_matrix = matrix_multiply(projection_matrix, view_matrix);
 
     // make reverse transform matrix from screen to world
 
     float scale_x = window_rect.width() / view_rect.width();
     float scale_y = window_rect.height() / view_rect.height();
-    set_identity(pixel_matrix);
-    pixel_matrix[0] = scale_x;
-    pixel_matrix[5] = -scale_y;
-    pixel_matrix[12] = -view_rect.min_pos.x * scale_x;
-    pixel_matrix[13] = (view_rect.min_pos.y + view_rect.height()) * scale_y;
+    pixel_matrix = make_identity();
+    pixel_matrix.m[0] = scale_x;
+    pixel_matrix.m[5] = -scale_y;
+    pixel_matrix.m[12] = -view_rect.min_pos.x * scale_x;
+    pixel_matrix.m[13] = (view_rect.min_pos.y + view_rect.height()) * scale_y;
 
-    return true;
-}
+    std::array<gl_vertex_textured, 3> quad;
+    quad[0] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    quad[1] = { window_width * 2.0f, 0.0f, 2.0f, 0.0f };
+    quad[2] = { 0, window_height * 2.0f, 0.0f, 2.0f };
+    fullscreen_blit_verts.activate();
 
-//////////////////////////////////////////////////////////////////////
+    gl_vertex_textured *v;
+    update_buffer<GL_ARRAY_BUFFER>(quad);
 
-void gerber_explorer::on_render()
-{
+    GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+
     GL_CHECK(glViewport(0, 0, window_size.x, window_size.y));
     GL_CHECK(glClearColor(0.1f, 0.2f, 0.3f, 1.0f));
     GL_CHECK(glDisable(GL_DEPTH_TEST));
     GL_CHECK(glDisable(GL_CULL_FACE));
     GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
+    if(my_target.width != window_width || my_target.height != window_height || my_target.num_samples != multisample_count) {
+        my_target.cleanup();
+        my_target.init(window_width, window_height, multisample_count, 1);
+    }
+
     for(size_t n = layers.size(); n != 0;) {
         gerber_layer *layer = layers[--n];
 
         if(!layer->hide) {
-            solid_program.use();
-            GL_CHECK(glUniformMatrix4fv(solid_program.transform_location, 1, true, world_transform_matrix));
+            // solid_program.use();
+            // GL_CHECK(glUniformMatrix4fv(solid_program.transform_location, 1, true, world_matrix.m));
+            //
+            // glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            //
+            // layer->draw(false, 1.0f);
+            layer_program.use();
+            my_target.bind_framebuffer();
+            GL_CHECK(glUniformMatrix4fv(layer_program.transform_location, 1, true, world_matrix.m));
+
+            GL_CHECK(glClearColor(0, 0, 0, 0));
+            GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
+            layer->draw(false, 1.0f);
+
+            // draw the render to the window
 
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-            layer->draw(false, 1.0f);
+            GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+
+            textured_program.use();
+
+            my_target.bind_textures();
+
+            gl_color::float4 rc(layer->fill_color);
+            gl_color::float4 gc(layer->clear_color);
+            gl_color::float4 bc(layer->outline_color);
+            glUniform4fv(textured_program.red_color_uniform, 1, (GLfloat *)&rc);
+            glUniform4fv(textured_program.green_color_uniform, 1, (GLfloat *)&gc);
+            glUniform4fv(textured_program.blue_color_uniform, 1, (GLfloat *)&bc);
+            glUniform1f(textured_program.alpha_uniform, layer->alpha / 255.0f);
+            glUniform1i(textured_program.num_samples_uniform, my_target.num_samples);
+            glUniform1i(textured_program.cover_sampler, 0);
+            glUniformMatrix4fv(textured_program.transform_location, 1, true, projection_matrix.m);
+
+            fullscreen_blit_verts.activate();
+
+            glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+            glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
         }
     }
     glLineWidth(1);
@@ -517,7 +551,7 @@ void gerber_explorer::on_render()
 
     color_program.use();
 
-    GL_CHECK(glUniformMatrix4fv(color_program.transform_location, 1, true, screen_matrix));
+    GL_CHECK(glUniformMatrix4fv(color_program.transform_location, 1, true, screen_matrix.m));
 
     overlay.draw();
 }

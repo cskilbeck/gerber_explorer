@@ -82,7 +82,7 @@ namespace gerber_3d
         int current_entity_id{ -1 };
 
         TESStesselator *tess{};
-        gl_solid_program *program{};
+        gl_layer_program *program{};
 
         // all the verts for boundaries and interiors
         gl_vertex_array_solid vertex_array;

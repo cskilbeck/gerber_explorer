@@ -59,6 +59,8 @@ struct gerber_explorer : gl_window {
     rect view_rect{};
     rect window_rect{};
     vec2d window_size{};
+    int window_width{};
+    int window_height{};
 
     gerber_layer *selected_layer{ nullptr };
     std::vector<gerber_layer *> layers;
@@ -67,7 +69,7 @@ struct gerber_explorer : gl_window {
     rect source_view_rect{};
     bool zoom_anim{ false };
     std::chrono::time_point<std::chrono::high_resolution_clock> target_view_time{};
-    gerber_3d::gl_matrix world_transform_matrix{};
+    gerber_3d::gl_matrix world_matrix{};
     gerber_3d::gl_matrix screen_matrix{};
     gerber_3d::gl_matrix projection_matrix{};
     gerber_3d::gl_matrix pixel_matrix{};
@@ -85,6 +87,15 @@ struct gerber_explorer : gl_window {
 
     gerber_3d::gl_solid_program solid_program{};
     gerber_3d::gl_color_program color_program{};
+    gerber_3d::gl_layer_program layer_program{};
+    gerber_3d::gl_textured_program textured_program{};
+
+    gerber_3d::gl_vertex_array_textured fullscreen_blit_verts;
+
+    gerber_3d::gl_render_target my_target{};
+
+    int multisample_count{ 4 };
+    int max_multisamples{ 1 };
 
     vec2d world_pos_from_window_pos(vec2d const &p) const;
     vec2d window_pos_from_world_pos(vec2d const &p) const;
@@ -94,7 +105,6 @@ struct gerber_explorer : gl_window {
     void update_view_rect();
 
     bool on_init() override;
-    bool on_update() override;
     void on_render() override;
     void on_closed() override;
     void on_key(int key, int scancode, int action, int mods) override;

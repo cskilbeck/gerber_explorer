@@ -16,7 +16,6 @@ struct gl_window
     bool update();
 
     virtual bool on_init() = 0;
-    virtual bool on_update() = 0;
     virtual void on_render() = 0;
     virtual void on_closed() = 0;
 

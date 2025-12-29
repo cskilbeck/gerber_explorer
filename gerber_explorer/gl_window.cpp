@@ -92,7 +92,7 @@ void gl_window::init()
 bool gl_window::update()
 {
     glfwPollEvents();
-    if(!glfwWindowShouldClose(window) && on_update()) {
+    if(!glfwWindowShouldClose(window)) {
         on_render();
         glfwSwapBuffers(window);
         return true;
