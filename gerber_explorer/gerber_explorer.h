@@ -23,6 +23,19 @@ struct gerber_explorer : gl_window {
         uint32_t clear_color;
         uint32_t outline_color;
 
+        bool is_valid() const
+        {
+            return layer != nullptr && layer->gerber_file != nullptr;
+        }
+
+        gerber_lib::gerber_2d::rect extent() const
+        {
+            if(!is_valid()) {
+                return rect{};
+            }
+            return layer->gerber_file->image.info.extent;
+        }
+
         void draw(bool wireframe, float outline_thickness)
         {
             layer->draw(fill, outline, wireframe, outline_thickness);
@@ -96,6 +109,8 @@ struct gerber_explorer : gl_window {
 
     int multisample_count{ 4 };
     int max_multisamples{ 1 };
+
+    bool show_axes = true;
 
     vec2d world_pos_from_window_pos(vec2d const &p) const;
     vec2d window_pos_from_world_pos(vec2d const &p) const;

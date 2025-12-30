@@ -68,4 +68,4 @@ target_include_directories(${PROJECT} PRIVATE
         ${imgui_SOURCE_DIR}
         ${imgui_SOURCE_DIR}/backends)
 
-target_link_libraries(${PROJECT} PRIVATE gerber_lib libtess2 glad glfw OpenGL::GL nlohmann_json::nlohmann_json)
+target_link_libraries(${PROJECT} PRIVATE gerber_lib libtess2 glad glfw OpenGL::GL nlohmann_json::nlohmann_json nfd)

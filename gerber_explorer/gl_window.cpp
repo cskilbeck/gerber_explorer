@@ -126,10 +126,6 @@ bool gl_window::update()
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
-        ImGui::Begin("Hello, OpenGL 4.1!");
-        ImGui::Text("This is a minimal ImGui window.");
-        ImGui::End();
         on_render();
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

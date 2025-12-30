@@ -1,6 +1,9 @@
 #include <filesystem>
 
 #include "imgui.h"
+#include "imgui_internal.h"
+
+#include <nfd.h>
 
 #include "gerber_explorer.h"
 #include "gl_matrix.h"
@@ -73,12 +76,12 @@ vec2d gerber_explorer::window_pos_from_world_pos(vec2d const &p) const
 
 void gerber_explorer::fit_to_window()
 {
-    if(selected_layer != nullptr) {
-        zoom_to_rect(selected_layer->layer->gerber_file->image.info.extent);
+    if(selected_layer != nullptr && selected_layer->is_valid()) {
+        zoom_to_rect(selected_layer->extent());
     } else {
         rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
         for(auto layer : layers) {
-            all = all.union_with(layer->layer->gerber_file->image.info.extent);
+            all = all.union_with(layer->extent());
         }
         zoom_to_rect(all);
     }
@@ -272,10 +275,11 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
     } break;
 
     case mouse_drag_zoom: {
-        vec2d d = mouse_pos.subtract(drag_mouse_start_pos);
-        zoom_image(drag_mouse_start_pos, 1.0 + (d.x - d.y) * 0.01);
+        vec2d d = mouse_pos.subtract(drag_mouse_cur_pos);
         drag_mouse_cur_pos = mouse_pos;
-        glfwSetCursorPos(window, drag_mouse_start_pos.x, drag_mouse_start_pos.y);
+        // clamp to 0.9 .. 1.1 because sometimes cursor coords jump for reasons I don't understand
+        double factor = std::max(0.9, std::min(1.0 + (d.x - d.y) * 0.01, 1.2));
+        zoom_image(drag_mouse_start_pos, factor);
     } break;
 
     case mouse_drag_zoom_select: {
@@ -317,8 +321,6 @@ void gerber_explorer::on_closed()
 
 void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
 {
-    auto begin = [&] { zoom_anim = false; };
-
     switch(action) {
 
     case mouse_drag_none:
@@ -328,23 +330,24 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
 
     case mouse_drag_pan:
         drag_mouse_start_pos = pos;
-        begin();
+        zoom_anim = false;
         break;
 
     case mouse_drag_zoom:
         zoom_anim = false;
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        drag_mouse_cur_pos = pos;
         drag_mouse_start_pos = pos;
         break;
 
     case mouse_drag_zoom_select:
-        begin();
+        zoom_anim = false;
         drag_mouse_start_pos = pos;
         drag_rect = {};
         break;
 
     case mouse_drag_maybe_select: {
-        begin();
+        zoom_anim = false;
         drag_mouse_start_pos = pos;
         // vec2d world_pos = world_pos_from_window_pos(pos);
         // for(auto const &l : layers) {
@@ -353,7 +356,7 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
     } break;
 
     case mouse_drag_select:
-        begin();
+        zoom_anim = false;
         drag_mouse_cur_pos = pos;
         drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
         break;
@@ -411,8 +414,76 @@ bool gerber_explorer::on_init()
 
 void gerber_explorer::on_render()
 {
-    vec2d new_window_size;
+    ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+    ImGuiDockNode *central_node = ImGui::DockBuilderGetCentralNode(dockspace_id);
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    if(ImGui::BeginMainMenuBar()) {
+        if(ImGui::BeginMenu("File")) {
+            if(ImGui::MenuItem("Open", nullptr, nullptr)) {
+                NFD_Init();
+                const nfdpathset_t *paths;
+                nfdopendialogu8args_t args{};
+                nfdresult_t result = NFD_OpenDialogMultipleU8_With(&paths, &args);
+                if(result == NFD_OKAY) {
+                    nfdpathsetsize_t path_count;
+                    if(NFD_PathSet_GetCount(paths, &path_count) == NFD_OKAY) {
+                        for(size_t i = 0; i < path_count; ++i) {
+                            nfdu8char_t *outPath;
+                            if(NFD_PathSet_GetPath(paths, i, &outPath) == NFD_OKAY) {
+                                LOG_INFO("Chose {}", outPath);
+                                NFD_FreePathU8(outPath);
+                            }
+                        }
+                    }
+                    NFD_PathSet_Free(paths);
+                } else if(result == NFD_CANCEL) {
+                    LOG_INFO("Cancelled");
+                } else {
+                    LOG_ERROR("Error: {}", NFD_GetError());
+                }
+                NFD_Quit();
+            }
+            // ImGui::MenuItem("Stats", nullptr, &show_stats);
+            // ImGui::MenuItem("Options", nullptr, &show_options);
+            if(ImGui::MenuItem("Close all", nullptr, nullptr)) {
+                // close_all = true;
+                selected_layer = nullptr;
+            }
+            ImGui::Separator();
+            if(ImGui::MenuItem("Exit", "Esc", nullptr)) {
+                glfwSetWindowShouldClose(window, true);
+            }
+            ImGui::EndMenu();
+        }
+        if(ImGui::BeginMenu("View")) {
+            if(ImGui::MenuItem("Fit to window", nullptr, nullptr, !layers.empty())) {
+                fit_to_window();
+            }
+            ImGui::MenuItem("Show Axes", nullptr, &show_axes);
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
+    ImGui::PopStyleVar();
+
+    ImGui::Begin("Hello, OpenGL 4.1!");
+    ImGui::Text("This is a minimal ImGui window.");
+
+    if(central_node) {
+        ImGuiViewport *main_viewport = ImGui::GetMainViewport();
+        ImVec2 pos = ImVec2(central_node->Pos.x - main_viewport->Pos.x, central_node->Pos.y - main_viewport->Pos.y);
+        ImVec2 size = central_node->Size;
+        ImGui::Text(std::format("POS: {},{}", pos.x, pos.y).c_str());
+        ImGui::Text(std::format("SIZE: {},{}", size.x, size.y).c_str());
+    }
+    ImGui::End();
+
+    int framebuffer_width;
+    int framebuffer_height;
+    glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
     glfwGetWindowSize(window, &window_width, &window_height);
+    vec2d new_window_size;
     new_window_size.x = window_width;
     new_window_size.y = window_height;
     if(new_window_size.x != window_size.x || new_window_size.y != window_size.y) {
@@ -427,20 +498,16 @@ void gerber_explorer::on_render()
 
     gl_matrix flip_y_matrix = make_ortho(window_width, -window_height);
     gl_matrix offset_y_matrix = make_translate(0, (float)-window_size.y);
-    screen_matrix = matrix_multiply(flip_y_matrix, offset_y_matrix);
-    projection_matrix = make_ortho(window_width, window_height);
     gl_matrix scale_matrix = make_scale((float)(window_rect.width() / view_rect.width()), (float)(window_rect.height() / view_rect.height()));
     gl_matrix origin_matrix = make_translate(-(float)view_rect.min_pos.x, -(float)view_rect.min_pos.y);
     gl_matrix view_matrix = matrix_multiply(scale_matrix, origin_matrix);
+    screen_matrix = matrix_multiply(flip_y_matrix, offset_y_matrix);
+    projection_matrix = make_ortho(window_width, window_height);
     world_matrix = matrix_multiply(projection_matrix, view_matrix);
-
-    // make reverse transform matrix from screen to world
 
     float scale_x = window_rect.width() / view_rect.width();
     float scale_y = window_rect.height() / view_rect.height();
-    pixel_matrix = make_identity();
-    pixel_matrix.m[0] = scale_x;
-    pixel_matrix.m[5] = -scale_y;
+    pixel_matrix = make_scale(scale_x, -scale_y);
     pixel_matrix.m[12] = -view_rect.min_pos.x * scale_x;
     pixel_matrix.m[13] = (view_rect.min_pos.y + view_rect.height()) * scale_y;
 
@@ -470,12 +537,6 @@ void gerber_explorer::on_render()
         gerber_layer *layer = layers[--n];
 
         if(!layer->hide) {
-            // solid_program.use();
-            // GL_CHECK(glUniformMatrix4fv(solid_program.transform_location, 1, true, world_matrix.m));
-            //
-            // glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            //
-            // layer->draw(false, 1.0f);
             layer_program.use();
             my_target.bind_framebuffer();
             GL_CHECK(glUniformMatrix4fv(layer_program.transform_location, 1, true, world_matrix.m));
@@ -512,7 +573,7 @@ void gerber_explorer::on_render()
             glDrawArrays(GL_TRIANGLES, 0, 3);
         }
     }
-    glLineWidth(1);
+    glLineWidth(1.0f);
 
     overlay.reset();
 
@@ -525,7 +586,6 @@ void gerber_explorer::on_render()
 
     vec2d origin = window_pos_from_world_pos({ 0, 0 });
 
-    bool show_axes = true;
     bool show_extent = true;
     uint32_t axes_color = gl_color::cyan;
     uint32_t extent_color = gl_color::yellow;
@@ -536,10 +596,12 @@ void gerber_explorer::on_render()
         overlay.add_line({ origin.x, 0 }, { origin.x, window_size.y }, axes_color);
     }
 
-    if(show_extent && selected_layer != nullptr) {
-        rect const &extent = selected_layer->layer->gerber_file->image.info.extent;
-        rect s{ window_pos_from_world_pos(extent.min_pos), window_pos_from_world_pos(extent.max_pos) };
-        overlay.add_outline_rect(s, extent_color);
+    if(show_extent && selected_layer != nullptr && selected_layer->is_valid()) {
+        rect extent = selected_layer->extent();
+        if(extent.width() != 0 && extent.height() != 0) {
+            rect s{ window_pos_from_world_pos(extent.min_pos), window_pos_from_world_pos(extent.max_pos) };
+            overlay.add_outline_rect(s, extent_color);
+        }
     }
 
     if(mouse_mode == mouse_drag_select) {
