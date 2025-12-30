@@ -5,6 +5,7 @@
 
 #include "gl_window.h"
 #include "gl_base.h"
+#include "gl_colors.h"
 #include "gl_matrix.h"
 
 #include "settings.h"
@@ -17,16 +18,17 @@ struct gerber_explorer : gl_window {
     {
         int index;
         gerber_3d::gl_drawer *layer{ nullptr };
-        bool hide{ false };
+        bool show{ true };
         bool outline{ false };
         bool fill{ true };
         bool expanded{ false };
         bool selected{ false };
         int alpha{ 255 };
         std::string name;
-        uint32_t fill_color;
-        uint32_t clear_color;
-        uint32_t outline_color;
+
+        gl_color::float4 fill_color;
+        gl_color::float4 clear_color;
+        gl_color::float4 outline_color;
 
         bool is_valid() const
         {
@@ -74,11 +76,19 @@ struct gerber_explorer : gl_window {
     vec2d mouse_world_pos{};
     rect drag_rect{};
 
+    // view rect in world coordinates
     rect view_rect{};
+
+    // window rect in screen coordinates
     rect window_rect{};
+
     vec2d window_size{};
+
     int window_width{};
     int window_height{};
+
+    int window_xpos{};
+    int window_ypos{};
 
     gerber_layer *selected_layer{ nullptr };
     std::list<gerber_layer *> layers;     // active
@@ -90,7 +100,6 @@ struct gerber_explorer : gl_window {
     gerber_3d::gl_matrix world_matrix{};
     gerber_3d::gl_matrix screen_matrix{};
     gerber_3d::gl_matrix projection_matrix{};
-    gerber_3d::gl_matrix pixel_matrix{};
 
     gerber_3d::gl_drawlist overlay;
 

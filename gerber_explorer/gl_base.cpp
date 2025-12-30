@@ -140,7 +140,7 @@ namespace gerber_3d
         #version 400
 
         in vec2 tex_coord;
-        
+
         out vec4 fragment;
 
         uniform vec4 red_color;
