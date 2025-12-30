@@ -491,7 +491,8 @@ namespace gerber_3d
         glEnableVertexAttribArray(position_location);
         glEnableVertexAttribArray(color_location);
         glVertexAttribPointer(position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_color), static_cast<void *>(offsetof(gl_vertex_color, x)));
-        glVertexAttribPointer(color_location, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(gl_vertex_color), reinterpret_cast<void *>(offsetof(gl_vertex_color, color)));
+        glVertexAttribPointer(
+            color_location, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(gl_vertex_color), reinterpret_cast<void *>(offsetof(gl_vertex_color, color)));
         return 0;
     }
 
@@ -605,7 +606,7 @@ namespace gerber_3d
     {
         bind_textures();
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-        for(GLuint slot = 0; slot < num_slots;  ++slot) {
+        for(GLuint slot = 0; slot < num_slots; ++slot) {
             GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + slot, GL_TEXTURE_2D_MULTISAMPLE, texture_ids[slot], 0));
         }
         std::vector<GLenum> buffers;
@@ -622,7 +623,7 @@ namespace gerber_3d
 
     void gl_render_target::bind_textures() const
     {
-        for(GLuint slot = 0; slot < num_slots;  ++slot) {
+        for(GLuint slot = 0; slot < num_slots; ++slot) {
             GL_CHECK(glActiveTexture(GL_TEXTURE0 + slot));
             GL_CHECK(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, texture_ids[slot]));
         }
@@ -635,11 +636,17 @@ namespace gerber_3d
         GL_CHECK(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0));
         GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
-        GLuint *t = texture_ids.data();
-        GL_CHECK(glDeleteTextures(num_slots, t));
+        if(!texture_ids.empty()) {
+            GLuint *t = texture_ids.data();
+            GL_CHECK(glDeleteTextures(num_slots, t));
+            texture_ids.clear();
+        }
 
         GLuint f[] = { fbo };
         GL_CHECK(glDeleteFramebuffers(1, f));
+        fbo = 0;
+
+        num_slots = 0;
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -649,7 +656,7 @@ namespace gerber_3d
         if(!drawlist.empty()) {
             vertex_array.activate();
             gl_vertex_color *v;
-            GL_CHECK(v = static_cast<gl_vertex_color*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY)));
+            GL_CHECK(v = static_cast<gl_vertex_color *>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY)));
             memcpy(v, verts.data(), verts.size() * sizeof(gl_vertex_color));
             GL_CHECK(glUnmapBuffer(GL_ARRAY_BUFFER));
             GL_CHECK(glEnable(GL_BLEND));

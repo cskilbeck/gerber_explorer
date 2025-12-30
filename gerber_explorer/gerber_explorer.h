@@ -1,8 +1,13 @@
 #pragma once
 
+#include <thread>
+#include <mutex>
+
 #include "gl_window.h"
 #include "gl_base.h"
 #include "gl_matrix.h"
+
+#include "settings.h"
 
 struct gerber_explorer : gl_window {
 
@@ -18,7 +23,7 @@ struct gerber_explorer : gl_window {
         bool expanded{ false };
         bool selected{ false };
         int alpha{ 255 };
-        std::string filename;
+        std::string name;
         uint32_t fill_color;
         uint32_t clear_color;
         uint32_t outline_color;
@@ -76,7 +81,7 @@ struct gerber_explorer : gl_window {
     int window_height{};
 
     gerber_layer *selected_layer{ nullptr };
-    std::vector<gerber_layer *> layers;
+    std::list<gerber_layer *> layers;     // active
 
     rect target_view_rect{};
     rect source_view_rect{};
@@ -86,8 +91,6 @@ struct gerber_explorer : gl_window {
     gerber_3d::gl_matrix screen_matrix{};
     gerber_3d::gl_matrix projection_matrix{};
     gerber_3d::gl_matrix pixel_matrix{};
-
-    gerber_lib::gerber g{};
 
     gerber_3d::gl_drawlist overlay;
 
@@ -118,6 +121,19 @@ struct gerber_explorer : gl_window {
     void zoom_to_rect(rect const &zoom_rect, double border_ratio = 1.1);
     void zoom_image(vec2d const &pos, double zoom_scale);
     void update_view_rect();
+
+    void load_gerber(char const *filename);
+
+    std::list<gerber_layer *> loaded_layers; // loaded in the other thread, waiting to be added to layers
+
+    settings_t settings;
+
+    std::mutex loader_mutex;
+    std::mutex loaded_mutex;
+    std::list<std::string> gerber_filenames_to_load;
+    void load_gerbers(std::stop_token const &st);
+    std::jthread gerber_load_thread;
+    std::counting_semaphore<1024> loader_semaphore{0};
 
     bool on_init() override;
     void on_render() override;

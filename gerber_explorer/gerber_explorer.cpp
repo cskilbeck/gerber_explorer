@@ -8,6 +8,7 @@
 #include "gerber_explorer.h"
 #include "gl_matrix.h"
 #include "gl_colors.h"
+#include "util.h"
 
 LOG_CONTEXT("gerber_explorer", debug);
 
@@ -276,10 +277,11 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
 
     case mouse_drag_zoom: {
         vec2d d = mouse_pos.subtract(drag_mouse_cur_pos);
+        double factor = (d.x - d.y) * 0.01;
+        // sometimes cursor coords jump for reasons I don't understand so clamp
+        factor = std::max(-0.15, std::min(factor, 0.15));
+        zoom_image(drag_mouse_start_pos, 1.0 + factor);
         drag_mouse_cur_pos = mouse_pos;
-        // clamp to 0.9 .. 1.1 because sometimes cursor coords jump for reasons I don't understand
-        double factor = std::max(0.9, std::min(1.0 + (d.x - d.y) * 0.01, 1.2));
-        zoom_image(drag_mouse_start_pos, factor);
     } break;
 
     case mouse_drag_zoom_select: {
@@ -314,6 +316,15 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
 
 void gerber_explorer::on_closed()
 {
+    NFD_Quit();
+    gerber_load_thread.request_stop();
+    loader_semaphore.release();
+
+    settings.files.clear();
+    for(auto layer: layers) {
+        settings.files.push_back(layer->layer->gerber_file->filename);
+    }
+    settings.save();
     gl_window::on_closed();
 }
 
@@ -368,6 +379,8 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
 
 bool gerber_explorer::on_init()
 {
+    NFD_Init();
+
     glfwGetWindowSize(window, &window_width, &window_height);
     window_size.x = window_width;
     window_size.y = window_height;
@@ -391,29 +404,86 @@ bool gerber_explorer::on_init()
         multisample_count = max_multisamples;
     }
 
-    gerber_lib::gerber *g = new gerber_lib::gerber();
-    g->parse_file("../../gerber_test_files/TimerSwitch_Copper_Signal_Top.gbr");
+    gerber_load_thread = std::jthread([this](std::stop_token const &st) { load_gerbers(st); });
 
-    gerber_layer *layer = new gerber_layer();
-    layer->layer = new gl_drawer();
-    layer->layer->set_gerber(g);
-    layer->layer->program = &layer_program;
-    layer->layer->on_finished_loading();
-    layer->fill_color = layer_colors[layers.size() % gerber_util::array_length(layer_colors)];
-    layer->clear_color = gl_color::clear;
-    layer->outline_color = gl_color::magenta;
-    layer->outline = false;
-    layer->filename = std::filesystem::path(g->filename).filename().string();
-    layers.push_back(layer);
-    selected_layer = layer;
-    fit_to_window();
+    settings.load();
+
+    for(auto const &filename : settings.files) {
+        load_gerber(filename.c_str());
+    }
+
     return true;
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::load_gerbers(std::stop_token const &st)
+{
+    LOG_CONTEXT("loader", debug);
+    LOG_DEBUG("Waiting for filenames...");
+    while(!st.stop_requested()) {
+        loader_semaphore.acquire();
+        if(!st.stop_requested()) {
+            std::lock_guard loader_lock(loader_mutex);
+            if(gerber_filenames_to_load.empty()) {
+                LOG_WARNING("Huh? Where's the filename?");
+                continue;
+            }
+            std::string filename = gerber_filenames_to_load.front();
+            gerber_filenames_to_load.pop_front();
+            LOG_DEBUG("Loading {}", filename);
+            gerber_lib::gerber *g = new gerber_lib::gerber();
+            gerber_lib::gerber_error_code err = g->parse_file(filename.c_str());
+            if(err == gerber_lib::ok) {
+                gerber_layer *layer = new gerber_layer();
+                layer->layer = new gl_drawer();
+                layer->layer->set_gerber(g);
+                layer->layer->program = &layer_program;
+                layer->fill_color = gl_color::alice_blue;
+                layer->clear_color = gl_color::clear;
+                layer->outline_color = gl_color::magenta;
+                layer->outline = false;
+                layer->name = std::filesystem::path(g->filename).filename().string();
+                LOG_DEBUG("Finished loading {}", filename);
+                {
+                    std::lock_guard loaded_lock(loaded_mutex);
+                    loaded_layers.push_back(layer);
+                }
+            } else {
+                LOG_ERROR("Error loading {} ({})", filename, gerber_lib::get_error_text(err));
+            }
+        }
+    }
+    LOG_DEBUG("Loader is exiting...");
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::load_gerber(char const *filename)
+{
+    {
+        std::lock_guard lock(loader_mutex);
+        gerber_filenames_to_load.push_back(filename);
+    }
+    loader_semaphore.release();
 }
 
 //////////////////////////////////////////////////////////////////////
 
 void gerber_explorer::on_render()
 {
+    // call on_finished_loading (which creates gl buffers) in main thread
+    {
+        std::lock_guard loaded_lock(loaded_mutex);
+        if(!loaded_layers.empty()) {
+            gerber_layer *loaded_layer = loaded_layers.front();
+            loaded_layers.pop_front();
+            loaded_layer->layer->on_finished_loading();
+            loaded_layer->fill_color = layer_colors[layers.size() % gerber_util::array_length(layer_colors)];
+            layers.push_back(loaded_layer);
+        }
+    }
+
     ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
     ImGuiDockNode *central_node = ImGui::DockBuilderGetCentralNode(dockspace_id);
 
@@ -421,33 +491,39 @@ void gerber_explorer::on_render()
     if(ImGui::BeginMainMenuBar()) {
         if(ImGui::BeginMenu("File")) {
             if(ImGui::MenuItem("Open", nullptr, nullptr)) {
-                NFD_Init();
                 const nfdpathset_t *paths;
                 nfdopendialogu8args_t args{};
                 nfdresult_t result = NFD_OpenDialogMultipleU8_With(&paths, &args);
-                if(result == NFD_OKAY) {
+                switch(result) {
+                case NFD_OKAY: {
                     nfdpathsetsize_t path_count;
                     if(NFD_PathSet_GetCount(paths, &path_count) == NFD_OKAY) {
                         for(size_t i = 0; i < path_count; ++i) {
                             nfdu8char_t *outPath;
                             if(NFD_PathSet_GetPath(paths, i, &outPath) == NFD_OKAY) {
-                                LOG_INFO("Chose {}", outPath);
+                                load_gerber(outPath);
                                 NFD_FreePathU8(outPath);
                             }
                         }
                     }
                     NFD_PathSet_Free(paths);
-                } else if(result == NFD_CANCEL) {
-                    LOG_INFO("Cancelled");
-                } else {
+                } break;
+                case NFD_CANCEL:
+                    LOG_DEBUG("Cancelled");
+                    break;
+                default:
                     LOG_ERROR("Error: {}", NFD_GetError());
+                    break;
                 }
-                NFD_Quit();
             }
             // ImGui::MenuItem("Stats", nullptr, &show_stats);
             // ImGui::MenuItem("Options", nullptr, &show_options);
             if(ImGui::MenuItem("Close all", nullptr, nullptr)) {
-                // close_all = true;
+                while(!layers.empty()) {
+                    auto l = layers.front();
+                    layers.pop_front();
+                    delete l;
+                }
                 selected_layer = nullptr;
             }
             ImGui::Separator();
@@ -516,8 +592,6 @@ void gerber_explorer::on_render()
     quad[1] = { window_width * 2.0f, 0.0f, 2.0f, 0.0f };
     quad[2] = { 0, window_height * 2.0f, 0.0f, 2.0f };
     fullscreen_blit_verts.activate();
-
-    gl_vertex_textured *v;
     update_buffer<GL_ARRAY_BUFFER>(quad);
 
     GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
@@ -533,17 +607,17 @@ void gerber_explorer::on_render()
         my_target.init(window_width, window_height, multisample_count, 1);
     }
 
-    for(size_t n = layers.size(); n != 0;) {
-        gerber_layer *layer = layers[--n];
+    for(auto r = layers.rbegin(); r != layers.crend(); ++r) {
+        gerber_layer &layer = **r;
 
-        if(!layer->hide) {
+        if(!layer.hide) {
             layer_program.use();
             my_target.bind_framebuffer();
             GL_CHECK(glUniformMatrix4fv(layer_program.transform_location, 1, true, world_matrix.m));
 
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            layer->draw(false, 1.0f);
+            layer.draw(false, 1.0f);
 
             // draw the render to the window
 
@@ -555,13 +629,13 @@ void gerber_explorer::on_render()
 
             my_target.bind_textures();
 
-            gl_color::float4 rc(layer->fill_color);
-            gl_color::float4 gc(layer->clear_color);
-            gl_color::float4 bc(layer->outline_color);
+            gl_color::float4 rc(layer.fill_color);
+            gl_color::float4 gc(layer.clear_color);
+            gl_color::float4 bc(layer.outline_color);
             glUniform4fv(textured_program.red_color_uniform, 1, (GLfloat *)&rc);
             glUniform4fv(textured_program.green_color_uniform, 1, (GLfloat *)&gc);
             glUniform4fv(textured_program.blue_color_uniform, 1, (GLfloat *)&bc);
-            glUniform1f(textured_program.alpha_uniform, layer->alpha / 255.0f);
+            glUniform1f(textured_program.alpha_uniform, layer.alpha / 255.0f);
             glUniform1i(textured_program.num_samples_uniform, my_target.num_samples);
             glUniform1i(textured_program.cover_sampler, 0);
             glUniformMatrix4fv(textured_program.transform_location, 1, true, projection_matrix.m);
