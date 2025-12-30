@@ -320,6 +320,13 @@ void gerber_explorer::on_closed()
     gerber_load_thread.request_stop();
     loader_semaphore.release();
 
+    window_state = get_window_state();
+    settings.window_width = window_state.width;
+    settings.window_height = window_state.height;
+    settings.window_xpos = window_state.x;
+    settings.window_ypos = window_state.y;
+    settings.window_maximized = window_state.isMaximized;
+
     settings.files.clear();
     for(auto layer: layers) {
         settings.files.push_back(layer->layer->gerber_file->filename);
@@ -407,6 +414,12 @@ bool gerber_explorer::on_init()
     gerber_load_thread = std::jthread([this](std::stop_token const &st) { load_gerbers(st); });
 
     settings.load();
+
+    window_state.width = settings.window_width;
+    window_state.height = settings.window_height;
+    window_state.x = settings.window_xpos;
+    window_state.y = settings.window_ypos;
+    window_state.isMaximized = settings.window_maximized;
 
     for(auto const &filename : settings.files) {
         load_gerber(filename.c_str());
@@ -536,7 +549,8 @@ void gerber_explorer::on_render()
             if(ImGui::MenuItem("Fit to window", nullptr, nullptr, !layers.empty())) {
                 fit_to_window();
             }
-            ImGui::MenuItem("Show Axes", nullptr, &show_axes);
+            ImGui::MenuItem("Show Axes", nullptr, &settings.show_axes);
+            ImGui::MenuItem("Show Extent", nullptr, &settings.show_extent);
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
@@ -587,12 +601,12 @@ void gerber_explorer::on_render()
     pixel_matrix.m[12] = -view_rect.min_pos.x * scale_x;
     pixel_matrix.m[13] = (view_rect.min_pos.y + view_rect.height()) * scale_y;
 
-    std::array<gl_vertex_textured, 3> quad;
-    quad[0] = { 0.0f, 0.0f, 0.0f, 0.0f };
-    quad[1] = { window_width * 2.0f, 0.0f, 2.0f, 0.0f };
-    quad[2] = { 0, window_height * 2.0f, 0.0f, 2.0f };
+    std::array<gl_vertex_textured, 3> fullscreen_triangle;
+    fullscreen_triangle[0] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    fullscreen_triangle[1] = { window_width * 2.0f, 0.0f, 2.0f, 0.0f };
+    fullscreen_triangle[2] = { 0, window_height * 2.0f, 0.0f, 2.0f };
     fullscreen_blit_verts.activate();
-    update_buffer<GL_ARRAY_BUFFER>(quad);
+    update_buffer<GL_ARRAY_BUFFER>(fullscreen_triangle);
 
     GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
@@ -660,17 +674,16 @@ void gerber_explorer::on_render()
 
     vec2d origin = window_pos_from_world_pos({ 0, 0 });
 
-    bool show_extent = true;
     uint32_t axes_color = gl_color::cyan;
     uint32_t extent_color = gl_color::yellow;
 
-    if(show_axes) {    // show_axes
+    if(settings.show_axes) {    // show_axes
         overlay.lines();
         overlay.add_line({ 0, origin.y }, { window_size.x, origin.y }, axes_color);
         overlay.add_line({ origin.x, 0 }, { origin.x, window_size.y }, axes_color);
     }
 
-    if(show_extent && selected_layer != nullptr && selected_layer->is_valid()) {
+    if(settings.show_extent && selected_layer != nullptr && selected_layer->is_valid()) {
         rect extent = selected_layer->extent();
         if(extent.width() != 0 && extent.height() != 0) {
             rect s{ window_pos_from_world_pos(extent.min_pos), window_pos_from_world_pos(extent.max_pos) };

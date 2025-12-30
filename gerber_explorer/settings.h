@@ -6,6 +6,13 @@
 
 #define SETTINGS_FIELDS                                                                                                                                        \
     X(bool, wireframe, false)                                                                                                                                  \
+    X(bool, show_axes, true)                                                                                                                                   \
+    X(bool, show_extent, true)                                                                                                                                 \
+    X(bool, window_maximized, false)                                                                                                                           \
+    X(int, window_width, 800)                                                                                                                                  \
+    X(int, window_height, 600)                                                                                                                                 \
+    X(int, window_xpos, 100)                                                                                                                                   \
+    X(int, window_ypos, 100)                                                                                                                                   \
     X(std::vector<std::string>, files, {})
 
 struct settings_t
@@ -16,18 +23,18 @@ struct settings_t
 
     void save();
     void load();
+
+    void to_json(nlohmann::json &j)
+    {
+#define X(type, name, val) j[#name] = name;
+        SETTINGS_FIELDS
+#undef X
+    }
+
+    void from_json(const nlohmann::json &j)
+    {
+#define X(type, name, val) name = j.value(#name, type{});
+        SETTINGS_FIELDS
+#undef X
+    }
 };
-
-inline void to_json(nlohmann::json &j, const settings_t &s)
-{
-#define X(type, name, val) j[#name] = s.name;
-    SETTINGS_FIELDS
-#undef X
-}
-
-inline void from_json(const nlohmann::json &j, settings_t &s)
-{
-#define X(type, name, val) s.name = j.value(#name, type{});
-    SETTINGS_FIELDS
-#undef X
-}

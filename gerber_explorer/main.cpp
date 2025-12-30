@@ -1,12 +1,13 @@
 //
 // X offscreen render
+// X ImGui
+// X save/restore settings and window state
 //
-// ImGui
+// fix ImGui viewport thing
+// picking / selection
 // inverted layer
-// proper picking / selection
 // render-on-window-resize
 // gerber spec compliance (polygons, holes)
-// save/restore settings
 // load zip file
 // detect gerber layer type/position from extension/name/x2 info
 // ?OpenCascade 3D nonsense

@@ -53,7 +53,7 @@ std::filesystem::path config_path(std::string const &app_name, std::string const
 
     // Ensure the directory exists before returning the file path
     if(!base_path.empty()) {
-        fs::create_directories(base_path);
+        create_directories(base_path);
     }
 
     return base_path / filename;

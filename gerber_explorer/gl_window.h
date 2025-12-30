@@ -9,6 +9,12 @@
 
 struct gl_window
 {
+    struct window_state_t {
+        int x, y;
+        int width, height;
+        bool isMaximized;
+    };
+
     gl_window() = default;
     virtual ~gl_window() = default;
 
@@ -36,5 +42,11 @@ struct gl_window
     {
     }
 
+    virtual void on_window_size(int w, int h);
+    virtual void on_window_pos(int x, int y);
+
     GLFWwindow *window{};
+    window_state_t window_state;
+
+    window_state_t get_window_state();
 };

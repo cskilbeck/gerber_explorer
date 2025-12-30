@@ -22,12 +22,12 @@ namespace
 void settings_t::save()
 {
     nlohmann::json json;
-    to_json(json, *this);
-    std::string json_str = json.dump(4);
-    LOG_DEBUG("{}", json_str);
-    std::filesystem::path path = config_path(app_name, settings_filename);
-    std::ofstream save(path);
-    save << json_str;
+    to_json(json);
+
+    std::ofstream save(config_path(app_name, settings_filename));
+    if(save.good()) {
+        save << json.dump(4);
+    }
     save.close();
 }
 
@@ -35,9 +35,12 @@ void settings_t::save()
 
 void settings_t::load()
 {
-    std::filesystem::path path = config_path(app_name, settings_filename);
-    std::ifstream load(path);
-    nlohmann::json json = nlohmann::json::parse(load);
-    load.close();
-    from_json(json, *this);
+    std::ifstream load(config_path(app_name, settings_filename));
+    if(load.good()) {
+        nlohmann::json json = nlohmann::json::parse(load, nullptr, false, true);
+        load.close();
+        if(json.is_object()) {
+            from_json(json);
+        }
+    }
 }

@@ -70,7 +70,6 @@ namespace gerber_3d
         void set_gerber(gerber_lib::gerber *g) override;
         void on_finished_loading() override;
         void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, int entity_id) override;
-        // void finish_element(int entity_id) override;
         void draw(bool fill, bool outline, bool wireframe, float outline_thickness);
 
         gl_tesselator tesselator;

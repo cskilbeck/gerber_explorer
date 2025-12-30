@@ -114,9 +114,11 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_lib::gerber_2d::vec2f matrix_apply(gerber_lib::gerber_2d::vec2f const &v, gl_matrix const &mat)
+    gerber_lib::gerber_2d::vec2f matrix_apply(gerber_lib::gerber_2d::vec2f const &v, gl_matrix const &matrix)
     {
-        return gerber_lib::gerber_2d::vec2f{ v.x * mat.m[0] + v.y * mat.m[4] + mat.m[12], v.x * mat.m[1] + v.y * mat.m[5] + mat.m[13] };
+        float x = v.x * matrix.m[0] + v.y * matrix.m[4] + matrix.m[12];
+        float y = v.x * matrix.m[1] + v.y * matrix.m[5] + matrix.m[13];
+        return gerber_lib::gerber_2d::vec2f{ x, y };
     }
 
 }    // namespace gerber_3d

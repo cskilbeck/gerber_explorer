@@ -113,8 +113,6 @@ struct gerber_explorer : gl_window {
     int multisample_count{ 4 };
     int max_multisamples{ 1 };
 
-    bool show_axes = true;
-
     vec2d world_pos_from_window_pos(vec2d const &p) const;
     vec2d window_pos_from_world_pos(vec2d const &p) const;
     void fit_to_window();

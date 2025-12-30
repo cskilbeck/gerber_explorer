@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
-set(PROJECT gerber_explorer)
-
 include(FetchContent)
+
+######################################################################
+# GLFW
 
 FetchContent_Declare(
         glfw
@@ -14,6 +15,9 @@ set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(glfw)
 
+######################################################################
+# JSON
+
 FetchContent_Declare(
         json
         GIT_REPOSITORY https://github.com/nlohmann/json.git
@@ -21,11 +25,14 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(json)
 
+######################################################################
+# IMGUI
+
 FetchContent_Declare(
         imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui.git
-        GIT_TAG        docking # Or a specific version like v1.91.1
-)
+        GIT_TAG docking)
+
 FetchContent_MakeAvailable(imgui)
 
 set(IMGUI_SOURCES
@@ -34,12 +41,18 @@ set(IMGUI_SOURCES
         ${imgui_SOURCE_DIR}/imgui_tables.cpp
         ${imgui_SOURCE_DIR}/imgui_widgets.cpp
         ${imgui_SOURCE_DIR}/imgui_demo.cpp
-        # Backends for GLFW and OpenGL3
         ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-)
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
+
+######################################################################
+# OPENGL
 
 find_package(OpenGL REQUIRED)
+
+######################################################################
+# MAIN
+
+set(PROJECT gerber_explorer)
 
 add_executable(${PROJECT}
         ${IMGUI_SOURCES}
