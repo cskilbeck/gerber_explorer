@@ -1,10 +1,14 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#undef APIENTRY
+
 #ifdef _WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 #endif
+
+#include <cmrc/cmrc.hpp>
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -14,7 +18,11 @@
 #include "util.h"
 #include "gl_window.h"
 
+#include "assets/matsym_codepoints_utf8.h"
+
 LOG_CONTEXT("gl_window", debug);
+
+CMRC_DECLARE(my_assets);
 
 namespace
 {
@@ -183,7 +191,7 @@ void gl_window::init()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);    // Required on macOS
     glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
 
-    window = glfwCreateWindow(800, 600, "GLAD + GLFW", nullptr, nullptr);
+    window = glfwCreateWindow(800, 600, app_name().c_str(), nullptr, nullptr);
     glfwSetWindowUserPointer(window, this);
 
     glfwSetKeyCallback(window, on_glfw_key);
@@ -210,6 +218,29 @@ void gl_window::init()
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
+
+
+    auto fs = cmrc::my_assets::get_filesystem();
+    auto roboto_font_file = fs.open("Roboto-Medium.ttf");
+    auto matsym_font_file = fs.open("MaterialIcons-Regular.ttf");
+    void const* roboto_font_data_ptr = roboto_font_file.begin();
+    void const* matsym_font_data_ptr = matsym_font_file.begin();
+    size_t roboto_font_data_size = roboto_font_file.size();
+    size_t matsym_font_data_size = matsym_font_file.size();
+
+    float fontSize = 18.0f;
+    ImFontConfig font_cfg{};
+    font_cfg.FontDataOwnedByAtlas = false; // CRITICAL: Tells ImGui NOT to call free()
+    io.Fonts->AddFontFromMemoryTTF(const_cast<void *>(roboto_font_data_ptr), static_cast<int>(roboto_font_data_size), fontSize, &font_cfg);
+    font_cfg.MergeMode = true;
+    font_cfg.PixelSnapH = true;
+    font_cfg.GlyphMinAdvanceX = 18.0f;
+    font_cfg.GlyphOffset.y = fontSize / 6;;
+    static const ImWchar icon_ranges[] = { MATSYM_MIN_CODEPOINT, MATSYM_MAX_CODEPOINT, 0 };
+
+    // 4. Load the icon font (it merges into the font loaded in step 1)
+    io.Fonts->AddFontFromMemoryTTF(const_cast<void *>(matsym_font_data_ptr), static_cast<int>(matsym_font_data_size), fontSize, &font_cfg);
+
     io.IniFilename = imgui_ini_filename.c_str();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;

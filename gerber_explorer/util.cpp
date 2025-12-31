@@ -2,11 +2,27 @@
 #include <filesystem>
 #include <cstdlib>
 #include <string>
-#include <unistd.h>
+// #include <unistd.h>
 
 #if defined(__APPLE__)
 #include <pwd.h>
 #endif
+
+std::optional<std::string> get_env_var(const std::string& key) {
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable:4996)
+#endif
+    // ReSharper disable once CppDeprecatedEntity
+    const char* val = std::getenv(key.c_str());
+#ifdef _WIN32
+#pragma warning(pop)
+#endif
+    if (val == nullptr) {
+        return std::nullopt;
+    }
+    return std::string(val);
+}
 
 std::filesystem::path config_path(std::string const &app_name, std::string const &filename)
 {
@@ -16,12 +32,16 @@ std::filesystem::path config_path(std::string const &app_name, std::string const
 
 #if defined(_WIN32)
     // Windows: Use %LOCALAPPDATA%
-    const char *local_app_data = std::getenv("LOCALAPPDATA");
-    if(local_app_data) {
-        base_path = fs::path(local_app_data) / app_name;
+    auto local_app_data = get_env_var("LOCALAPPDATA");
+    if(local_app_data.has_value()) {
+        base_path = fs::path(local_app_data.value()) / app_name;
     } else {
         // Fallback if env var is missing
-        base_path = fs::path(std::getenv("USERPROFILE")) / "AppData" / "Local" / app_name;
+        auto user_profile = get_env_var("USERPROFILE");
+        if(!user_profile.has_value()) {
+            user_profile = ".";
+        }
+        base_path = fs::path(user_profile.value()) / "AppData" / "Local" / app_name;
     }
 
 #elif defined(__APPLE__)

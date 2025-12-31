@@ -479,7 +479,7 @@ namespace gerber_3d
     {
         gl_vertex_array::activate();
         glEnableVertexAttribArray(position_location);
-        glVertexAttribPointer(position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_solid), static_cast<void *>(offsetof(gl_vertex_solid, x)));
+        glVertexAttribPointer(position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_solid), (void *)(offsetof(gl_vertex_solid, x)));
         return 0;
     }
 
@@ -490,7 +490,7 @@ namespace gerber_3d
         gl_vertex_array::activate();
         glEnableVertexAttribArray(position_location);
         glEnableVertexAttribArray(color_location);
-        glVertexAttribPointer(position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_color), static_cast<void *>(offsetof(gl_vertex_color, x)));
+        glVertexAttribPointer(position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_color), (void *)(offsetof(gl_vertex_color, x)));
         glVertexAttribPointer(
             color_location, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(gl_vertex_color), reinterpret_cast<void *>(offsetof(gl_vertex_color, color)));
         return 0;
@@ -503,7 +503,7 @@ namespace gerber_3d
         gl_vertex_array::activate();
         glEnableVertexAttribArray(position_location);
         glEnableVertexAttribArray(tex_coord_location);
-        glVertexAttribPointer(position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_textured), static_cast<void *>(offsetof(gl_vertex_textured, x)));
+        glVertexAttribPointer(position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_textured), (void *)(offsetof(gl_vertex_textured, x)));
         glVertexAttribPointer(tex_coord_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_textured), reinterpret_cast<void *>(offsetof(gl_vertex_textured, u)));
         return 0;
     }

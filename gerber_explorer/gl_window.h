@@ -42,6 +42,11 @@ struct gl_window
     {
     }
 
+    virtual std::string app_name() const
+    {
+        return "glfw";
+    }
+
     virtual void on_window_size(int w, int h);
     virtual void on_window_pos(int x, int y);
 

@@ -1,5 +1,6 @@
 #include <filesystem>
 
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui.h"
 #include "imgui_internal.h"
 
@@ -8,6 +9,8 @@
 #include "gerber_explorer.h"
 #include "gl_matrix.h"
 #include "gl_colors.h"
+
+#include "assets/matsym_codepoints_utf8.h"
 
 LOG_CONTEXT("gerber_explorer", debug);
 
@@ -23,6 +26,51 @@ namespace
 
     uint32_t layer_colors[] = { gl_color::dark_green,    gl_color::dark_cyan,        gl_color::green, gl_color::lime_green,
                                 gl_color::antique_white, gl_color::corn_flower_blue, gl_color::gold };
+
+    bool IconCheckbox(const char* label, bool* v, const char* icon_on, const char* icon_off) {
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        if (window->SkipItems) return false;
+
+        ImGuiContext& g = *GImGui;
+        const ImGuiStyle& style = g.Style;
+        const ImGuiID id = window->GetID(label);
+        const ImVec2 label_size = ImGui::CalcTextSize(label, nullptr, true);
+
+        const float square_sz = ImGui::GetFrameHeight();
+        const ImVec2 pos = window->DC.CursorPos;
+        // Total bounding box (Icon square + Padding + Label text)
+        const ImRect total_bb(pos, pos + ImVec2(square_sz + (label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 0.0f), label_size.y + style.FramePadding.y * 2.0f));
+
+        ImGui::ItemSize(total_bb, style.FramePadding.y);
+        if (!ImGui::ItemAdd(total_bb, id)) return false;
+
+        bool hovered, held;
+        bool pressed = ImGui::ButtonBehavior(total_bb, id, &hovered, &held);
+        if (pressed) {
+            *v = !(*v);
+            ImGui::MarkItemEdited(id);
+        }
+
+        // 1. Render Background Frame
+        const ImU32 col = ImGui::GetColorU32((held && hovered) ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
+        ImGui::RenderFrame(pos, pos + ImVec2(square_sz, square_sz), col, true, style.FrameRounding);
+
+        // 2. Render the Icon
+        const char* icon = *v ? icon_on : icon_off;
+        if (*v || icon_off) { // Only draw if checked, or if an "off" icon is provided
+            ImVec2 icon_size = ImGui::CalcTextSize(icon);
+            // Center the icon in the square
+            ImVec2 icon_pos = pos + ImVec2((square_sz - icon_size.x) * 0.5f, (square_sz - icon_size.y) * 0.5f);
+            window->DrawList->AddText(icon_pos, ImGui::GetColorU32(ImGuiCol_Text), icon);
+        }
+
+        // 3. Render Label
+        if (label_size.x > 0.0f) {
+            ImGui::RenderText(pos + ImVec2(square_sz + style.ItemInnerSpacing.x, style.FramePadding.y), label);
+        }
+
+        return pressed;
+    }
 
     //////////////////////////////////////////////////////////////////////
     // make a rectangle have a certain aspect ratio by shrinking or expanding it
@@ -54,6 +102,11 @@ namespace
 }    // namespace
 
 //////////////////////////////////////////////////////////////////////
+
+std::string gerber_explorer::app_name() const
+{
+    return "Gerber Viewer";
+}
 
 vec2d gerber_explorer::world_pos_from_window_pos(vec2d const &p) const
 {
@@ -212,6 +265,14 @@ void gerber_explorer::on_scroll(double xoffset, double yoffset)
 
 //////////////////////////////////////////////////////////////////////
 
+void gerber_explorer::select_entity(vec2d const &window_pos)
+{
+    vec2d world_pos = world_pos_from_window_pos(window_pos);
+
+}
+
+//////////////////////////////////////////////////////////////////////
+
 void gerber_explorer::on_mouse_button(int button, int action, int mods)
 {
     switch(action) {
@@ -221,6 +282,7 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
             if((mods & GLFW_MOD_CONTROL) != 0) {
                 set_mouse_mode(mouse_drag_zoom_select, mouse_pos);
             } else {
+                select_entity(mouse_pos);
                 set_mouse_mode(mouse_drag_maybe_select, mouse_pos);
             }
             break;
@@ -325,7 +387,8 @@ void gerber_explorer::on_closed()
     settings.window_maximized = window_state.isMaximized;
 
     settings.files.clear();
-    for(auto layer : layers) {
+    for(auto it = layers.crbegin(); it != layers.crend(); ++it) {
+        gerber_layer *layer = *it;
         settings.files.push_back(layer->layer->gerber_file->filename);
     }
     settings.save();
@@ -462,6 +525,7 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
             } else {
                 LOG_ERROR("Error loading {} ({})", filename, gerber_lib::get_error_text(err));
             }
+            std::this_thread::yield();
         }
     }
     LOG_DEBUG("Loader is exiting...");
@@ -476,6 +540,7 @@ void gerber_explorer::load_gerber(char const *filename)
         gerber_filenames_to_load.push_back(filename);
     }
     loader_semaphore.release();
+    std::this_thread::yield();
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -490,7 +555,7 @@ void gerber_explorer::on_render()
             loaded_layers.pop_front();
             loaded_layer->layer->on_finished_loading();
             loaded_layer->fill_color = layer_colors[layers.size() % gerber_util::array_length(layer_colors)];
-            layers.push_back(loaded_layer);
+            layers.push_front(loaded_layer);
         }
     }
 
@@ -498,8 +563,9 @@ void gerber_explorer::on_render()
     int framebuffer_height;
     glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
 
-    ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+    // ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
     // ImGuiDockNode *central_node = ImGui::DockBuilderGetCentralNode(dockspace_id);
+    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     if(ImGui::BeginMainMenuBar()) {
@@ -512,7 +578,7 @@ void gerber_explorer::on_render()
                 case NFD_OKAY: {
                     nfdpathsetsize_t path_count;
                     if(NFD_PathSet_GetCount(paths, &path_count) == NFD_OKAY) {
-                        for(size_t i = 0; i < path_count; ++i) {
+                        for(nfdpathsetsize_t i = 0; i < path_count; ++i) {
                             nfdu8char_t *outPath;
                             if(NFD_PathSet_GetPath(paths, i, &outPath) == NFD_OKAY) {
                                 load_gerber(outPath);
@@ -559,9 +625,10 @@ void gerber_explorer::on_render()
     }
     ImGui::PopStyleVar();
 
-    ImGui::Begin("gerbx");
+    ImGui::Begin("Files");
     {
-        int num_controls = 2;
+        bool any_item_hovered = false;
+        int num_controls = 3;
         float controls_width = ImGui::GetFrameHeight() * num_controls + ImGui::GetStyle().ItemSpacing.x * num_controls;
         gerber_layer *move_from = nullptr;
         gerber_layer *move_to = nullptr;
@@ -570,7 +637,7 @@ void gerber_explorer::on_render()
             ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupColumn("Controls", ImGuiTableColumnFlags_WidthFixed, controls_width);
             int n = 0;
-            for(auto it = layers.begin(); it != layers.end(); ++it) {
+            for(auto it = layers.crbegin(); it != layers.crend(); ++it) {
                 gerber_layer *l = *it;
                 ImGui::PushID(l);
                 ImGui::TableNextRow();
@@ -582,6 +649,9 @@ void gerber_explorer::on_render()
                        l->name.c_str(), is_selected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap, ImVec2(0, row_height))) {
                     current_selected_ptr = l;
                     selected_layer = l;
+                }
+                if (ImGui::IsItemHovered()) {
+                    any_item_hovered = true;
                 }
                 ImGui::AlignTextToFramePadding();
                 if(ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
@@ -598,7 +668,10 @@ void gerber_explorer::on_render()
                     ImGui::EndDragDropTarget();
                 }
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Checkbox("##hide", &l->show);
+                IconCheckbox("##hide1", &l->show, MATSYM_visibility, MATSYM_visibility_off);
+                ImGui::SameLine();
+                IconCheckbox("##hide2", &l->invert, MATSYM_invert_colors, MATSYM_invert_colors_off);
+                //ImGui::Checkbox("##hide", &l->show);
                 ImGui::SameLine();
                 ImGui::ColorEdit4("##color",
                                   l->fill_color.f,
@@ -618,6 +691,10 @@ void gerber_explorer::on_render()
             layers.insert(it_to, move_from);
         }
         ImGui::EndTable();
+        if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !any_item_hovered) {
+            current_selected_ptr = nullptr;
+            selected_layer = nullptr;
+        }
     }
     ImGui::End();
 
@@ -672,7 +749,7 @@ void gerber_explorer::on_render()
         my_target.init(window_width, window_height, multisample_count, 1);
     }
 
-    for(auto r = layers.rbegin(); r != layers.crend(); ++r) {
+    for(auto r = layers.begin(); r != layers.end(); ++r) {
         gerber_layer &layer = **r;
 
         if(layer.show) {
@@ -680,7 +757,7 @@ void gerber_explorer::on_render()
             my_target.bind_framebuffer();
             GL_CHECK(glUniformMatrix4fv(layer_program.transform_location, 1, true, world_matrix.m));
 
-            GL_CHECK(glViewport(0, 0, window_size.x, window_size.y));
+            GL_CHECK(glViewport(0, 0, window_width, window_height));
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             layer.draw(settings.wireframe, 1.0f);
@@ -689,7 +766,7 @@ void gerber_explorer::on_render()
 
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-            GL_CHECK(glViewport(0, 0, window_size.x, window_size.y));
+            GL_CHECK(glViewport(0, 0, window_width, window_height));
             // GL_CHECK(glViewport(pos.x, pos.y, window_size.x, window_size.y));
 
             GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));

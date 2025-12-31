@@ -64,7 +64,7 @@ namespace gerber_3d
         for(size_t i=offset; i < points.size(); ++i) {
             e.bounds.expand_to_contain(gerber_2d::vec2d(points[i]));
         }
-        tessAddContour(boundary_stesselator, 2, points.data() + offset, sizeof(float) * 2, points.size() - offset);
+        tessAddContour(boundary_stesselator, 2, points.data() + offset, sizeof(float) * 2, (int)(points.size() - offset));
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -83,10 +83,10 @@ namespace gerber_3d
             tessSetOption(interior_tesselator, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 1);
             tessSetOption(interior_tesselator, TESS_REVERSE_CONTOURS, 1);
 
-            uint32_t boundary_base = boundaries.size();
+            uint32_t boundary_base = static_cast<uint32_t>(boundaries.size());
 
             for(int i = 0; i < nelems; ++i) {
-                int outline_base = vertices.size();
+                int outline_base = static_cast<int>(vertices.size());
                 int b = elems[i * 2];
                 int n = elems[i * 2 + 1];
                 float const *f = &verts[b * 2];
@@ -95,7 +95,7 @@ namespace gerber_3d
                     vertices.emplace_back(f[0], f[1]);
                     f += 2;
                 }
-                boundaries.emplace_back(outline_base, vertices.size() - outline_base);
+                boundaries.emplace_back(outline_base, static_cast<int>(vertices.size() - outline_base));
             }
 
             tessTesselate(interior_tesselator, TESS_WINDING_POSITIVE, TESS_POLYGONS, 3, 2, nullptr);
@@ -111,9 +111,9 @@ namespace gerber_3d
                 vertices.emplace_back(vrt[0], vrt[1]);
             }
 
-            uint32_t index_base = indices.size();
+            uint32_t index_base = static_cast<uint32_t>(indices.size());
 
-            uint32_t fill_base = fills.size();
+            uint32_t fill_base = static_cast<uint32_t>(fills.size());
 
             for(int x = 0; x < tri_nelems; ++x) {
                 int const *p = &tri_elems[x * 3];
@@ -121,16 +121,16 @@ namespace gerber_3d
                 int const p1 = p[1];
                 int const p2 = p[2];
                 if(p0 != TESS_UNDEF && p1 != TESS_UNDEF && p2 != TESS_UNDEF) {
-                    indices.push_back(p0 + base);
-                    indices.push_back(p1 + base);
-                    indices.push_back(p2 + base);
+                    indices.push_back(static_cast<GLuint>(p0 + base));
+                    indices.push_back(static_cast<GLuint>(p1 + base));
+                    indices.push_back(static_cast<GLuint>(p2 + base));
                 }
             }
-            fills.emplace_back(index_base, indices.size() - index_base);
+            fills.emplace_back(index_base, static_cast<int>(indices.size() - index_base));
 
             tesselator_entity &e = entities.back();
-            e.num_outlines = boundaries.size() - boundary_base;
-            e.num_fills = fills.size() - fill_base;
+            e.num_outlines = static_cast<int>(boundaries.size() - boundary_base);
+            e.num_fills = static_cast<int>(fills.size() - fill_base);
 
             tessDeleteTess(interior_tesselator);
 
@@ -166,11 +166,11 @@ namespace gerber_3d
 
     void gl_drawer::on_finished_loading()
     {
-        vertex_array.init(*program, tesselator.vertices.size());
+        vertex_array.init(*program, static_cast<GLsizei>(tesselator.vertices.size()));
         vertex_array.activate();
         update_buffer<GL_ARRAY_BUFFER>(tesselator.vertices);
 
-        index_array.init(tesselator.indices.size());
+        index_array.init(static_cast<GLsizei>(tesselator.indices.size()));
         index_array.activate();
         update_buffer<GL_ELEMENT_ARRAY_BUFFER>(tesselator.indices);
     }
@@ -199,7 +199,7 @@ namespace gerber_3d
 
         auto add_point = [&](double x, double y) {
             if(points.empty() || fabs(points.back().x - x) > THRESHOLD || fabs(points.back().y - y) > THRESHOLD) {
-                points.emplace_back(x, y);
+                points.emplace_back(static_cast<float>(x), static_cast<float>(y));
             }
         };
 

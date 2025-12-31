@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.10)
 
 set(PROJECT gerber_lib)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 add_library(${PROJECT}
     gerber_util.h
     gerber_2d.cpp
@@ -41,11 +45,11 @@ target_include_directories(${PROJECT} PUBLIC
     $<INSTALL_INTERFACE:include>)
 
 if(MSVC)
+    string(REPLACE "/W3" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     target_compile_options(${PROJECT} PRIVATE
             /MP       # multiprocessor build
             /wd4100   # unreferenced formal parameter
             /wd4505   # unreferenced function with internal linkage has been removed
-            /W4       # warning level 4
             /WX)      # warnings-as-errors
 
 else()
@@ -59,5 +63,7 @@ else()
             -Wno-implicit-fallthrough
             -Wno-multichar)
 endif()
+
+target_compile_definitions(${PROJECT} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
 
 target_compile_features(${PROJECT} PUBLIC cxx_std_20)

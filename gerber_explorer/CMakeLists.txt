@@ -2,6 +2,28 @@ cmake_minimum_required(VERSION 3.10)
 include(FetchContent)
 
 ######################################################################
+# CMRC
+
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+        cmrc
+        GIT_REPOSITORY https://github.com/vector-of-bool/cmrc.git
+        GIT_TAG        2.0.1)
+
+FetchContent_MakeAvailable(cmrc)
+
+list(APPEND CMAKE_MODULE_PATH "${cmrc_SOURCE_DIR}")
+
+include(CMakeRC)
+
+cmrc_add_resource_library(my_assets
+        WHENCE "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/Roboto-Medium.ttf"
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/MaterialIcons-Regular.ttf"
+)
+
+######################################################################
 # GLFW
 
 FetchContent_Declare(
@@ -54,6 +76,10 @@ find_package(OpenGL REQUIRED)
 
 set(PROJECT gerber_explorer)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 add_executable(${PROJECT}
         ${IMGUI_SOURCES}
         main.cpp
@@ -73,12 +99,42 @@ add_executable(${PROJECT}
         util.h
         util.cpp
         settings.cpp
-        settings.h)
+        settings.h
+        assets/matsym_codepoints_utf8.h)
+
+if(MSVC)
+    string(REPLACE "/W3" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    target_compile_options(${PROJECT} PRIVATE
+            /MP       # multiprocessor build
+            /wd4100   # unreferenced formal parameter
+            /wd4505   # unreferenced function with internal linkage has been removed
+            /WX)      # warnings-as-errors
+
+else()
+    target_compile_options(${PROJECT} PRIVATE
+            -Wall
+            -Wextra
+            -Wpedantic
+            -Werror
+            -Wno-empty-body
+            -Wno-unused-parameter
+            -Wno-implicit-fallthrough
+            -Wno-multichar)
+endif()
+
+target_compile_definitions(${PROJECT} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
 
 target_include_directories(${PROJECT} PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/win32
+        ${CMRC_INCLUDE_DIR}
         ${imgui_SOURCE_DIR}
         ${imgui_SOURCE_DIR}/backends)
 
-target_link_libraries(${PROJECT} PRIVATE gerber_lib libtess2 glad glfw OpenGL::GL nlohmann_json::nlohmann_json nfd)
+target_link_libraries(${PROJECT} PRIVATE gerber_lib libtess2 glad glfw OpenGL::GL nlohmann_json::nlohmann_json nfd my_assets)
+
+if(MSVC)
+    set_target_properties(gerber_explorer PROPERTIES
+            LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
+    )
+endif()

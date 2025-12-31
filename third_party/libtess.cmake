@@ -20,4 +20,9 @@ add_library(libtess2 STATIC
         ${LIB_TESS2_DIR}/Source/tess.c
         ${LIB_TESS2_DIR}/Source/tess.h)
 
+if(MSVC)
+    # /wd4267 suppresses the 'size_t' to 'unsigned int' warning
+    target_compile_options(libtess2 PRIVATE /wd4267)
+endif()
+
 target_include_directories(libtess2 PUBLIC ${LIB_TESS2_DIR}/Include)

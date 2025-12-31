@@ -2,6 +2,7 @@
 
 #include <thread>
 #include <mutex>
+#include <semaphore>
 
 #include "gl_window.h"
 #include "gl_base.h"
@@ -19,6 +20,7 @@ struct gerber_explorer : gl_window {
         int index;
         gerber_3d::gl_drawer *layer{ nullptr };
         bool show{ true };
+        bool invert{ false };
         bool outline{ false };
         bool fill{ true };
         bool expanded{ false };
@@ -131,6 +133,8 @@ struct gerber_explorer : gl_window {
 
     void load_gerber(char const *filename);
 
+    void select_entity(vec2d const &window_pos);
+
     std::list<gerber_layer *> loaded_layers; // loaded in the other thread, waiting to be added to layers
 
     settings_t settings;
@@ -149,4 +153,6 @@ struct gerber_explorer : gl_window {
     void on_scroll(double xoffset, double yoffset) override;
     void on_mouse_button(int button, int action, int mods) override;
     void on_mouse_move(double xpos, double ypos) override;
+
+    std::string app_name() const override;
 };

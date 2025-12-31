@@ -2,13 +2,18 @@
 // X offscreen render
 // X ImGui
 // X save/restore settings and window state
+// X use proper font
+// X use matsym icon library
+// X use VS2022 to build it
 //
-// fix ImGui viewport thing
-// picking / selection
+// load layers multithreaded but maintain ordering
+// fix gl 1282 for empty layer (E:\dev\clock_monsieur\pcb\Outputs\2025-12-19\clock_led_Soldermask_Top.gbr)
 // inverted layer
+// picking / selection
 // render-on-window-resize
+// fix ImGui viewport thing
 // gerber spec compliance (polygons, holes)
-// load zip file
+// load zip file (how to store path in settings?)
 // detect gerber layer type/position from extension/name/x2 info
 // ?OpenCascade 3D nonsense
 // measure tool
@@ -32,8 +37,6 @@ int flushed_puts(char const *s)
     fflush(stdout);
     return x;
 }
-
-std::filesystem::path config_path(const std::string &filename);
 
 int main(int, char **)
 {
