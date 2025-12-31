@@ -795,7 +795,7 @@ void gerber_explorer::on_render()
                     ImGui::SetItemTooltip("Invert layer");
                 }
                 ImGui::SameLine();
-                ImGui::ColorEdit4("##clr", l->fill_color.f, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+                ImGui::ColorEdit4("##clr", l->fill_color.f, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreview);
                 ImGui::SameLine();
                 if(IconButton("##del", MATSYM_close)) {
                     item_to_delete = l;
@@ -813,6 +813,7 @@ void gerber_explorer::on_render()
         if(item_to_delete) {
             layers.erase(std::remove(layers.begin(), layers.end(), item_to_delete), layers.end());
             delete item_to_delete;
+            selected_layer = nullptr;
         } else if(item_to_move && item_target && item_to_move != item_target && item_to_move != item_target) {
             auto dragged_it = std::find(layers.begin(), layers.end(), item_to_move);
             auto target_it = std::find(layers.begin(), layers.end(), item_target);
@@ -858,20 +859,10 @@ void gerber_explorer::on_render()
     gl_matrix flip_y_matrix = make_ortho(window_width, -window_height);
     gl_matrix offset_y_matrix = make_translate(0, (float)-window_height);
 
-    float x_invert = 1;
-    float y_invert = 1;
-    if(settings.invert_x) {
-        x_invert = -1;
-    }
-    if(settings.invert_y) {
-        y_invert = -1;
-    }
-
     float x_scale = (float)(window_rect.width() / view_rect.width());
     float y_scale = (float)(window_rect.height() / view_rect.height());
-    gl_matrix scale_matrix = make_scale(x_scale * x_invert, y_scale * y_invert);
-
-    gl_matrix origin_matrix = make_translate(-(float)view_rect.min_pos.x * x_invert, -(float)view_rect.min_pos.y * y_invert);
+    gl_matrix scale_matrix = make_scale(x_scale, y_scale);
+    gl_matrix origin_matrix = make_translate(-(float)view_rect.min_pos.x, -(float)view_rect.min_pos.y);
     gl_matrix view_matrix = matrix_multiply(scale_matrix, origin_matrix);
     screen_matrix = matrix_multiply(flip_y_matrix, offset_y_matrix);
     projection_matrix = make_ortho(window_width, window_height);
@@ -894,6 +885,18 @@ void gerber_explorer::on_render()
         my_target.cleanup();
         my_target.init(window_width, window_height, multisample_count, 1);
     }
+
+    // get center of bounding rect of all layers (for flip)
+    rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
+    for(auto layer : layers) {
+        all = all.union_with(layer->extent());
+    }
+    vec2d center = all.center();
+
+    layer_program.use();
+    glUniform2f(layer_program.center_uniform, (float)center.x, (float)center.y);
+    glUniform1i(layer_program.x_flip_uniform, settings.invert_x);
+    glUniform1i(layer_program.y_flip_uniform, settings.invert_y);
 
     for(auto r = layers.begin(); r != layers.end(); ++r) {
         gerber_layer &layer = **r;

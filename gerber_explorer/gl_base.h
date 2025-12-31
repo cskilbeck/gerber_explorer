@@ -101,6 +101,10 @@ namespace gerber_3d
     {
         GLuint color_location{};
 
+        GLuint center_uniform;
+        GLuint x_flip_uniform;
+        GLuint y_flip_uniform;
+
         int init() override;
 
         void set_color(uint32_t cover) const;

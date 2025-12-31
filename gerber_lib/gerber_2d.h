@@ -195,6 +195,13 @@ namespace gerber_lib
 
             //////////////////////////////////////////////////////////////////////
 
+            vec2d center() const
+            {
+                return { (min_pos.x + max_pos.x) / 2.0, (min_pos.y + max_pos.y) / 2.0 };
+            }
+
+            //////////////////////////////////////////////////////////////////////
+
             rect offset(vec2d o)
             {
                 return { min_pos.add(o), max_pos.add(o) };

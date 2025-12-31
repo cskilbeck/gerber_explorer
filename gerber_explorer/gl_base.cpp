@@ -87,8 +87,19 @@ namespace gerber_3d
 
         out vec4 cover;
 
+        uniform vec2 center;
+        uniform bool x_flip;
+        uniform bool y_flip;
+
         void main() {
-            gl_Position = transform * vec4(position, 0.0f, 1.0f);
+            vec2 pos = position;
+            if(x_flip) {
+                pos.x = center.x - (pos.x - center.x);
+            }
+            if(y_flip) {
+                pos.y = center.y - (pos.y - center.y);
+            }
+            gl_Position = transform * vec4(pos, 0.0f, 1.0f);
             cover = cover_in;
         }
 
@@ -120,13 +131,13 @@ namespace gerber_3d
 
         in vec2 position;
         in vec2 tex_coord_in;
-
         out vec2 tex_coord;
 
         uniform mat4 transform;
 
         void main() {
-            gl_Position = transform * vec4(position.xy, 0.0f, 1);
+            vec2 pos = position;
+            gl_Position = transform * vec4(pos.xy, 0.0f, 1);
             tex_coord = tex_coord_in;
         }
 
@@ -300,6 +311,11 @@ namespace gerber_3d
             return err;
         }
         color_location = get_uniform("cover_in");
+
+        center_uniform = get_uniform("center");
+        x_flip_uniform = get_uniform("x_flip");
+        y_flip_uniform = get_uniform("y_flip");
+
         return 0;
     }
 
@@ -355,6 +371,7 @@ namespace gerber_3d
         if(err != 0) {
             return err;
         }
+
         red_color_uniform = get_uniform("red_color");
         green_color_uniform = get_uniform("green_color");
         blue_color_uniform = get_uniform("blue_color");
@@ -362,6 +379,8 @@ namespace gerber_3d
         alpha_uniform = get_uniform("alpha");
         cover_sampler = get_uniform("cover_sampler");
         num_samples_uniform = get_uniform("num_samples");
+
+
         return 0;
     }
 
