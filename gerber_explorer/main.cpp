@@ -11,8 +11,10 @@
 // X handle empty layers
 // X inverted layer
 // X drag/drop reorder layers
+// X flip x/y
+// X zoom to fit on load
 //
-// flip x/y
+// high DPI
 // picking / selection
 // render-on-window-resize
 // fix ImGui viewport thing

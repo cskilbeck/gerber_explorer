@@ -10,7 +10,7 @@ struct layer_t
     std::string color;
     bool visible{ false };
     bool inverted{ false };
-    int index{0};
+    int index{ 0 };
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(layer_t, filename, color, visible, inverted, index)
 };

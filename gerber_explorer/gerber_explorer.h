@@ -146,6 +146,9 @@ struct gerber_explorer : gl_window {
 
     std::list<gerber_layer *> loaded_layers; // loaded in the other thread, waiting to be added to layers
 
+    int gerbers_to_load{0};
+    void on_last_gerber_loaded();
+
     settings_t settings;
 
     std::mutex loader_mutex;

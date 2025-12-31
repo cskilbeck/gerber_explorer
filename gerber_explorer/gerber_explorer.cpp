@@ -270,49 +270,26 @@ void gerber_explorer::on_drop(int count, const char **paths)
 
 void gerber_explorer::on_key(int key, int scancode, int action, int mods)
 {
-    // auto layer = layers[0];
-    // auto calls = layer->layer->draw_calls;
-    // switch(action) {
-    // case GLFW_PRESS:
-    // case GLFW_REPEAT:
-    //     switch(key) {
-    //     case GLFW_KEY_UP: {
-    //         debug_draw_call += 1;
-    //         if(debug_draw_call >= calls.size()) {
-    //             debug_draw_call = calls.size() - 1;
-    //         }
-    //         LOG_INFO("draw_call {}", debug_draw_call);
-    //     } break;
-    //     case GLFW_KEY_DOWN: {
-    //         debug_draw_call -= 1;
-    //         if(debug_draw_call < 0) {
-    //             debug_draw_call = 0;
-    //         }
-    //         LOG_INFO("draw_call {}", debug_draw_call);
-    //     } break;
-    //     case GLFW_KEY_LEFT: {
-    //         debug_outline_line -= 1;
-    //         auto const &call = calls[debug_draw_call];
-    //         auto const &verts = layer->layer->outline_vertices;
-    //         if(debug_outline_line < 0) {
-    //             debug_outline_line = 0;
-    //         }
-    //         LOG_INFO("line {}", debug_outline_line);
-    //     } break;
-    //     case GLFW_KEY_RIGHT: {
-    //         debug_outline_line += 1;
-    //         auto const &call = calls[debug_draw_call];
-    //         auto const &verts = layer->layer->outline_vertices;
-    //         if(debug_outline_line >= call.outline_length) {
-    //             debug_outline_line = call.outline_length - 1;
-    //         }
-    //         LOG_INFO("line {}", debug_outline_line);
-    //     } break;
-    //     }
-    //     break;
-    // case GLFW_RELEASE:
-    //     break;
-    // }
+    switch(action) {
+    case GLFW_PRESS:
+    case GLFW_REPEAT:
+        switch(key) {
+        case GLFW_KEY_F:
+            fit_to_window();
+            break;
+        case GLFW_KEY_UP: {
+        } break;
+        case GLFW_KEY_DOWN: {
+        } break;
+        case GLFW_KEY_LEFT: {
+        } break;
+        case GLFW_KEY_RIGHT: {
+        } break;
+        }
+        break;
+    case GLFW_RELEASE:
+        break;
+    }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -615,10 +592,19 @@ void gerber_explorer::load_gerber(layer_t const &layer)
 {
     {
         std::lock_guard lock(loader_mutex);
+        gerbers_to_load += 1;
         gerber_filenames_to_load.push_back(layer);    // copy it!
     }
     loader_semaphore.release();
     std::this_thread::yield();
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::on_last_gerber_loaded()
+{
+    selected_layer = nullptr;
+    fit_to_window();
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -634,6 +620,15 @@ void gerber_explorer::on_render()
             loaded_layer->layer.on_finished_loading();
             layers.push_front(loaded_layer);
             layers.sort([](gerber_layer const *a, gerber_layer const *b) { return a->index > b->index; });
+            {
+                std::lock_guard lock(loader_mutex);
+                if(gerbers_to_load != 0) {
+                    gerbers_to_load -= 1;
+                    if(gerbers_to_load == 0) {
+                        on_last_gerber_loaded();
+                    }
+                }
+            }
         }
     }
 
@@ -795,7 +790,9 @@ void gerber_explorer::on_render()
                     ImGui::SetItemTooltip("Invert layer");
                 }
                 ImGui::SameLine();
-                ImGui::ColorEdit4("##clr", l->fill_color.f, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreview);
+                ImGui::ColorEdit4("##clr",
+                                  l->fill_color.f,
+                                  ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreview);
                 ImGui::SameLine();
                 if(IconButton("##del", MATSYM_close)) {
                     item_to_delete = l;
