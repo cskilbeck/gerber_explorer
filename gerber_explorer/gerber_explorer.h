@@ -18,8 +18,8 @@ struct gerber_explorer : gl_window {
     struct gerber_layer
     {
         int index;
-        gerber_3d::gl_drawer *layer{ nullptr };
-        bool show{ true };
+        gerber_3d::gl_drawer layer{};
+        bool visible{ true };
         bool invert{ false };
         bool outline{ false };
         bool fill{ true };
@@ -28,13 +28,21 @@ struct gerber_explorer : gl_window {
         int alpha{ 255 };
         std::string name;
 
+        std::string filename() const
+        {
+            if(is_valid()) {
+                return layer.gerber_file->filename;
+            }
+            return {};
+        }
+
         gl_color::float4 fill_color;
         gl_color::float4 clear_color;
         gl_color::float4 outline_color;
 
         bool is_valid() const
         {
-            return layer != nullptr && layer->gerber_file != nullptr;
+            return layer.gerber_file != nullptr;
         }
 
         gerber_lib::gerber_2d::rect extent() const
@@ -42,12 +50,12 @@ struct gerber_explorer : gl_window {
             if(!is_valid()) {
                 return rect{};
             }
-            return layer->gerber_file->image.info.extent;
+            return layer.gerber_file->image.info.extent;
         }
 
         void draw(bool wireframe, float outline_thickness)
         {
-            layer->draw(fill, outline, wireframe, outline_thickness);
+            layer.draw(fill, outline, wireframe, outline_thickness, invert);
         }
 
         bool operator<(gerber_layer const &other)
@@ -77,6 +85,7 @@ struct gerber_explorer : gl_window {
     vec2d drag_mouse_start_pos{};
     vec2d mouse_world_pos{};
     rect drag_rect{};
+    int ignore_mouse_moves{};
 
     // view rect in world coordinates
     rect view_rect{};
@@ -131,7 +140,7 @@ struct gerber_explorer : gl_window {
     void zoom_image(vec2d const &pos, double zoom_scale);
     void update_view_rect();
 
-    void load_gerber(char const *filename);
+    void load_gerber(layer_t const &layer);
 
     void select_entity(vec2d const &window_pos);
 
@@ -141,7 +150,7 @@ struct gerber_explorer : gl_window {
 
     std::mutex loader_mutex;
     std::mutex loaded_mutex;
-    std::list<std::string> gerber_filenames_to_load;
+    std::list<layer_t> gerber_filenames_to_load;
     void load_gerbers(std::stop_token const &st);
     std::jthread gerber_load_thread;
     std::counting_semaphore<1024> loader_semaphore{0};
@@ -153,6 +162,7 @@ struct gerber_explorer : gl_window {
     void on_scroll(double xoffset, double yoffset) override;
     void on_mouse_button(int button, int action, int mods) override;
     void on_mouse_move(double xpos, double ypos) override;
+    void on_drop(int count, const char **paths) override;
 
     std::string app_name() const override;
 };

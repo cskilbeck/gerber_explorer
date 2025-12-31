@@ -5,10 +5,14 @@
 // X use proper font
 // X use matsym icon library
 // X use VS2022 to build it
+// X ignore initial mouse zoom moves
+// X support dropping filenames to load them
+// X load layers multithreaded
+// X handle empty layers
+// X inverted layer
+// X drag/drop reorder layers
 //
-// load layers multithreaded but maintain ordering
-// fix gl 1282 for empty layer (E:\dev\clock_monsieur\pcb\Outputs\2025-12-19\clock_led_Soldermask_Top.gbr)
-// inverted layer
+// flip x/y
 // picking / selection
 // render-on-window-resize
 // fix ImGui viewport thing
@@ -18,12 +22,35 @@
 // ?OpenCascade 3D nonsense
 // measure tool
 // export PNG
+// ? undo/redo !?
 //
+
+/*
+ * file extension (Protel: GTO, GTL etc)
+ * filename (from the ok folder from jlcpcb)
+ * filename (from KiCad - XXXX_F_Cu.gbr etc)
+ * X2 comment (%TF.FileFunction,Soldermask,Top*%)
+ *
+ * all drills
+ * board
+ * profile
+ * keepout
+ * -----
+ * top overlay
+ * top paste
+ * top pads
+ * top soldermask (invert)
+ * copper 1..n
+ * bottom soldermask (invert)
+ * bottom pads
+ * bottom paste
+ * bottom overlay
+ * -----
+ */
 
 #include <cstdio>
 #include <filesystem>
 
-#include "gerber_lib.h"
 #include "gerber_explorer.h"
 #include "settings.h"
 

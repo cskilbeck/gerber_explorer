@@ -53,6 +53,36 @@ namespace gl_color
             return f;
         }
 
+        std::string to_string()
+        {
+            uint32_t abgr = static_cast<uint32_t>(*this);
+            int alpha = (abgr >> 24) & 0xff;
+            int blue = (abgr >> 16) & 0xff;
+            int green = (abgr >> 8) & 0xff;
+            int red = (abgr >> 0) & 0xff;
+            return std::format("#{:02x}{:02x}{:02x}{:02x}", alpha, blue, green, red);
+        }
+
+        void from_string(std::string const &v)
+        {
+            if(v[0] != '#' || v.size() != 9) {
+                return;
+            }
+            uint32_t abgr = 0;
+            for(int n=1; n<9; ++n) {
+                abgr <<= 4;
+                char c = static_cast<char>(std::toupper(v[n]));
+                if(c >= '0' && c <= '9') {
+                    abgr |= c - '0';
+                } else if(c >= 'A' && c <= 'F') {
+                    abgr |= c - 'A' + 10;
+                } else {
+                    abgr |= 0xF;
+                }
+            }
+            *this = float4(abgr);
+        }
+
         explicit operator uint32_t() const
         {
             uint32_t red = (int)(f[0] * 255.0f) & 0xff;

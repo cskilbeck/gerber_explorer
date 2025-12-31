@@ -9,7 +9,7 @@ set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
         cmrc
         GIT_REPOSITORY https://github.com/vector-of-bool/cmrc.git
-        GIT_TAG        2.0.1)
+        GIT_TAG 2.0.1)
 
 FetchContent_MakeAvailable(cmrc)
 
@@ -102,7 +102,7 @@ add_executable(${PROJECT}
         settings.h
         assets/matsym_codepoints_utf8.h)
 
-if(MSVC)
+if (MSVC)
     string(REPLACE "/W3" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     target_compile_options(${PROJECT} PRIVATE
             /MP       # multiprocessor build
@@ -110,7 +110,7 @@ if(MSVC)
             /wd4505   # unreferenced function with internal linkage has been removed
             /WX)      # warnings-as-errors
 
-else()
+else ()
     target_compile_options(${PROJECT} PRIVATE
             -Wall
             -Wextra
@@ -120,21 +120,17 @@ else()
             -Wno-unused-parameter
             -Wno-implicit-fallthrough
             -Wno-multichar)
-endif()
+endif ()
 
 target_compile_definitions(${PROJECT} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
 
 target_include_directories(${PROJECT} PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/win32
         ${CMRC_INCLUDE_DIR}
         ${imgui_SOURCE_DIR}
         ${imgui_SOURCE_DIR}/backends)
 
 target_link_libraries(${PROJECT} PRIVATE gerber_lib libtess2 glad glfw OpenGL::GL nlohmann_json::nlohmann_json nfd my_assets)
 
-if(MSVC)
-    set_target_properties(gerber_explorer PROPERTIES
-            LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
-    )
-endif()
+if (MSVC)
+    set_target_properties(gerber_explorer PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+endif ()

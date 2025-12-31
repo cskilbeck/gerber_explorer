@@ -9,7 +9,8 @@
 
 struct gl_window
 {
-    struct window_state_t {
+    struct window_state_t
+    {
         int x, y;
         int width, height;
         bool isMaximized;
@@ -39,6 +40,10 @@ struct gl_window
     }
 
     virtual void on_scroll(double xoffset, double yoffset)
+    {
+    }
+
+    virtual void on_drop(int count, const char **paths)
     {
     }
 

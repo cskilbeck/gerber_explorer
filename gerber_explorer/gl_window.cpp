@@ -95,6 +95,12 @@ namespace
         glwindow->on_window_pos(x, y);
     }
 
+    void on_glfw_drop(GLFWwindow *window, int count, char const **paths)
+    {
+        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
+        glwindow->on_drop(count, paths);
+    }
+
 #ifdef _WIN32
     void restore_win32_window(GLFWwindow *window, const gl_window::window_state_t &state)
     {
@@ -200,6 +206,7 @@ void gl_window::init()
     glfwSetScrollCallback(window, on_glfw_scroll);
     glfwSetWindowSizeCallback(window, on_glfw_size);
     glfwSetWindowPosCallback(window, on_glfw_pos);
+    glfwSetDropCallback(window, on_glfw_drop);
 
     glfwMakeContextCurrent(window);
 

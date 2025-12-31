@@ -166,6 +166,9 @@ namespace gerber_3d
 
     void gl_drawer::on_finished_loading()
     {
+        if(tesselator.vertices.empty() || tesselator.indices.empty()) {
+            return;
+        }
         vertex_array.init(*program, static_cast<GLsizei>(tesselator.vertices.size()));
         vertex_array.activate();
         update_buffer<GL_ARRAY_BUFFER>(tesselator.vertices);
@@ -265,8 +268,12 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::draw(bool fill, bool outline, bool wireframe, float outline_thickness)
+    void gl_drawer::draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert)
     {
+        if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
+            return;
+        }
+
         program->use();
 
         vertex_array.activate();
@@ -277,11 +284,15 @@ namespace gerber_3d
 
         glEnable(GL_BLEND);
 
-        uint32_t constexpr fill_color = 0xff0000ff;
-        uint32_t constexpr clear_color = 0xff00ff00;
-        uint32_t constexpr outline_color = 0xffff0000;
+        uint32_t fill_color = 0xff0000ff;
+        uint32_t clear_color = 0xff00ff00;
+        uint32_t outline_color = 0xffff0000;
 
-        program->set_color(fill_color);
+        if(invert) {
+            std::swap(fill_color, clear_color);
+            glClearColor(1,0,0,1);
+            glClear(GL_COLOR_BUFFER_BIT);
+        }
 
         for(auto const &e : tesselator.entities) {
             if(fill) {
