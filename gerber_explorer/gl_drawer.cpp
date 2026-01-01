@@ -290,7 +290,7 @@ namespace gerber_3d
 
         if(invert) {
             std::swap(fill_color, clear_color);
-            glClearColor(1,0,0,1);
+            glClearColor(1,0,0,1); // fill_color (red)
             glClear(GL_COLOR_BUFFER_BIT);
         }
 

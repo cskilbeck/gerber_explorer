@@ -13,18 +13,16 @@ LOG_CONTEXT("settings", debug);
 
 namespace
 {
-    std::string const app_name = "gerber_explorer";
-    std::string const settings_filename = "settings.json";
 }
 
 //////////////////////////////////////////////////////////////////////
 
-void settings_t::save()
+void settings_t::save(std::filesystem::path const &path)
 {
     nlohmann::json json;
     to_json(json);
 
-    std::ofstream save(config_path(app_name, settings_filename));
+    std::ofstream save(path);
     if(save.good()) {
         save << json.dump(4);
     }
@@ -33,9 +31,9 @@ void settings_t::save()
 
 //////////////////////////////////////////////////////////////////////
 
-void settings_t::load()
+void settings_t::load(std::filesystem::path const &path)
 {
-    std::ifstream load(config_path(app_name, settings_filename));
+    std::ifstream load(path);
     if(load.good()) {
         nlohmann::json json = nlohmann::json::parse(load, nullptr, false, true);
         load.close();

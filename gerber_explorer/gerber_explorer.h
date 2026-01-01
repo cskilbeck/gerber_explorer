@@ -21,8 +21,7 @@ struct gerber_explorer : gl_window {
         gerber_3d::gl_drawer layer{};
         bool visible{ true };
         bool invert{ false };
-        bool outline{ false };
-        bool fill{ true };
+        int draw_mode{0};
         bool expanded{ false };
         bool selected{ false };
         int alpha{ 255 };
@@ -55,6 +54,22 @@ struct gerber_explorer : gl_window {
 
         void draw(bool wireframe, float outline_thickness)
         {
+            bool fill;
+            bool outline;
+            switch(draw_mode) {
+            default:
+                fill = true;
+                outline = false;
+                break;
+            case 1:
+                fill = true;
+                outline = true;
+                break;
+            case 2:
+                fill = false;
+                outline = true;
+                break;
+            }
             layer.draw(fill, outline, wireframe, outline_thickness, invert);
         }
 
@@ -149,6 +164,8 @@ struct gerber_explorer : gl_window {
     int gerbers_to_load{0};
     void on_last_gerber_loaded();
 
+    void file_open();
+
     settings_t settings;
 
     std::mutex loader_mutex;
@@ -157,6 +174,12 @@ struct gerber_explorer : gl_window {
     void load_gerbers(std::stop_token const &st);
     std::jthread gerber_load_thread;
     std::counting_semaphore<1024> loader_semaphore{0};
+
+    std::optional<std::filesystem::path> save_file_dialog();
+    std::optional<std::filesystem::path> load_file_dialog();
+
+    void save_settings(std::filesystem::path const &path);
+    void load_settings(std::filesystem::path const &path);
 
     bool on_init() override;
     void on_render() override;
@@ -167,5 +190,5 @@ struct gerber_explorer : gl_window {
     void on_mouse_move(double xpos, double ypos) override;
     void on_drop(int count, const char **paths) override;
 
-    std::string app_name() const override;
+    std::string window_name() const override;
 };

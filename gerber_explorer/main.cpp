@@ -13,7 +13,10 @@
 // X drag/drop reorder layers
 // X flip x/y
 // X zoom to fit on load
+// X load/save settings
+// X hotkeys
 //
+// thick outline
 // high DPI
 // picking / selection
 // render-on-window-resize
@@ -21,31 +24,33 @@
 // gerber spec compliance (polygons, holes)
 // load zip file (how to store path in settings?)
 // detect gerber layer type/position from extension/name/x2 info
-// ?OpenCascade 3D nonsense
 // measure tool
 // export PNG
-// ? undo/redo !?
+// ? OpenCascade 3D nonsense ?
+// ? undo/redo ?
 //
 
 /*
  * file extension (Protel: GTO, GTL etc)
- * filename (from the ok folder from jlcpcb)
  * filename (from KiCad - XXXX_F_Cu.gbr etc)
  * X2 comment (%TF.FileFunction,Soldermask,Top*%)
+ * filename (from the ok folder from jlcpcb)
  *
- * all drills
+ * drills
  * board
  * profile
  * keepout
  * -----
  * top overlay
+ * top soldermask (invert)
  * top paste
  * top pads
- * top soldermask (invert)
+ *
  * copper 1..n
- * bottom soldermask (invert)
+ *
  * bottom pads
  * bottom paste
+ * bottom soldermask (invert)
  * bottom overlay
  * -----
  */

@@ -10,18 +10,20 @@ struct layer_t
     std::string color;
     bool visible{ false };
     bool inverted{ false };
+    int draw_mode{ 0 };
     int index{ 0 };
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(layer_t, filename, color, visible, inverted, index)
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(layer_t, filename, color, visible, inverted, draw_mode, index)
 };
 
 #define SETTINGS_FIELDS              \
     X(bool, wireframe, false)        \
     X(bool, show_axes, true)         \
     X(bool, show_extent, true)       \
-    X(bool, invert_x, false)         \
-    X(bool, invert_y, false)         \
+    X(bool, flip_x, false)           \
+    X(bool, flip_y, false)           \
     X(bool, window_maximized, false) \
+    X(float, outline_width, 1.0f)    \
     X(int, window_width, 800)        \
     X(int, window_height, 600)       \
     X(int, window_xpos, 100)         \
@@ -34,8 +36,8 @@ struct settings_t
     SETTINGS_FIELDS
 #undef X
 
-    void save();
-    void load();
+    void save(std::filesystem::path const &path);
+    void load(std::filesystem::path const &path);
 
     void to_json(nlohmann::json &j)
     {
@@ -48,12 +50,9 @@ struct settings_t
     {
         LOG_CONTEXT("from_json", debug);
 #define X(type, name, ...)              \
-    LOG_INFO("FROM: {}", #name);        \
     if(j.contains(#name)) {             \
-        LOG_INFO("CONTAINS!");          \
         name = j.at(#name).get<type>(); \
     } else {                            \
-        LOG_INFO("DOES NOT CONTAINS!"); \
         name = __VA_ARGS__;             \
     }
         SETTINGS_FIELDS

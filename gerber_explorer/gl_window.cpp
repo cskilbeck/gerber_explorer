@@ -197,7 +197,7 @@ void gl_window::init()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);    // Required on macOS
     glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
 
-    window = glfwCreateWindow(800, 600, app_name().c_str(), nullptr, nullptr);
+    window = glfwCreateWindow(800, 600, window_name().c_str(), nullptr, nullptr);
     glfwSetWindowUserPointer(window, this);
 
     glfwSetKeyCallback(window, on_glfw_key);

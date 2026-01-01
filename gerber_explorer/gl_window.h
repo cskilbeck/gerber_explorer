@@ -47,7 +47,7 @@ struct gl_window
     {
     }
 
-    virtual std::string app_name() const
+    virtual std::string window_name() const
     {
         return "glfw";
     }
