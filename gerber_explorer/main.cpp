@@ -58,6 +58,12 @@
 #include <cstdio>
 #include <filesystem>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+#endif
+
 #include "gerber_explorer.h"
 #include "settings.h"
 
@@ -75,14 +81,27 @@ int flushed_puts(char const *s)
 int main(int, char **)
 {
     log_set_level(gerber_lib::log_level_debug);
-    gerber_lib::log_set_emitter_function(flushed_puts);
 
+#ifdef _WIN32
+    if(!IsDebuggerPresent()) {
+        if(AttachConsole(ATTACH_PARENT_PROCESS)) {
+            FILE *dummy;
+            freopen_s(&dummy, "CONOUT$", "w", stdout);
+            freopen_s(&dummy, "CONOUT$", "w", stderr);
+            freopen_s(&dummy, "CONIN$", "r", stdin);
+        }
+        gerber_lib::log_set_emitter_function(puts);
+    } else {
+        gerber_lib::log_set_emitter_function(flushed_puts);
+    }
+#else
+    gerber_lib::log_set_emitter_function(puts);
+#endif
 
     gerber_explorer window;
     window.init();
 
-    while(window.update()) {
-    }
+    while(window.update()) {}
 
     return 0;
 }
