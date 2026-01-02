@@ -4,6 +4,12 @@
 #include <string>
 // #include <unistd.h>
 
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include "imgui.h"
+#include "imgui_internal.h"
+
+//////////////////////////////////////////////////////////////////////
+
 char const *app_name{ "gerber_explorer" };
 char const *app_friendly_name{ "Gerber Viewer" };
 char const *settings_filename{ "settings.json" };
@@ -11,6 +17,8 @@ char const *settings_filename{ "settings.json" };
 #if defined(__APPLE__)
 #include <pwd.h>
 #endif
+
+//////////////////////////////////////////////////////////////////////
 
 std::optional<std::string> get_env_var(const std::string &key)
 {
@@ -28,6 +36,8 @@ std::optional<std::string> get_env_var(const std::string &key)
     }
     return std::string(val);
 }
+
+//////////////////////////////////////////////////////////////////////
 
 std::filesystem::path config_path(std::string const &application_name, std::string const &filename)
 {
@@ -83,4 +93,163 @@ std::filesystem::path config_path(std::string const &application_name, std::stri
     }
 
     return base_path / filename;
+}
+
+//////////////////////////////////////////////////////////////////////
+
+bool IconCheckbox(const char *label, bool *v, const char *icon_on, const char *icon_off)
+{
+    ImGuiWindow *window = ImGui::GetCurrentWindow();
+    if(window->SkipItems) {
+        return false;
+    }
+
+    ImGuiContext &g = *GImGui;
+    const ImGuiStyle &style = g.Style;
+    const ImGuiID id = window->GetID(label);
+    const ImVec2 label_size = ImGui::CalcTextSize(label, nullptr, true);
+
+    const float square_sz = ImGui::GetFrameHeight();
+    const ImVec2 pos = window->DC.CursorPos;
+    // Total bounding box (Icon square + Padding + Label text)
+    const ImRect total_bb(
+        pos, pos + ImVec2(square_sz + (label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 0.0f), label_size.y + style.FramePadding.y * 2.0f));
+
+    ImGui::ItemSize(total_bb, style.FramePadding.y);
+    if(!ImGui::ItemAdd(total_bb, id))
+        return false;
+
+    bool hovered, held;
+    bool pressed = ImGui::ButtonBehavior(total_bb, id, &hovered, &held);
+    if(pressed) {
+        *v = !(*v);
+        ImGui::MarkItemEdited(id);
+    }
+
+    // 1. Render Background Frame
+    const ImU32 col = ImGui::GetColorU32((held && hovered) ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
+    ImGui::RenderFrame(pos, pos + ImVec2(square_sz, square_sz), col, true, style.FrameRounding);
+
+    // 2. Render the Icon
+    const char *icon = *v ? icon_on : icon_off;
+    if(*v || icon_off) {    // Only draw if checked, or if an "off" icon is provided
+        ImVec2 icon_size = ImGui::CalcTextSize(icon);
+        // Center the icon in the square
+        ImVec2 icon_pos = pos + ImVec2((square_sz - icon_size.x) * 0.5f, (square_sz - icon_size.y) * 0.5f);
+        window->DrawList->AddText(icon_pos, ImGui::GetColorU32(ImGuiCol_Text), icon);
+    }
+
+    // 3. Render Label
+    if(label_size.x > 0.0f) {
+        ImGui::RenderText(pos + ImVec2(square_sz + style.ItemInnerSpacing.x, style.FramePadding.y), label);
+    }
+
+    return pressed;
+}
+
+//////////////////////////////////////////////////////////////////////
+
+bool IconCheckboxTristate(const char *label, int *v, const char *icon_on, const char *icon_off, const char *icon_mixed)
+{
+    ImGuiWindow *window = ImGui::GetCurrentWindow();
+    if(window->SkipItems) {
+        return false;
+    }
+
+    ImGuiContext &g = *GImGui;
+    const ImGuiStyle &style = g.Style;
+    const ImGuiID id = window->GetID(label);
+    const ImVec2 label_size = ImGui::CalcTextSize(label, nullptr, true);
+
+    const float square_sz = ImGui::GetFrameHeight();
+    const ImVec2 pos = window->DC.CursorPos;
+    const ImRect total_bb(
+        pos, pos + ImVec2(square_sz + (label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 0.0f), label_size.y + style.FramePadding.y * 2.0f));
+
+    ImGui::ItemSize(total_bb, style.FramePadding.y);
+    if(!ImGui::ItemAdd(total_bb, id))
+        return false;
+
+    bool hovered, held;
+    bool pressed = ImGui::ButtonBehavior(total_bb, id, &hovered, &held);
+
+    if(pressed) {
+        // Simple toggle logic: If Mixed or Off -> turn On. If On -> turn Off.
+        *v += 1;
+        if(*v >= 3) {
+            *v = 0;
+        }
+        ImGui::MarkItemEdited(id);
+    }
+
+    // 1. Render Background Frame
+    const ImU32 col = ImGui::GetColorU32((held && hovered) ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
+    ImGui::RenderFrame(pos, pos + ImVec2(square_sz, square_sz), col, true, style.FrameRounding);
+
+    // 2. Icon Selection Logic
+    const char *icon = icon_off;
+    if(*v == 1)
+        icon = icon_on;
+    else if(*v == 2)
+        icon = icon_mixed;
+
+    if(icon) {
+        ImVec2 icon_size = ImGui::CalcTextSize(icon);
+        ImVec2 icon_pos = pos + ImVec2((square_sz - icon_size.x) * 0.5f, (square_sz - icon_size.y) * 0.5f);
+
+        // Optional: Dim the color if in mixed state to match ImGui's native feel
+        ImU32 icon_col = ImGui::GetColorU32(ImGuiCol_Text);
+        window->DrawList->AddText(icon_pos, icon_col, icon);
+    }
+
+    // 3. Render Label
+    if(label_size.x > 0.0f) {
+        ImGui::RenderText(pos + ImVec2(square_sz + style.ItemInnerSpacing.x, style.FramePadding.y), label);
+    }
+
+    return pressed;
+}
+
+//////////////////////////////////////////////////////////////////////
+
+bool IconButton(const char *label, const char *icon)
+{
+    ImGuiWindow *window = ImGui::GetCurrentWindow();
+    if(window->SkipItems)
+        return false;
+
+    ImGuiContext &g = *GImGui;
+    const ImGuiStyle &style = g.Style;
+    const ImGuiID id = window->GetID(label);
+    const ImVec2 label_size = ImGui::CalcTextSize(label, nullptr, true);
+
+    const float square_sz = ImGui::GetFrameHeight();
+    const ImVec2 pos = window->DC.CursorPos;
+    // Total bounding box (Icon square + Padding + Label text)
+    const ImRect total_bb(
+        pos, pos + ImVec2(square_sz + (label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 0.0f), label_size.y + style.FramePadding.y * 2.0f));
+
+    ImGui::ItemSize(total_bb, style.FramePadding.y);
+    if(!ImGui::ItemAdd(total_bb, id))
+        return false;
+
+    bool hovered, held;
+    bool pressed = ImGui::ButtonBehavior(total_bb, id, &hovered, &held);
+
+    // 1. Render Background Frame
+    const ImU32 col = ImGui::GetColorU32((held && hovered) ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
+    ImGui::RenderFrame(pos, pos + ImVec2(square_sz, square_sz), col, true, style.FrameRounding);
+
+    // 2. Render the Icon
+    ImVec2 icon_size = ImGui::CalcTextSize(icon);
+    // Center the icon in the square
+    ImVec2 icon_pos = pos + ImVec2((square_sz - icon_size.x) * 0.5f, (square_sz - icon_size.y) * 0.5f);
+    window->DrawList->AddText(icon_pos, ImGui::GetColorU32(ImGuiCol_Text), icon);
+
+    // 3. Render Label
+    if(label_size.x > 0.0f) {
+        ImGui::RenderText(pos + ImVec2(square_sz + style.ItemInnerSpacing.x, style.FramePadding.y), label);
+    }
+
+    return pressed;
 }
