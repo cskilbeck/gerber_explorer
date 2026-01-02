@@ -24,9 +24,7 @@ namespace gerber_3d
     struct tesselator_entity
     {
         int entity_id;                           // redundant, strictly speaking, but handy
-        int first_outline;                       // offset into outlines spans
         int first_fill;                          // offset into fills spans
-        int num_outlines{};                      // # of boundary outline line loops
         int num_fills{};                         // # of fill draw calls
         draw_call_flags flags;                   // clear/fill
         gerber_lib::gerber_2d::rect bounds{};    // for picking speedup
@@ -34,7 +32,7 @@ namespace gerber_3d
 
     struct tesselator_span
     {
-        int start;    // glDrawArrays(start, length) (boundary lines) or glDrawElements(start, length) (interior triangles)
+        int start; // glDrawElements(start, length) (for interior triangles)
         int length;
     };
 
@@ -50,12 +48,11 @@ namespace gerber_3d
         std::vector<vec2f> points;
 
         std::vector<vert> fill_vertices;
-        std::vector<vert> outline_vertices;
+        std::vector<vert> outline_vertices_start;
+        std::vector<vert> outline_vertices_end;
 
         std::vector<GLuint> indices;
         std::vector<tesselator_span> fills;
-
-        std::vector<tesselator_span> boundaries;
 
         int contours{};
 
@@ -97,8 +94,8 @@ namespace gerber_3d
         // indices for interior triangles
         gl_index_buffer index_array;
 
-        // vertices for outline
-        GLuint lines_vbo;
+        // vertices for outline (2 because start, end)
+        GLuint lines_vbo[2];
     };
 
 }    // namespace gerber_3d
