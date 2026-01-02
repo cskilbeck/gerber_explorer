@@ -896,27 +896,13 @@ void gerber_explorer::on_render()
     float cx = (float)center.x;
     float cy = (float)center.y;
 
-    float x_scale = (float)(window_rect.width() / view_rect.width());
-    float y_scale = (float)(window_rect.height() / view_rect.height());
+    float pixel_scale = (float)(window_rect.width() / view_rect.width());
 
-    gl_matrix scale_matrix = make_scale(x_scale, y_scale);
-    gl_matrix origin_matrix = make_translate(-(float)view_rect.min_pos.x, -(float)view_rect.min_pos.y);
-    gl_matrix invert_y_matrix = make_ortho(window_width, -window_height);
-    gl_matrix offset_y_matrix = make_translate(0, (float)-window_height);
-    gl_matrix view_matrix = matrix_multiply(scale_matrix, origin_matrix);
-    gl_matrix translate_to_origin = make_translate(-cx, -cy);
-    gl_matrix flip_x = make_scale(settings.flip_x ? -1.0f : 1.0f, 1.0f);
-    gl_matrix flip_y = make_scale(1, settings.flip_y ? -1.0f : 1.0f);
-    gl_matrix translate_back = make_translate(cx, cy);
-    gl_matrix flip_xy = matrix_multiply(flip_x, flip_y);
-    gl_matrix flip = matrix_multiply(translate_back, matrix_multiply(flip_xy, translate_to_origin));
-    gl_matrix flip_view_matrix = matrix_multiply(view_matrix, flip);
+    fullscreen_blit_matrix = make_ortho(window_width, window_height);
 
-    screen_matrix = matrix_multiply(invert_y_matrix, offset_y_matrix);
-    projection_matrix = make_ortho(window_width, window_height);
+    flip_world_matrix = make_2d_transform(window_width, window_height, view_rect, cx, cy, settings.flip_x, settings.flip_y);
 
-    world_matrix = matrix_multiply(projection_matrix, view_matrix);
-    flip_world_matrix = matrix_multiply(projection_matrix, flip_view_matrix);
+    // flip_world_matrix = matrix_multiply(projection_matrix, flip_view_matrix);
 
     GL_CHECK(glClearColor(0, 0, 0, 1.0f));
     GL_CHECK(glDisable(GL_DEPTH_TEST));
@@ -937,7 +923,7 @@ void gerber_explorer::on_render()
     }
 
     // float scale = (float)view_rect.width() / window_width;
-    float outline_width = (settings.outline_width + 1) / x_scale;
+    float outline_width = (settings.outline_width + 1) / pixel_scale;
 
     for(auto r = layers.begin(); r != layers.end(); ++r) {
         gerber_layer &layer = **r;
@@ -969,7 +955,7 @@ void gerber_explorer::on_render()
             glUniform1f(textured_program.u_alpha, layer.alpha / 255.0f);
             glUniform1i(textured_program.u_num_samples, my_target.num_samples);
             glUniform1i(textured_program.u_cover_sampler, 0);
-            glUniformMatrix4fv(textured_program.u_transform, 1, true, projection_matrix.m);
+            glUniformMatrix4fv(textured_program.u_transform, 1, false, fullscreen_blit_matrix.m);
 
             fullscreen_blit_verts.activate();
 
@@ -978,10 +964,6 @@ void gerber_explorer::on_render()
             glDrawArrays(GL_TRIANGLES, 0, 3);
         }
     }
-
-    // float scale = (float)view_rect.width() / window_width;
-
-    // line_test(scale * (settings.outline_width + 1));
 
     glLineWidth(1.0f);
 
@@ -1025,7 +1007,8 @@ void gerber_explorer::on_render()
 
     color_program.use();
 
-    GL_CHECK(glUniformMatrix4fv(color_program.u_transform, 1, true, screen_matrix.m));
+    screen_matrix = make_ortho(window_width, window_height);
+    GL_CHECK(glUniformMatrix4fv(color_program.u_transform, 1, false, screen_matrix.m));
 
     overlay.draw();
 }

@@ -176,7 +176,7 @@ namespace gerber_3d
     void gl_drawer::on_finished_loading()
     {
         if(tesselator.fill_vertices.empty() || tesselator.indices.empty() || tesselator.outline_vertices.empty()) {
-            LOG_INFO("!?");
+            LOG_INFO("Layer {} is empty", this->gerber_file->filename);
             return;
         }
         vertex_array.init(static_cast<GLsizei>(tesselator.fill_vertices.size()));
@@ -297,7 +297,7 @@ namespace gerber_3d
         if(fill) {
             layer_program->use();
 
-            GL_CHECK(glUniformMatrix4fv(layer_program->u_transform, 1, true, matrix.m));
+            GL_CHECK(glUniformMatrix4fv(layer_program->u_transform, 1, false, matrix.m));
 
             vertex_array.activate();
             index_array.activate();
@@ -353,7 +353,7 @@ namespace gerber_3d
             uint32_t outline_color = 0xffff0000;
             line_program->set_color(outline_color);
             glUniform1f(line_program->u_thickness, outline_thickness);
-            GL_CHECK(glUniformMatrix4fv(line_program->u_transform, 1, true, matrix.m));
+            GL_CHECK(glUniformMatrix4fv(line_program->u_transform, 1, false, matrix.m));
 
             // GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer
             GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, lines_vbo));

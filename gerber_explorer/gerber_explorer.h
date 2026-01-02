@@ -125,7 +125,7 @@ struct gerber_explorer : gl_window {
     gerber_3d::gl_matrix flip_world_matrix{};
     gerber_3d::gl_matrix world_matrix{};
     gerber_3d::gl_matrix screen_matrix{};
-    gerber_3d::gl_matrix projection_matrix{};
+    gerber_3d::gl_matrix fullscreen_blit_matrix{};
 
     gerber_3d::gl_drawlist overlay;
 
