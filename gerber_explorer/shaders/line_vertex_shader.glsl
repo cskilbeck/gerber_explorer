@@ -13,20 +13,9 @@ uniform float thickness;
 out vec2 v_local_pos;
 out float v_length;
 
-vec2 flipper(vec2 p) {
-    vec2 pos = p;
-    if(x_flip) {
-        pos.x = center.x - (pos.x - center.x);
-    }
-    if(y_flip) {
-        pos.y = center.y - (pos.y - center.y);
-    }
-    return pos;
-}
-
 void main() {
-    vec2 posa = flipper(posA);
-    vec2 posb = flipper(posB);
+    vec2 posa = posA;
+    vec2 posb = posB;
     vec2 dir = posb - posa;
     v_length = length(dir);
 

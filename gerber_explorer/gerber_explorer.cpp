@@ -1035,17 +1035,40 @@ void gerber_explorer::on_render()
 
     update_view_rect();
 
-    gl_matrix flip_y_matrix = make_ortho(window_width, -window_height);
-    gl_matrix offset_y_matrix = make_translate(0, (float)-window_height);
+    if(window_width == 0 || window_height == 0) {
+        return;
+    }
+
+    // get center of bounding rect of all layers (for flip)
+    rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
+    for(auto layer : layers) {
+        all = all.union_with(layer->extent());
+    }
+    vec2d center = all.center();
+    float cx = (float)center.x;
+    float cy = (float)center.y;
 
     float x_scale = (float)(window_rect.width() / view_rect.width());
     float y_scale = (float)(window_rect.height() / view_rect.height());
+
     gl_matrix scale_matrix = make_scale(x_scale, y_scale);
     gl_matrix origin_matrix = make_translate(-(float)view_rect.min_pos.x, -(float)view_rect.min_pos.y);
+    gl_matrix invert_y_matrix = make_ortho(window_width, -window_height);
+    gl_matrix offset_y_matrix = make_translate(0, (float)-window_height);
     gl_matrix view_matrix = matrix_multiply(scale_matrix, origin_matrix);
-    screen_matrix = matrix_multiply(flip_y_matrix, offset_y_matrix);
+    gl_matrix translate_to_origin = make_translate(-cx, -cy);
+    gl_matrix flip_x = make_scale(settings.flip_x ? -1.0f : 1.0f, 1.0f);
+    gl_matrix flip_y = make_scale(1, settings.flip_y ? -1.0f : 1.0f);
+    gl_matrix translate_back = make_translate(cx, cy);
+    gl_matrix flip_xy = matrix_multiply(flip_x, flip_y);
+    gl_matrix flip = matrix_multiply(translate_back, matrix_multiply(flip_xy, translate_to_origin));
+    gl_matrix flip_view_matrix = matrix_multiply(view_matrix, flip);
+
+    screen_matrix = matrix_multiply(invert_y_matrix, offset_y_matrix);
     projection_matrix = make_ortho(window_width, window_height);
+
     world_matrix = matrix_multiply(projection_matrix, view_matrix);
+    flip_world_matrix = matrix_multiply(projection_matrix, flip_view_matrix);
 
     GL_CHECK(glClearColor(0, 0, 0, 1.0f));
     GL_CHECK(glDisable(GL_DEPTH_TEST));
@@ -1065,25 +1088,8 @@ void gerber_explorer::on_render()
         my_target.init(window_width, window_height, multisample_count, 1);
     }
 
-    // get center of bounding rect of all layers (for flip)
-    rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
-    for(auto layer : layers) {
-        all = all.union_with(layer->extent());
-    }
-    vec2d center = all.center();
-
-    line_program.use();
-    glUniform2f(line_program.u_center, (float)center.x, (float)center.y);
-    glUniform1i(line_program.u_x_flip, settings.flip_x);
-    glUniform1i(line_program.u_y_flip, settings.flip_y);
-
-    layer_program.use();
-    glUniform2f(layer_program.u_center, (float)center.x, (float)center.y);
-    glUniform1i(layer_program.u_x_flip, settings.flip_x);
-    glUniform1i(layer_program.u_y_flip, settings.flip_y);
-
-    float scale = (float)view_rect.width() / window_width;
-    float outline_width = scale * (settings.outline_width + 1);
+    // float scale = (float)view_rect.width() / window_width;
+    float outline_width = (settings.outline_width + 1) / x_scale;
 
     for(auto r = layers.begin(); r != layers.end(); ++r) {
         gerber_layer &layer = **r;
@@ -1094,7 +1100,7 @@ void gerber_explorer::on_render()
             GL_CHECK(glViewport(0, 0, window_width, window_height));
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            layer.draw(settings.wireframe, outline_width, world_matrix);
+            layer.draw(settings.wireframe, outline_width, flip_world_matrix);
 
             // draw the render to the window
 

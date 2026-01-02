@@ -24,6 +24,7 @@
 // separate gl_vertex_array / gl_vertex_buffer
 // reduce gpu usage - only draw frame when necessary
 // high DPI
+// grid
 // render-on-window-resize
 // fix ImGui viewport thing
 // gerber spec compliance (polygons, holes)

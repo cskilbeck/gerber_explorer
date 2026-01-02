@@ -190,9 +190,6 @@ namespace gerber_3d
 
         u_thickness = get_uniform("thickness");
         u_color = get_uniform("color");
-        u_center = get_uniform("center");
-        u_x_flip = get_uniform("x_flip");
-        u_y_flip = get_uniform("y_flip");
         return 0;
     }
 
@@ -211,9 +208,6 @@ namespace gerber_3d
         }
 
         u_color = get_uniform("cover_in");
-        u_center = get_uniform("center");
-        u_x_flip = get_uniform("x_flip");
-        u_y_flip = get_uniform("y_flip");
 
         return 0;
     }

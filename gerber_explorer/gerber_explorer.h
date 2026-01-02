@@ -122,6 +122,7 @@ struct gerber_explorer : gl_window {
     rect source_view_rect{};
     bool zoom_anim{ false };
     std::chrono::time_point<std::chrono::high_resolution_clock> target_view_time{};
+    gerber_3d::gl_matrix flip_world_matrix{};
     gerber_3d::gl_matrix world_matrix{};
     gerber_3d::gl_matrix screen_matrix{};
     gerber_3d::gl_matrix projection_matrix{};

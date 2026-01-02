@@ -184,9 +184,6 @@ namespace gerber_3d
         static int constexpr position_location = 0;
 
         GLuint u_color{};
-        GLuint u_center;
-        GLuint u_x_flip;
-        GLuint u_y_flip;
 
         int init() override;
 
@@ -232,9 +229,6 @@ namespace gerber_3d
 
         GLuint u_thickness;
         GLuint u_color;
-        GLuint u_center;
-        GLuint u_x_flip;
-        GLuint u_y_flip;
 
         static const float quad[8];
 
