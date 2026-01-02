@@ -20,8 +20,19 @@ include(CMakeRC)
 cmrc_add_resource_library(my_assets
         WHENCE "${CMAKE_CURRENT_SOURCE_DIR}/assets"
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/Roboto-Medium.ttf"
-        "${CMAKE_CURRENT_SOURCE_DIR}/assets/MaterialIcons-Regular.ttf"
-)
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/MaterialIcons-Regular.ttf")
+
+cmrc_add_resource_library(my_shaders
+        WHENCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/color_vertex_shader.glsl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/common_fragment_shader.glsl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/layer_fragment_shader.glsl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/layer_vertex_shader.glsl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/line_fragment_shader.glsl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/line_vertex_shader.glsl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/solid_vertex_shader.glsl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_fragment_shader.glsl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_vertex_shader.glsl")
 
 ######################################################################
 # GLFW
@@ -129,7 +140,7 @@ target_include_directories(${PROJECT} PRIVATE
         ${imgui_SOURCE_DIR}
         ${imgui_SOURCE_DIR}/backends)
 
-target_link_libraries(${PROJECT} PRIVATE gerber_lib libtess2 glad glfw OpenGL::GL nlohmann_json::nlohmann_json nfd my_assets)
+target_link_libraries(${PROJECT} PRIVATE gerber_lib libtess2 glad glfw OpenGL::GL nlohmann_json::nlohmann_json nfd my_assets my_shaders)
 
 if (MSVC)
     set_target_properties(gerber_explorer PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")

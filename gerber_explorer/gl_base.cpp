@@ -1,8 +1,9 @@
 //////////////////////////////////////////////////////////////////////
 
+#include <cmrc/cmrc.hpp>
+
 #include "gerber_log.h"
 #include "gerber_lib.h"
-#include "gerber_2d.h"
 #include "gerber_util.h"
 
 #include "glad/glad.h"
@@ -10,181 +11,24 @@
 #include "gl_base.h"
 #include "gl_colors.h"
 
+#include <array>
+
 LOG_CONTEXT("gl_base", debug);
+
+CMRC_DECLARE(my_shaders);
+
+namespace
+{
+    std::string shader_src(char const *name)
+    {
+        auto my_shaders = cmrc::my_shaders::get_filesystem();
+        auto src = my_shaders.open(name);
+        return std::string(src.begin(), src.size());
+    }
+}    // namespace
 
 namespace gerber_3d
 {
-    //////////////////////////////////////////////////////////////////////
-    // SOLID VERTEX
-
-    char const *solid_vertex_shader_source = R"!(
-
-        #version 400
-
-        in vec2 position;
-
-        out vec4 color;
-
-        uniform mat4 transform;
-        uniform vec4 uniform_color;
-
-        void main() {
-            gl_Position = transform * vec4(position, 0.0f, 1.0f);
-            color = uniform_color;
-        }
-
-    )!";
-
-    //////////////////////////////////////////////////////////////////////
-    // COLOR-PER-VERT VERTEX
-
-    char const *color_vertex_shader_source = R"!(
-
-        #version 400
-
-        in vec2 position;
-        in vec4 vert_color_in;
-
-        out vec4 color;
-
-        uniform mat4 transform;
-
-        void main() {
-            gl_Position = transform * vec4(position, 0.0f, 1.0f);
-            color = vert_color_in;
-        }
-
-    )!";
-
-    //////////////////////////////////////////////////////////////////////
-    // SOLID / COLOR FRAGMENT
-
-    char const *common_fragment_shader_source = R"!(
-
-        #version 400
-
-        in vec4 color;
-
-        out vec4 fragment;
-
-        void main() {
-            fragment = color;
-        }
-
-    )!";
-
-    //////////////////////////////////////////////////////////////////////
-    // LAYER VERTEX
-
-    char const *layer_vertex_shader_source = R"!(
-
-        #version 400
-
-        in vec2 position;
-        out vec4 cover;
-
-        uniform mat4 transform;
-        uniform vec4 cover_in;
-        uniform vec2 center;
-        uniform bool x_flip;
-        uniform bool y_flip;
-
-        void main() {
-            vec2 pos = position;
-            if(x_flip) {
-                pos.x = center.x - (pos.x - center.x);
-            }
-            if(y_flip) {
-                pos.y = center.y - (pos.y - center.y);
-            }
-            gl_Position = transform * vec4(pos, 0.0f, 1.0f);
-            cover = cover_in;
-        }
-
-    )!";
-
-    //////////////////////////////////////////////////////////////////////
-    // LAYER FRAGMENT
-
-    char const *layer_fragment_shader_source = R"!(
-
-        #version 400
-
-        in vec4 cover;
-
-        out vec4 fragment;
-
-        void main() {
-            fragment = cover;
-        }
-
-    )!";
-
-    //////////////////////////////////////////////////////////////////////
-    // FULLSCREEN VERTEX
-
-    char const *textured_vertex_shader_source = R"!(
-
-        #version 400
-
-        in vec2 position;
-        in vec2 tex_coord_in;
-        out vec2 tex_coord;
-
-        uniform mat4 transform;
-
-        void main() {
-            vec2 pos = position;
-            gl_Position = transform * vec4(pos.xy, 0.0f, 1);
-            tex_coord = tex_coord_in;
-        }
-
-    )!";
-
-    //////////////////////////////////////////////////////////////////////
-    // FULLSCREEN FRAGMENT
-
-    char const *textured_fragment_shader_source = R"!(
-
-        #version 400
-
-        in vec2 tex_coord;
-
-        out vec4 fragment;
-
-        uniform vec4 red_color;
-        uniform vec4 green_color;
-        uniform vec4 blue_color;
-
-        uniform float alpha;
-        uniform int num_samples;
-
-        uniform sampler2DMS cover_sampler;
-
-        vec4 multisample(sampler2DMS sampler, ivec2 coord)
-        {
-            vec4 color = vec4(0,0,0,0);
-            for (int i = 0; i < num_samples; i++) {
-                color += texelFetch(sampler, coord, i);
-            }
-            return color / float(num_samples);
-        }
-
-        void main() {
-
-            ivec2 tex_size = textureSize(cover_sampler);
-            ivec2 uv = ivec2(tex_coord * tex_size);
-            vec4 cover = multisample(cover_sampler, uv);
-            vec4 r = vec4(cover.xxxx * red_color);
-            vec4 g = vec4(cover.yyyy * green_color);
-            vec4 b = vec4(cover.zzzz * blue_color);
-            vec4 rgb = r + g + b;
-            rgb.w *= alpha;
-            fragment = rgb;
-        }
-
-    )!";
-
     //////////////////////////////////////////////////////////////////////
 
     int gl_program::compile_shader(GLenum shader_type, char const *source) const
@@ -240,8 +84,8 @@ namespace gerber_3d
 
     int gl_program::init()
     {
-        vertex_shader_id = compile_shader(GL_VERTEX_SHADER, vertex_shader_source);
-        fragment_shader_id = compile_shader(GL_FRAGMENT_SHADER, fragment_shader_source);
+        vertex_shader_id = compile_shader(GL_VERTEX_SHADER, vertex_shader_source.c_str());
+        fragment_shader_id = compile_shader(GL_FRAGMENT_SHADER, fragment_shader_source.c_str());
 
         GL_CHECK(program_id = glCreateProgram());
         GL_CHECK(glAttachShader(program_id, vertex_shader_id));
@@ -262,7 +106,12 @@ namespace gerber_3d
             return rc;
         }
         use();
-        transform_location = get_uniform("transform");
+
+        // mat4 transform is common to all vertex shaders
+        u_transform = get_uniform("transform");
+        if(u_transform == GL_INVALID_INDEX) {
+            return -1;
+        }
         return 0;
     }
 
@@ -272,7 +121,7 @@ namespace gerber_3d
     {
         int location;
         GL_CHECK(location = glGetUniformLocation(program_id, name));
-        if(location == static_cast<GLuint>(-1)) {
+        if(location == GL_INVALID_INDEX) {
             LOG_WARNING("Can't get uniform location for \"{}\" in program \"{}\"", name, program_name);
         }
         return location;
@@ -284,7 +133,7 @@ namespace gerber_3d
     {
         int location;
         GL_CHECK(location = glGetAttribLocation(program_id, name));
-        if(location == static_cast<GLuint>(-1)) {
+        if(location == GL_INVALID_INDEX) {
             LOG_ERROR("Can't get attribute location for \"{}\" in program \"{}\"", name, program_name);
         }
         return location;
@@ -299,20 +148,72 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_layer_program::init()
+    void gl_line_program::set_color(uint32_t solid_color) const
     {
-        program_name = "layer";
-        vertex_shader_source = layer_vertex_shader_source;
-        fragment_shader_source = layer_fragment_shader_source;
+        gl_color::float4 f = gl_color::to_floats(solid_color);
+        GL_CHECK(glUniform4f(u_color, f[0], f[1], f[2], f[3]));
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    static const std::array<gl_vertex_solid, 4> quad_verts{ -0.5f, -0.5f, 0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.5f };
+
+    int gl_line_program::init()
+    {
+        program_name = "line";
+
+        vertex_shader_source = shader_src("line_vertex_shader.glsl");
+        fragment_shader_source = shader_src("line_fragment_shader.glsl");
+
         int err = gl_program::init();
         if(err != 0) {
             return err;
         }
-        color_location = get_uniform("cover_in");
+        line_array.init(8);
+        line_array.activate();
+        update_buffer<GL_ARRAY_BUFFER>(quad_verts);
 
-        center_uniform = get_uniform("center");
-        x_flip_uniform = get_uniform("x_flip");
-        y_flip_uniform = get_uniform("y_flip");
+        // extra buffer for the lines
+        GL_CHECK(glGenBuffers(1, &lines_vbo_id));
+
+        // attribute for instanced line start
+        GL_CHECK(glEnableVertexAttribArray(0));
+        GL_CHECK(glVertexAttribDivisor(0, 1));
+
+        // attribute for instanced line end
+        GL_CHECK(glEnableVertexAttribArray(1));
+        GL_CHECK(glVertexAttribDivisor(1, 1));
+
+        // attribute for instanced quad points already enabled in line_array.activate()
+        // GL_CHECK(glEnableVertexAttribArray(2));
+        // GL_CHECK(glVertexAttribDivisor(2, 0));
+
+        u_thickness = get_uniform("thickness");
+        u_color = get_uniform("color");
+        u_center = get_uniform("center");
+        u_x_flip = get_uniform("x_flip");
+        u_y_flip = get_uniform("y_flip");
+        return 0;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    int gl_layer_program::init()
+    {
+        program_name = "layer";
+
+        vertex_shader_source = shader_src("layer_vertex_shader.glsl");
+        fragment_shader_source = shader_src("layer_fragment_shader.glsl");
+
+        int err = gl_program::init();
+        if(err != 0) {
+            return err;
+        }
+
+        u_color = get_uniform("cover_in");
+        u_center = get_uniform("center");
+        u_x_flip = get_uniform("x_flip");
+        u_y_flip = get_uniform("y_flip");
 
         return 0;
     }
@@ -322,7 +223,7 @@ namespace gerber_3d
     void gl_layer_program::set_color(uint32_t cover) const
     {
         gl_color::float4 cov = gl_color::to_floats(cover);
-        GL_CHECK(glUniform4f(color_location, cov[0], cov[1], cov[2], cov[3]));
+        GL_CHECK(glUniform4f(u_color, cov[0], cov[1], cov[2], cov[3]));
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -330,13 +231,13 @@ namespace gerber_3d
     int gl_solid_program::init()
     {
         program_name = "solid";
-        vertex_shader_source = solid_vertex_shader_source;
-        fragment_shader_source = common_fragment_shader_source;
+        vertex_shader_source = shader_src("solid_vertex_shader.glsl");
+        fragment_shader_source = shader_src("common_fragment_shader.glsl");
         int err = gl_program::init();
         if(err != 0) {
             return err;
         }
-        color_location = get_uniform("uniform_color");
+        u_color = get_uniform("uniform_color");
         return 0;
     }
 
@@ -345,7 +246,7 @@ namespace gerber_3d
     void gl_solid_program::set_color(uint32_t solid_color) const
     {
         gl_color::float4 f = gl_color::to_floats(solid_color);
-        GL_CHECK(glUniform4f(color_location, f[0], f[1], f[2], f[3]));
+        GL_CHECK(glUniform4f(u_color, f[0], f[1], f[2], f[3]));
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -353,8 +254,8 @@ namespace gerber_3d
     int gl_color_program::init()
     {
         program_name = "color";
-        vertex_shader_source = color_vertex_shader_source;
-        fragment_shader_source = common_fragment_shader_source;
+        vertex_shader_source = shader_src("color_vertex_shader.glsl");
+        fragment_shader_source = shader_src("common_fragment_shader.glsl");
         return gl_program::init();
     }
 
@@ -363,22 +264,19 @@ namespace gerber_3d
     int gl_textured_program::init()
     {
         program_name = "textured";
-        vertex_shader_source = textured_vertex_shader_source;
-        fragment_shader_source = textured_fragment_shader_source;
+        vertex_shader_source = shader_src("textured_vertex_shader.glsl");
+        fragment_shader_source = shader_src("textured_fragment_shader.glsl");
         int err = gl_program::init();
         if(err != 0) {
             return err;
         }
 
-        red_color_uniform = get_uniform("red_color");
-        green_color_uniform = get_uniform("green_color");
-        blue_color_uniform = get_uniform("blue_color");
-
-        alpha_uniform = get_uniform("alpha");
-        cover_sampler = get_uniform("cover_sampler");
-        num_samples_uniform = get_uniform("num_samples");
-
-
+        u_red = get_uniform("red_color");
+        u_green = get_uniform("green_color");
+        u_blue = get_uniform("blue_color");
+        u_alpha = get_uniform("alpha");
+        u_num_samples = get_uniform("num_samples");
+        u_cover_sampler = get_uniform("cover_sampler");
         return 0;
     }
 
@@ -401,7 +299,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_index_array::init(GLsizei index_count)
+    int gl_index_buffer::init(GLsizei index_count)
     {
         GL_CHECK(glGenBuffers(1, &ibo_id));
         num_indices = index_count;
@@ -412,7 +310,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_index_array::activate() const
+    int gl_index_buffer::activate() const
     {
         GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_id));
         return 0;
@@ -420,7 +318,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_index_array::cleanup()
+    void gl_index_buffer::cleanup()
     {
         GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
 
@@ -428,6 +326,14 @@ namespace gerber_3d
         GL_CHECK(glDeleteBuffers(static_cast<GLsizei>(gerber_util::array_length(buffers)), buffers));
 
         ibo_id = 0;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    int gl_vertex_array::init(GLsizei vert_count)
+    {
+        GL_CHECK(glGenVertexArrays(1, &vao_id));
+        return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -446,39 +352,37 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array_solid::init(gl_program &program, GLsizei vert_count)
+    int gl_vertex_array_solid::init(GLsizei vert_count)
     {
+        gl_vertex_array::init(vert_count);
         int err = alloc(vert_count, sizeof(gl_vertex_solid));
         if(err != 0) {
             return err;
         }
-        position_location = program.get_attribute("position");
         return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array_color::init(gl_program &program, GLsizei vert_count)
+    int gl_vertex_array_color::init(GLsizei vert_count)
     {
+        gl_vertex_array::init(vert_count);
         int err = alloc(vert_count, sizeof(gl_vertex_color));
         if(err != 0) {
             return err;
         }
-        position_location = program.get_attribute("position");
-        color_location = program.get_attribute("vert_color_in");
         return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array_textured::init(gl_program &program, GLsizei vert_count)
+    int gl_vertex_array_textured::init(GLsizei vert_count)
     {
+        gl_vertex_array::init(vert_count);
         int err = alloc(vert_count, sizeof(gl_vertex_textured));
         if(err != 0) {
             return err;
         }
-        position_location = program.get_attribute("position");
-        tex_coord_location = program.get_attribute("tex_coord_in");
         return 0;
     }
 
@@ -486,6 +390,7 @@ namespace gerber_3d
 
     int gl_vertex_array::activate() const
     {
+        GL_CHECK(glBindVertexArray(vao_id));
         GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vbo_id));
         return 0;
     }
@@ -495,8 +400,31 @@ namespace gerber_3d
     int gl_vertex_array_solid::activate() const
     {
         gl_vertex_array::activate();
-        glEnableVertexAttribArray(position_location);
-        glVertexAttribPointer(position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_solid), (void *)(offsetof(gl_vertex_solid, x)));
+        glEnableVertexAttribArray(gl_solid_program::position_location);
+        glVertexAttribPointer(gl_solid_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_solid), (void *)(offsetof(gl_vertex_solid, x)));
+        return 0;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    int gl_line_array::init(GLsizei vert_count)
+    {
+        // this is for the quad verts
+        gl_vertex_array::init(vert_count);
+        int err = alloc(vert_count, sizeof(gl_vertex_solid));
+        if(err != 0) {
+            return err;
+        }
+        return 0;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    int gl_line_array::activate() const
+    {
+        gl_vertex_array::activate();
+        glEnableVertexAttribArray(gl_line_program::position_location);
+        glVertexAttribPointer(gl_line_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_solid), (void *)(offsetof(gl_vertex_solid, x)));
         return 0;
     }
 
@@ -505,11 +433,15 @@ namespace gerber_3d
     int gl_vertex_array_color::activate() const
     {
         gl_vertex_array::activate();
-        glEnableVertexAttribArray(position_location);
-        glEnableVertexAttribArray(color_location);
-        glVertexAttribPointer(position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_color), (void *)(offsetof(gl_vertex_color, x)));
-        glVertexAttribPointer(
-            color_location, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(gl_vertex_color), reinterpret_cast<void *>(offsetof(gl_vertex_color, color)));
+        glEnableVertexAttribArray(gl_color_program::position_location);
+        glEnableVertexAttribArray(gl_color_program::vert_color_location);
+        glVertexAttribPointer(gl_color_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_color), (void *)(offsetof(gl_vertex_color, x)));
+        glVertexAttribPointer(gl_color_program::vert_color_location,
+                              4,
+                              GL_UNSIGNED_BYTE,
+                              GL_TRUE,
+                              sizeof(gl_vertex_color),
+                              reinterpret_cast<void *>(offsetof(gl_vertex_color, color)));
         return 0;
     }
 
@@ -518,10 +450,16 @@ namespace gerber_3d
     int gl_vertex_array_textured::activate() const
     {
         gl_vertex_array::activate();
-        glEnableVertexAttribArray(position_location);
-        glEnableVertexAttribArray(tex_coord_location);
-        glVertexAttribPointer(position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_textured), (void *)(offsetof(gl_vertex_textured, x)));
-        glVertexAttribPointer(tex_coord_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_textured), reinterpret_cast<void *>(offsetof(gl_vertex_textured, u)));
+        glEnableVertexAttribArray(gl_textured_program::position_location);
+        glEnableVertexAttribArray(gl_textured_program::tex_coord_location);
+        glVertexAttribPointer(gl_textured_program::tex_coord_location,
+                              2,
+                              GL_FLOAT,
+                              GL_FALSE,
+                              sizeof(gl_vertex_textured),
+                              reinterpret_cast<void *>(offsetof(gl_vertex_textured, u)));
+        glVertexAttribPointer(
+            gl_textured_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_textured), (void *)(offsetof(gl_vertex_textured, x)));
         return 0;
     }
 

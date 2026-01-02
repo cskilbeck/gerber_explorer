@@ -1,7 +1,6 @@
 //////////////////////////////////////////////////////////////////////
 
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
 
 #include "tesselator.h"
 
@@ -9,12 +8,15 @@
 #include "log_drawer.h"
 #include "gl_drawer.h"
 
+#include "gl_colors.h"
+
 LOG_CONTEXT("gl_drawer", info);
 
 //////////////////////////////////////////////////////////////////////
 
 namespace gerber_3d
 {
+    struct gl_matrix;
     using namespace gerber_lib;
 
     bool is_clockwise(std::vector<gerber_2d::vec2f> const &points, size_t start, size_t end)
@@ -33,11 +35,12 @@ namespace gerber_3d
     void gl_tesselator::clear()
     {
         LOG_DEBUG("BOUNDARY TESSELATOR: Clear");
-        entities.clear();      // the entities (each may consist of multiple draw calls (if a macro has disconnected primitives))
-        vertices.clear();      // the verts (for outlines and fills)
-        indices.clear();       // the indices (for fills)
-        boundaries.clear();    // spans for drawing outlines (GL_TRIANGLES)
-        fills.clear();         // spans for drawing fills (GL_LINE_LOOP)
+        entities.clear();         // the entities (each may consist of multiple draw calls (if a macro has disconnected primitives))
+        fill_vertices.clear();    // the verts (for outlines and fills)
+        indices.clear();          // the indices (for fills)
+        boundaries.clear();       // spans for drawing outlines (GL_TRIANGLES)
+        fills.clear();            // spans for drawing fills (GL_LINE_LOOP)
+        contours = 0;
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -61,17 +64,19 @@ namespace gerber_3d
         if(e.bounds.is_empty_rect()) {
             e.bounds.min_pos = e.bounds.max_pos = gerber_2d::vec2d(points[offset]);
         }
-        for(size_t i=offset; i < points.size(); ++i) {
+        for(size_t i = offset; i < points.size(); ++i) {
             e.bounds.expand_to_contain(gerber_2d::vec2d(points[i]));
         }
         tessAddContour(boundary_stesselator, 2, points.data() + offset, sizeof(float) * 2, (int)(points.size() - offset));
+        contours += 1;
     }
 
     //////////////////////////////////////////////////////////////////////
 
     void gl_tesselator::finish_entity()
     {
-        if(boundary_stesselator != nullptr) {
+        if(boundary_stesselator != nullptr && contours != 0) {
+
             tessTesselate(boundary_stesselator, TESS_WINDING_POSITIVE, TESS_BOUNDARY_CONTOURS, 0, 2, nullptr);
 
             const float *verts = tessGetVertices(boundary_stesselator);
@@ -86,16 +91,21 @@ namespace gerber_3d
             uint32_t boundary_base = static_cast<uint32_t>(boundaries.size());
 
             for(int i = 0; i < nelems; ++i) {
-                int outline_base = static_cast<int>(vertices.size());
+                int outline_base = static_cast<int>(outline_vertices.size());
                 int b = elems[i * 2];
                 int n = elems[i * 2 + 1];
                 float const *f = &verts[b * 2];
+                float const *s = f;
                 tessAddContour(interior_tesselator, 2, f, sizeof(float) * 2, n);
                 for(int p = 0; p < n; ++p) {
-                    vertices.emplace_back(f[0], f[1]);
+                    outline_vertices.emplace_back(f[0], f[1]);
                     f += 2;
                 }
-                boundaries.emplace_back(outline_base, static_cast<int>(vertices.size() - outline_base));
+                // add first point at the end for thick line drawing later
+                outline_vertices.emplace_back(s[0], s[1]);
+
+                // number of lines is # of floats / 4
+                boundaries.emplace_back(outline_base, static_cast<int>(outline_vertices.size() - outline_base));
             }
 
             tessTesselate(interior_tesselator, TESS_WINDING_POSITIVE, TESS_POLYGONS, 3, 2, nullptr);
@@ -105,10 +115,10 @@ namespace gerber_3d
             int const *tri_elems = tessGetElements(interior_tesselator);
             int const tri_nelems = tessGetElementCount(interior_tesselator);
 
-            size_t base = vertices.size();
+            size_t base = fill_vertices.size();
             for(int v = 0; v < tri_nverts; ++v) {
                 float const *vrt = tri_verts + v * 2;
-                vertices.emplace_back(vrt[0], vrt[1]);
+                fill_vertices.emplace_back(vrt[0], vrt[1]);
             }
 
             uint32_t index_base = static_cast<uint32_t>(indices.size());
@@ -136,9 +146,8 @@ namespace gerber_3d
 
             tessDeleteTess(boundary_stesselator);
             boundary_stesselator = nullptr;
-
-            points.clear();
         }
+        points.clear();
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -166,16 +175,22 @@ namespace gerber_3d
 
     void gl_drawer::on_finished_loading()
     {
-        if(tesselator.vertices.empty() || tesselator.indices.empty()) {
+        if(tesselator.fill_vertices.empty() || tesselator.indices.empty() || tesselator.outline_vertices.empty()) {
+            LOG_INFO("!?");
             return;
         }
-        vertex_array.init(*program, static_cast<GLsizei>(tesselator.vertices.size()));
+        vertex_array.init(static_cast<GLsizei>(tesselator.fill_vertices.size()));
         vertex_array.activate();
-        update_buffer<GL_ARRAY_BUFFER>(tesselator.vertices);
+        update_buffer<GL_ARRAY_BUFFER>(tesselator.fill_vertices);
 
         index_array.init(static_cast<GLsizei>(tesselator.indices.size()));
         index_array.activate();
         update_buffer<GL_ELEMENT_ARRAY_BUFFER>(tesselator.indices);
+
+        // allocate/update the line verts
+        GL_CHECK(glGenBuffers(1, &lines_vbo));
+        GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, lines_vbo));
+        GL_CHECK(glBufferData(GL_ARRAY_BUFFER, tesselator.outline_vertices.size() * sizeof(gl_tesselator::vert), tesselator.outline_vertices.data(), GL_STATIC_DRAW));
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -268,34 +283,35 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert)
+    void gl_drawer::draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix)
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
         }
-
-        program->use();
-
-        vertex_array.activate();
-        index_array.activate();
 
         glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         glEnable(GL_BLEND);
 
-        uint32_t fill_color = 0xff0000ff;
-        uint32_t clear_color = 0xff00ff00;
-        uint32_t outline_color = 0xffff0000;
+        if(fill) {
+            layer_program->use();
 
-        if(invert) {
-            std::swap(fill_color, clear_color);
-            glClearColor(1,0,0,1); // fill_color (red)
-            glClear(GL_COLOR_BUFFER_BIT);
-        }
+            GL_CHECK(glUniformMatrix4fv(layer_program->u_transform, 1, true, matrix.m));
 
-        for(auto const &e : tesselator.entities) {
-            if(fill) {
+            vertex_array.activate();
+            index_array.activate();
+
+            uint32_t fill_color = 0xff0000ff;
+            uint32_t clear_color = 0xff00ff00;
+
+            if(invert) {
+                std::swap(fill_color, clear_color);
+                glClearColor(1, 0, 0, 1);    // fill_color (red)
+                glClear(GL_COLOR_BUFFER_BIT);
+            }
+
+            for(auto const &e : tesselator.entities) {
                 if(wireframe) {
                     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
                     glLineWidth(1.0f);
@@ -304,9 +320,9 @@ namespace gerber_3d
                 }
 
                 if((e.flags & draw_call_flag_clear) != 0) {
-                    program->set_color(clear_color);
+                    layer_program->set_color(clear_color);
                 } else {
-                    program->set_color(fill_color);
+                    layer_program->set_color(fill_color);
                 }
                 int end = e.num_fills + e.first_fill;
                 for(int i = e.first_fill; i < end; ++i) {
@@ -314,16 +330,44 @@ namespace gerber_3d
                     glDrawElements(GL_TRIANGLES, s.length, GL_UNSIGNED_INT, (void *)(s.start * sizeof(GLuint)));
                 }
             }
-            if(outline) {
-                glLineWidth(outline_thickness);
-                program->set_color(outline_color);
-                int end = e.num_outlines + e.first_outline;
-                for(int i = e.first_outline; i < end; ++i) {
+        }
+        if(outline) {
+            std::vector<float> points = {
+                0,  0,  10, 0,  5,  10, 0,  0,    //
+                10, 10, 20, 10, 15, 20, 10, 10    //
+            };
+
+            line_program->use();
+            line_program->line_array.activate();
+            // static bool init{ false };
+            // if(!init) {
+            //
+            //     GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, line_program->lines_vbo_id));
+            //     GL_CHECK(glBufferData(GL_ARRAY_BUFFER, points.size() * sizeof(float), points.data(), GL_DYNAMIC_DRAW));
+            //     init = true;
+            // }
+            GLsizei stride = 2 * sizeof(float);    // Distance from (x0,y0) to (x1,y1)
+
+            auto offset = [stride](GLsizei n) { return (uint8_t *)(size_t)(n * stride); };
+
+            uint32_t outline_color = 0xffff0000;
+            line_program->set_color(outline_color);
+            glUniform1f(line_program->u_thickness, outline_thickness);
+            GL_CHECK(glUniformMatrix4fv(line_program->u_transform, 1, true, matrix.m));
+
+            // GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer
+            GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, lines_vbo));
+
+            for(auto const &e : tesselator.entities) {
+                int last_outline = e.first_outline + e.num_outlines;
+                for(int i = e.first_outline; i < last_outline; ++i) {
                     tesselator_span const &s = tesselator.boundaries[i];
-                    glDrawArrays(GL_LINE_LOOP, s.start, s.length);
+                    size_t start = s.start * stride;
+                    GL_CHECK(glVertexAttribPointer(gl_line_program::pos_a_location, 2, GL_FLOAT, GL_FALSE, stride, (void *)start));
+                    GL_CHECK(glVertexAttribPointer(gl_line_program::pos_b_location, 2, GL_FLOAT, GL_FALSE, stride, (void *)(start + stride)));
+                    GL_CHECK(glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, s.length - 1));
                 }
             }
         }
     }
-
 }    // namespace gerber_3d

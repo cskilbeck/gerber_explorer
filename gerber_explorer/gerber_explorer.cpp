@@ -214,6 +214,13 @@ namespace
 
 }    // namespace
 
+//////////////////////////////////////////////////////////////////////
+
+std::string gerber_explorer::window_name() const
+{
+    return app_friendly_name;
+}
+
 vec2d gerber_explorer::world_pos_from_window_pos(vec2d const &p) const
 {
     vec2d scale = view_rect.size().divide(window_size);
@@ -251,7 +258,8 @@ void gerber_explorer::zoom_to_rect(rect const &zoom_rect, double border_ratio)
     if(window_rect.width() == 0 || window_rect.height() == 0) {
         return;
     }
-    rect new_rect = correct_aspect_ratio(window_rect.aspect_ratio(), zoom_rect, aspect_expand);
+    double aspect_ratio = (double)window_width / window_height;
+    rect new_rect = correct_aspect_ratio(aspect_ratio, zoom_rect, aspect_expand);
     vec2d mid = new_rect.mid_point();
     vec2d siz = new_rect.size().scale(border_ratio / 2);
     target_view_rect = { mid.subtract(siz), mid.add(siz) };
@@ -317,7 +325,7 @@ void gerber_explorer::update_view_rect()
 void gerber_explorer::on_drop(int count, const char **paths)
 {
     for(int i = 0; i < count; ++i) {
-        load_gerber(layer_t{ paths[i] });
+        load_gerber(settings::layer_t{ paths[i] });
     }
 }
 
@@ -333,6 +341,7 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
                 glfwSetWindowShouldClose(window, true);
                 break;
             case GLFW_KEY_F:
+                should_fit_to_window = true;
                 fit_to_window();
                 break;
             case GLFW_KEY_X:
@@ -385,7 +394,7 @@ void gerber_explorer::on_scroll(double xoffset, double yoffset)
 
 void gerber_explorer::select_entity(vec2d const &window_pos)
 {
-    vec2d world_pos = world_pos_from_window_pos(window_pos);
+    // vec2d world_pos = world_pos_from_window_pos(window_pos);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -421,6 +430,7 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
                 rect d = rect{ mn, mx }.normalize();
                 if(d.width() > 2 && d.height() > 2) {
                     zoom_to_rect({ world_pos_from_window_pos(vec2d{ mn.x, mx.y }), world_pos_from_window_pos(vec2d{ mx.x, mn.y }) });
+                    should_fit_to_window = false;
                 }
             }
             set_mouse_mode(mouse_drag_none, {});
@@ -449,6 +459,7 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
         vec2d old_mouse_pos = world_pos_from_window_pos(drag_mouse_start_pos);
         view_rect = view_rect.offset(new_mouse_pos.subtract(old_mouse_pos).negate());
         drag_mouse_start_pos = mouse_pos;
+        should_fit_to_window = false;
     } break;
 
     case mouse_drag_zoom: {
@@ -458,6 +469,7 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
             // sometimes cursor coords jump for reasons I don't understand so clamp
             factor = std::max(-0.15, std::min(factor, 0.15));
             zoom_image(drag_mouse_start_pos, 1.0 + factor);
+            should_fit_to_window = false;
         } else {
             ignore_mouse_moves -= 1;
         }
@@ -508,6 +520,7 @@ void gerber_explorer::on_closed()
 void gerber_explorer::load_settings(std::filesystem::path const &path)
 {
     settings.load(path);
+    LOG_INFO("Settings loaded...");
     window_state.width = settings.window_width;
     window_state.height = settings.window_height;
     window_state.x = settings.window_xpos;
@@ -606,10 +619,11 @@ bool gerber_explorer::on_init()
     color_program.init();
     layer_program.init();
     textured_program.init();
+    line_program.init();
 
-    overlay.init(color_program);
+    overlay.init();
 
-    fullscreen_blit_verts.init(textured_program, 3);
+    fullscreen_blit_verts.init(3);
 
     glGetInternalformativ(GL_TEXTURE_2D_MULTISAMPLE, GL_RGBA, GL_SAMPLES, 1, &max_multisamples);
 
@@ -642,7 +656,7 @@ void gerber_explorer::file_open()
                 if(NFD_PathSet_GetPath(paths, i, &outPath) == NFD_OKAY) {
                     next_layer_color += 1;
                     next_layer_color %= std::size(layer_colors);
-                    load_gerber(layer_t{ outPath, gl_color::float4(layer_colors[next_layer_color]).to_string(), true, false });
+                    load_gerber(settings::layer_t{ outPath, gl_color::float4(layer_colors[next_layer_color]).to_string(), true, false });
                     NFD_FreePathU8(outPath);
                 }
             }
@@ -705,7 +719,7 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
     while(!st.stop_requested()) {
         loader_semaphore.acquire();
         if(!st.stop_requested()) {
-            layer_t layer_to_load;
+            settings::layer_t layer_to_load;
             {
                 std::lock_guard loader_lock(loader_mutex);
                 if(gerber_filenames_to_load.empty()) {
@@ -717,7 +731,7 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
             gerber_filenames_to_load.pop_front();
             LOG_DEBUG("Loading {}", layer_to_load.filename);
             std::thread(
-                [this](layer_t loaded_layer) {    // copy it again!
+                [this](settings::layer_t loaded_layer) {    // copy it again!
                     gerber_lib::gerber *g = new gerber_lib::gerber();
                     gerber_lib::gerber_error_code err = g->parse_file(loaded_layer.filename.c_str());
                     if(err == gerber_lib::ok) {
@@ -725,12 +739,12 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
                         layer->index = loaded_layer.index;
                         next_index = std::max(layer->index + 1, next_index);
                         layer->layer.set_gerber(g);
-                        layer->layer.program = &layer_program;
+                        layer->layer.layer_program = &layer_program;
+                        layer->layer.line_program = &line_program;
                         layer->invert = loaded_layer.inverted;
                         layer->visible = loaded_layer.visible;
                         layer->fill_color.from_string(loaded_layer.color);
                         layer->clear_color = gl_color::clear;
-                        layer->outline_color = gl_color::magenta;
                         layer->draw_mode = loaded_layer.draw_mode;
                         layer->name = std::format("{:02d}:{}", layer->index, std::filesystem::path(g->filename).filename().string());
                         LOG_DEBUG("Finished loading {}, {}", layer->index, loaded_layer.filename);
@@ -751,7 +765,7 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::load_gerber(layer_t const &layer)
+void gerber_explorer::load_gerber(settings::layer_t const &layer)
 {
     {
         std::lock_guard lock(loader_mutex);
@@ -764,41 +778,8 @@ void gerber_explorer::load_gerber(layer_t const &layer)
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::on_last_gerber_loaded()
+void gerber_explorer::ui()
 {
-    selected_layer = nullptr;
-    fit_to_window();
-}
-
-//////////////////////////////////////////////////////////////////////
-
-void gerber_explorer::on_render()
-{
-    // call on_finished_loading (which creates gl buffers) in main thread
-    {
-        std::lock_guard loaded_lock(loaded_mutex);
-        if(!loaded_layers.empty()) {
-            gerber_layer *loaded_layer = loaded_layers.front();
-            loaded_layers.pop_front();
-            loaded_layer->layer.on_finished_loading();
-            layers.push_front(loaded_layer);
-            layers.sort([](gerber_layer const *a, gerber_layer const *b) { return a->index > b->index; });
-            {
-                std::lock_guard lock(loader_mutex);
-                if(gerbers_to_load != 0) {
-                    gerbers_to_load -= 1;
-                    if(gerbers_to_load == 0) {
-                        on_last_gerber_loaded();
-                    }
-                }
-            }
-        }
-    }
-
-    int framebuffer_width;
-    int framebuffer_height;
-    glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
-
     // ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
     // ImGuiDockNode *central_node = ImGui::DockBuilderGetCentralNode(dockspace_id);
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
@@ -841,6 +822,7 @@ void gerber_explorer::on_render()
         }
         if(ImGui::BeginMenu("View")) {
             if(ImGui::MenuItem("Fit to window", "F", nullptr, !layers.empty())) {
+                should_fit_to_window = true;
                 fit_to_window();
             }
             ImGui::MenuItem("Flip X", "X", &settings.flip_x);
@@ -849,7 +831,10 @@ void gerber_explorer::on_render()
             ImGui::MenuItem("Show Axes", "A", &settings.show_axes);
             ImGui::MenuItem("Show Extent", "E", &settings.show_extent);
             if(ImGui::BeginMenu("Outline")) {
-                ImGui::SliderFloat("##val", &settings.outline_width, 0.25f, 1.0f, "%.1f");
+                ImGui::SliderFloat("##val", &settings.outline_width, 1.0f, 8.0f, "%.1f");
+                ImGui::ColorEdit4("Outline color",
+                                  (float *)&settings.outline_color,
+                                  ImGuiColorEditFlags_AlphaPreview | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
                 ImGui::EndMenu();
             }
             ImGui::EndMenu();
@@ -865,7 +850,6 @@ void gerber_explorer::on_render()
 
     ImGui::Begin("Files");
     {
-        static gerber_layer *current_selected_ptr = nullptr;
         bool any_item_hovered = false;
         float controls_width = ImGui::GetFrameHeight() * 5 + ImGui::GetStyle().ItemSpacing.x * 5;
 
@@ -885,7 +869,7 @@ void gerber_explorer::on_render()
                 ImVec2 row_size = ImVec2(ImGui::GetContentRegionAvail().x + controls_width, row_height);
                 ImVec2 row_max = ImVec2(row_min.x + row_size.x, row_min.y + row_size.y);
                 float mid_y = row_min.y + (row_height / 2.0f);
-                bool is_selected = (current_selected_ptr == l);
+                bool is_selected = (selected_layer == l);
 
                 auto flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap;
 
@@ -896,7 +880,6 @@ void gerber_explorer::on_render()
                 ImGui::PushStyleColor(ImGuiCol_Text, color);
 
                 if(ImGui::Selectable(l->name.c_str(), is_selected, flags, ImVec2(0, row_height))) {
-                    current_selected_ptr = l;
                     selected_layer = l;
                 }
 
@@ -984,13 +967,48 @@ void gerber_explorer::on_render()
         }
 
         if(ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !any_item_hovered) {
-            current_selected_ptr = nullptr;
             selected_layer = nullptr;
         }
     }
     ImGui::End();
+}
 
-    ImVec2 pos{ 0, 0 };
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::on_render()
+{
+    // call on_finished_loading (which creates gl buffers) in main thread
+    {
+        std::lock_guard loaded_lock(loaded_mutex);
+        if(!loaded_layers.empty()) {
+            gerber_layer *loaded_layer = loaded_layers.front();
+            loaded_layers.pop_front();
+            loaded_layer->layer.on_finished_loading();
+            layers.push_front(loaded_layer);
+            layers.sort([](gerber_layer const *a, gerber_layer const *b) { return a->index > b->index; });
+            {
+                std::lock_guard lock(loader_mutex);
+                if(gerbers_to_load != 0) {
+                    gerbers_to_load -= 1;
+                    if(gerbers_to_load == 0) {
+                        selected_layer = nullptr;
+                        should_fit_to_window = true;
+                        if(window_size_is_current) {
+                            fit_to_window();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ui();
+
+    //  ImVec2 pos{ 0, 0 };
+
+    int framebuffer_width;
+    int framebuffer_height;
+    glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
 
     // if(central_node) {
     //     ImGuiViewport *main_viewport = ImGui::GetMainViewport();
@@ -1009,7 +1027,10 @@ void gerber_explorer::on_render()
         window_rect = { { 0, 0 }, window_size };
         vec2d new_view_size = view_rect.size().multiply(scale_factor);
         view_rect.max_pos = view_rect.min_pos.add(new_view_size);
-        LOG_INFO("SIZE {}, POS {},{}", window_size, pos.x, pos.y);
+        if(should_fit_to_window) {
+            fit_to_window();
+        }
+        window_size_is_current = true;
     }
 
     update_view_rect();
@@ -1051,23 +1072,29 @@ void gerber_explorer::on_render()
     }
     vec2d center = all.center();
 
+    line_program.use();
+    glUniform2f(line_program.u_center, (float)center.x, (float)center.y);
+    glUniform1i(line_program.u_x_flip, settings.flip_x);
+    glUniform1i(line_program.u_y_flip, settings.flip_y);
+
     layer_program.use();
-    glUniform2f(layer_program.center_uniform, (float)center.x, (float)center.y);
-    glUniform1i(layer_program.x_flip_uniform, settings.flip_x);
-    glUniform1i(layer_program.y_flip_uniform, settings.flip_y);
+    glUniform2f(layer_program.u_center, (float)center.x, (float)center.y);
+    glUniform1i(layer_program.u_x_flip, settings.flip_x);
+    glUniform1i(layer_program.u_y_flip, settings.flip_y);
+
+    float scale = (float)view_rect.width() / window_width;
+    float outline_width = scale * (settings.outline_width + 1);
 
     for(auto r = layers.begin(); r != layers.end(); ++r) {
         gerber_layer &layer = **r;
 
         if(layer.visible) {
-            layer_program.use();
             my_target.bind_framebuffer();
-            GL_CHECK(glUniformMatrix4fv(layer_program.transform_location, 1, true, world_matrix.m));
 
             GL_CHECK(glViewport(0, 0, window_width, window_height));
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            layer.draw(settings.wireframe, settings.outline_width);
+            layer.draw(settings.wireframe, outline_width, world_matrix);
 
             // draw the render to the window
 
@@ -1082,13 +1109,13 @@ void gerber_explorer::on_render()
 
             my_target.bind_textures();
 
-            glUniform4fv(textured_program.red_color_uniform, 1, layer.fill_color.f);
-            glUniform4fv(textured_program.green_color_uniform, 1, layer.clear_color.f);
-            glUniform4fv(textured_program.blue_color_uniform, 1, layer.outline_color.f);
-            glUniform1f(textured_program.alpha_uniform, layer.alpha / 255.0f);
-            glUniform1i(textured_program.num_samples_uniform, my_target.num_samples);
-            glUniform1i(textured_program.cover_sampler, 0);
-            glUniformMatrix4fv(textured_program.transform_location, 1, true, projection_matrix.m);
+            glUniform4fv(textured_program.u_red, 1, layer.fill_color.f);
+            glUniform4fv(textured_program.u_green, 1, layer.clear_color.f);
+            glUniform4fv(textured_program.u_blue, 1, (float const *)&settings.outline_color);
+            glUniform1f(textured_program.u_alpha, layer.alpha / 255.0f);
+            glUniform1i(textured_program.u_num_samples, my_target.num_samples);
+            glUniform1i(textured_program.u_cover_sampler, 0);
+            glUniformMatrix4fv(textured_program.u_transform, 1, true, projection_matrix.m);
 
             fullscreen_blit_verts.activate();
 
@@ -1097,6 +1124,11 @@ void gerber_explorer::on_render()
             glDrawArrays(GL_TRIANGLES, 0, 3);
         }
     }
+
+    // float scale = (float)view_rect.width() / window_width;
+
+    // line_test(scale * (settings.outline_width + 1));
+
     glLineWidth(1.0f);
 
     overlay.reset();
@@ -1139,12 +1171,7 @@ void gerber_explorer::on_render()
 
     color_program.use();
 
-    GL_CHECK(glUniformMatrix4fv(color_program.transform_location, 1, true, screen_matrix.m));
+    GL_CHECK(glUniformMatrix4fv(color_program.u_transform, 1, true, screen_matrix.m));
 
     overlay.draw();
-}
-
-std::string gerber_explorer::window_name() const
-{
-    return app_friendly_name;
 }

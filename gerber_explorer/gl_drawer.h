@@ -5,6 +5,7 @@
 #include "gl_base.h"
 #include "gerber_lib.h"
 #include "gerber_draw.h"
+#include "gl_matrix.h"
 
 struct TESStesselator;
 
@@ -45,12 +46,18 @@ namespace gerber_3d
         TESStesselator *boundary_stesselator{};
 
         std::vector<tesselator_entity> entities;
+
         std::vector<vec2f> points;
-        std::vector<vert> vertices;
+
+        std::vector<vert> fill_vertices;
+        std::vector<vert> outline_vertices;
+
         std::vector<GLuint> indices;
-        std::vector<tesselator_span> boundaries;
         std::vector<tesselator_span> fills;
-        std::vector<vec2f> outline_vertices;
+
+        std::vector<tesselator_span> boundaries;
+
+        int contours{};
 
         void clear();
         void new_entity(int entity_id, draw_call_flags flags);
@@ -70,7 +77,7 @@ namespace gerber_3d
         void set_gerber(gerber_lib::gerber *g) override;
         void on_finished_loading() override;
         void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, int entity_id) override;
-        void draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert);
+        void draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix);
 
         gl_tesselator tesselator;
 
@@ -81,13 +88,17 @@ namespace gerber_3d
         int current_entity_id{ -1 };
 
         TESStesselator *tess{};
-        gl_layer_program *program{};
+        gl_layer_program *layer_program{};
+        gl_line_program *line_program{};
 
-        // all the verts for boundaries and interiors
+        // all the verts for interiors
         gl_vertex_array_solid vertex_array;
 
         // indices for interior triangles
-        gl_index_array index_array;
+        gl_index_buffer index_array;
+
+        // vertices for outline
+        GLuint lines_vbo;
     };
 
 }    // namespace gerber_3d

@@ -37,7 +37,6 @@ struct gerber_explorer : gl_window {
 
         gl_color::float4 fill_color;
         gl_color::float4 clear_color;
-        gl_color::float4 outline_color;
 
         bool is_valid() const
         {
@@ -52,7 +51,7 @@ struct gerber_explorer : gl_window {
             return layer.gerber_file->image.info.extent;
         }
 
-        void draw(bool wireframe, float outline_thickness)
+        void draw(bool wireframe, float outline_thickness, gerber_3d::gl_matrix const &matrix)
         {
             bool fill;
             bool outline;
@@ -70,7 +69,7 @@ struct gerber_explorer : gl_window {
                 outline = true;
                 break;
             }
-            layer.draw(fill, outline, wireframe, outline_thickness, invert);
+            layer.draw(fill, outline, wireframe, outline_thickness, invert, matrix);
         }
 
         bool operator<(gerber_layer const &other)
@@ -140,6 +139,7 @@ struct gerber_explorer : gl_window {
     gerber_3d::gl_color_program color_program{};
     gerber_3d::gl_layer_program layer_program{};
     gerber_3d::gl_textured_program textured_program{};
+    gerber_3d::gl_line_program line_program{};
 
     gerber_3d::gl_vertex_array_textured fullscreen_blit_verts;
 
@@ -148,6 +148,13 @@ struct gerber_explorer : gl_window {
     int multisample_count{ 4 };
     int max_multisamples{ 1 };
 
+    // does `window_size` (and friends) reflect current, actual window size?
+    bool window_size_is_current{false};
+
+    // when window size changes, zoom to fit
+    // this gets cleared if they pan/zoom etc manually
+    bool should_fit_to_window{false};
+
     vec2d world_pos_from_window_pos(vec2d const &p) const;
     vec2d window_pos_from_world_pos(vec2d const &p) const;
     void fit_to_window();
@@ -155,14 +162,15 @@ struct gerber_explorer : gl_window {
     void zoom_image(vec2d const &pos, double zoom_scale);
     void update_view_rect();
 
-    void load_gerber(layer_t const &layer);
+    void load_gerber(settings::layer_t const &layer);
 
     void select_entity(vec2d const &window_pos);
 
     std::list<gerber_layer *> loaded_layers; // loaded in the other thread, waiting to be added to layers
 
+    // how many gerberes queued up for loading?
+    // when this transitions to 0, zoom to fit
     int gerbers_to_load{0};
-    void on_last_gerber_loaded();
 
     void file_open();
 
@@ -170,7 +178,7 @@ struct gerber_explorer : gl_window {
 
     std::mutex loader_mutex;
     std::mutex loaded_mutex;
-    std::list<layer_t> gerber_filenames_to_load;
+    std::list<settings::layer_t> gerber_filenames_to_load;
     void load_gerbers(std::stop_token const &st);
     std::jthread gerber_load_thread;
     std::counting_semaphore<1024> loader_semaphore{0};
@@ -189,6 +197,8 @@ struct gerber_explorer : gl_window {
     void on_mouse_button(int button, int action, int mods) override;
     void on_mouse_move(double xpos, double ypos) override;
     void on_drop(int count, const char **paths) override;
+
+    void ui();
 
     std::string window_name() const override;
 };

@@ -42,14 +42,16 @@ namespace gerber_3d
         GLuint vertex_shader_id{};
         GLuint fragment_shader_id{};
 
-        GLuint transform_location{};
+        GLuint u_transform{};
+
+        GLuint vao{};
 
         gl_program() = default;
 
         char const *program_name;    // just for debugging reference
 
-        char const *vertex_shader_source;
-        char const *fragment_shader_source;
+        std::string vertex_shader_source;
+        std::string fragment_shader_source;
 
         int get_uniform(char const *name);
         int get_attribute(char const *name);
@@ -83,64 +85,13 @@ namespace gerber_3d
     };
 
     //////////////////////////////////////////////////////////////////////
-    // uniform color
 
-    struct gl_solid_program : gl_program
-    {
-        GLuint color_location{};
-
-        int init() override;
-
-        void set_color(uint32_t solid_color) const;
-    };
-
-    //////////////////////////////////////////////////////////////////////
-    // for drawing layers
-
-    struct gl_layer_program : gl_program
-    {
-        GLuint color_location{};
-
-        GLuint center_uniform;
-        GLuint x_flip_uniform;
-        GLuint y_flip_uniform;
-
-        int init() override;
-
-        void set_color(uint32_t cover) const;
-    };
-
-    //////////////////////////////////////////////////////////////////////
-    // color per vertex
-
-    struct gl_color_program : gl_program
-    {
-        int init() override;
-    };
-
-    //////////////////////////////////////////////////////////////////////
-    // textured, no color
-
-    struct gl_textured_program : gl_program
-    {
-        GLuint red_color_uniform;
-        GLuint green_color_uniform;
-        GLuint blue_color_uniform;
-        GLuint alpha_uniform;
-        GLuint cover_sampler;
-        GLuint num_samples_uniform{};
-
-        int init() override;
-    };
-
-    //////////////////////////////////////////////////////////////////////
-
-    struct gl_index_array
+    struct gl_index_buffer
     {
         GLuint ibo_id{ 0 };
         int num_indices{ 0 };
 
-        gl_index_array() = default;
+        gl_index_buffer() = default;
 
         int init(GLsizei index_count);
         int activate() const;
@@ -154,6 +105,7 @@ namespace gerber_3d
     {
         virtual ~gl_vertex_array() = default;
 
+        GLuint vao_id{ 0 };
         GLuint vbo_id{ 0 };
         int num_verts{ 0 };
 
@@ -161,7 +113,7 @@ namespace gerber_3d
 
         int alloc(GLsizei vert_count, size_t vertex_size);
 
-        virtual int init(gl_program &program, GLsizei vert_count) = 0;
+        virtual int init(GLsizei vert_count);
         virtual int activate() const;
 
         void cleanup();
@@ -173,9 +125,20 @@ namespace gerber_3d
     {
         gl_vertex_array_solid() = default;
 
-        int position_location{ 0 };
+        int init(GLsizei vert_count) override;
+        int activate() const override;
+    };
 
-        int init(gl_program &program, GLsizei vert_count) override;
+    //////////////////////////////////////////////////////////////////////
+    // special double feature for the instances thick line nonsense
+
+    struct gl_line_array : gl_vertex_array
+    {
+        gl_line_array() = default;
+
+        // location of start/end are fixed at 0,1
+
+        int init(GLsizei vert_count) override;
         int activate() const override;
     };
 
@@ -185,10 +148,7 @@ namespace gerber_3d
     {
         gl_vertex_array_color() = default;
 
-        int position_location{ 0 };
-        int color_location{ 0 };
-
-        int init(gl_program &program, GLsizei vert_count) override;
+        int init(GLsizei vert_count) override;
         int activate() const override;
     };
 
@@ -198,11 +158,92 @@ namespace gerber_3d
     {
         gl_vertex_array_textured() = default;
 
-        int position_location{ 0 };
-        int tex_coord_location{ 0 };
-
-        int init(gl_program &program, GLsizei vert_count) override;
+        int init(GLsizei vert_count) override;
         int activate() const override;
+    };
+
+    //////////////////////////////////////////////////////////////////////
+    // uniform color
+
+    struct gl_solid_program : gl_program
+    {
+        static int constexpr position_location = 0;
+
+        GLuint u_color;
+
+        int init() override;
+
+        void set_color(uint32_t solid_color) const;
+    };
+
+    //////////////////////////////////////////////////////////////////////
+    // for drawing layers
+
+    struct gl_layer_program : gl_program
+    {
+        static int constexpr position_location = 0;
+
+        GLuint u_color{};
+        GLuint u_center;
+        GLuint u_x_flip;
+        GLuint u_y_flip;
+
+        int init() override;
+
+        void set_color(uint32_t cover) const;
+    };
+
+    //////////////////////////////////////////////////////////////////////
+    // color per vertex
+
+    struct gl_color_program : gl_program
+    {
+        static int constexpr position_location = 0;
+        static int constexpr vert_color_location = 1;
+
+        int init() override;
+    };
+
+    //////////////////////////////////////////////////////////////////////
+    // textured, no color
+
+    struct gl_textured_program : gl_program
+    {
+        static int constexpr position_location = 0;
+        static int constexpr tex_coord_location = 1;
+
+        GLuint u_red;
+        GLuint u_green;
+        GLuint u_blue;
+        GLuint u_alpha;
+        GLuint u_cover_sampler;
+        GLuint u_num_samples{};
+
+        int init() override;
+    };
+
+    //////////////////////////////////////////////////////////////////////
+
+    struct gl_line_program : gl_program
+    {
+        static constexpr int pos_a_location = 0;         // Instanced
+        static constexpr int pos_b_location = 1;         // Instanced
+        static constexpr int position_location = 2;
+
+        GLuint u_thickness;
+        GLuint u_color;
+        GLuint u_center;
+        GLuint u_x_flip;
+        GLuint u_y_flip;
+
+        static const float quad[8];
+
+        gl_line_array line_array;
+        GLuint lines_vbo_id{ 0 };
+
+        void set_color(uint32_t solid_color) const;
+
+        int init() override;
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -253,9 +294,9 @@ namespace gerber_3d
         std::vector<gl_vertex_color> verts;
         std::vector<gl_drawlist_entry> drawlist;
 
-        int init(gl_color_program &program)
+        int init()
         {
-            int err = vertex_array.init(program, max_verts);
+            int err = vertex_array.init(max_verts);
             if(err != 0) {
                 return err;
             }
@@ -325,17 +366,17 @@ namespace gerber_3d
 //////////////////////////////////////////////////////////////////////
 
 #if defined(_DEBUG) || 1
-#define GL_CHECK(x)                                                                                                                                            \
-    do {                                                                                                                                                       \
-        x;                                                                                                                                                     \
-        GLenum __err = glGetError();                                                                                                                           \
-        if(__err != 0) {                                                                                                                                       \
-            LOG_ERROR("ERROR {} from {} at line {} of {}", __err, #x, __LINE__, __FILE__);                                                                     \
-        }                                                                                                                                                      \
+#define GL_CHECK(x)                                                                        \
+    do {                                                                                   \
+        x;                                                                                 \
+        GLenum __err = glGetError();                                                       \
+        if(__err != 0) {                                                                   \
+            LOG_ERROR("ERROR {} from {} at line {} of {}", __err, #x, __LINE__, __FILE__); \
+        }                                                                                  \
     } while(0)
 #else
-#define GL_CHECK(x)                                                                                                                                            \
-    do {                                                                                                                                                       \
-        x;                                                                                                                                                     \
+#define GL_CHECK(x) \
+    do {            \
+        x;          \
     } while(0)
 #endif

@@ -15,10 +15,15 @@
 // X zoom to fit on load
 // X load/save settings
 // X hotkeys
+// X win32 outputs logging when run in a console
+// X thick outline
+// X fix fit_to_window on load
+// X put shaders in separate source files
 //
-// thick outline
-// high DPI
 // picking / selection
+// separate gl_vertex_array / gl_vertex_buffer
+// reduce gpu usage - only draw frame when necessary
+// high DPI
 // render-on-window-resize
 // fix ImGui viewport thing
 // gerber spec compliance (polygons, holes)
@@ -80,7 +85,11 @@ int flushed_puts(char const *s)
 
 int main(int, char **)
 {
+#ifdef _DEBUG
     log_set_level(gerber_lib::log_level_debug);
+#else
+    log_set_level(gerber_lib::log_level_warning);
+#endif
 
 #ifdef _WIN32
     if(!IsDebuggerPresent()) {

@@ -34,7 +34,7 @@ namespace
     void log_gl([[maybe_unused]] GLenum source, [[maybe_unused]] GLenum type, [[maybe_unused]] GLuint id, [[maybe_unused]] GLenum severity,
                 [[maybe_unused]] GLsizei length, const GLchar *message, [[maybe_unused]] const void *userParam)
     {
-        LOG_INFO("{}", message);
+        LOG_INFO("{}:{}", id, message);
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -214,14 +214,14 @@ void gl_window::init()
         LOG_ERROR("GLAD LOAD FAILED, Exiting...");
     }
 
-    // GL_CHECK(glDebugMessageCallback(log_gl, nullptr));
-    // GL_CHECK(glEnable(GL_DEBUG_OUTPUT));
+    GL_CHECK(glDebugMessageCallback(log_gl, nullptr));
+    GL_CHECK(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS));
+    GL_CHECK(glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE));
+    GL_CHECK(glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW, 0, nullptr, GL_FALSE));
+    GL_CHECK(glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_MEDIUM, 0, nullptr, GL_FALSE));
+    GL_CHECK(glEnable(GL_DEBUG_OUTPUT));
 
     // Seems you need this if GL >= 4.0 even if vertex array not used directly
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
