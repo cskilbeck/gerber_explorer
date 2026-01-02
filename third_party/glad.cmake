@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.29)
+cmake_minimum_required(VERSION 3.10)
 
 set(GLAD_DIR ${CMAKE_CURRENT_LIST_DIR}/glad)
 

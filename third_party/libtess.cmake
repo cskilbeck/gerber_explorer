@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.29)
+cmake_minimum_required(VERSION 3.10)
 
 set(LIB_TESS2_DIR ${CMAKE_CURRENT_LIST_DIR}/libtess2-1.0.2)
 
