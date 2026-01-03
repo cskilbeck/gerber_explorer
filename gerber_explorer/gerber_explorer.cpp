@@ -19,6 +19,7 @@ namespace
 {
     using gerber_lib::gerber_2d::rect;
     using gerber_lib::gerber_2d::vec2d;
+    using gerber_lib::gerber_2d::vec2f;
     using namespace gerber_3d;
 
     long long const zoom_lerp_time_ms = 700;
@@ -892,15 +893,12 @@ void gerber_explorer::on_render()
     for(auto layer : layers) {
         all = all.union_with(layer->extent());
     }
-    vec2d center = all.center();
-    float cx = (float)center.x;
-    float cy = (float)center.y;
 
     float pixel_scale = (float)(window_rect.width() / view_rect.width());
 
-    fullscreen_blit_matrix = make_ortho(window_width, window_height);
+    screen_matrix = make_ortho(window_width, window_height);
 
-    flip_world_matrix = make_2d_transform(window_width, window_height, view_rect, cx, cy, settings.flip_x, settings.flip_y);
+    flip_world_matrix = make_2d_transform(window_width, window_height, view_rect, vec2f(all.center()), settings.flip_x, settings.flip_y);
 
     // flip_world_matrix = matrix_multiply(projection_matrix, flip_view_matrix);
 
@@ -955,7 +953,7 @@ void gerber_explorer::on_render()
             glUniform1f(textured_program.u_alpha, layer.alpha / 255.0f);
             glUniform1i(textured_program.u_num_samples, my_target.num_samples);
             glUniform1i(textured_program.u_cover_sampler, 0);
-            glUniformMatrix4fv(textured_program.u_transform, 1, false, fullscreen_blit_matrix.m);
+            glUniformMatrix4fv(textured_program.u_transform, 1, false, screen_matrix.m);
 
             fullscreen_blit_verts.activate();
 
@@ -1007,7 +1005,6 @@ void gerber_explorer::on_render()
 
     color_program.use();
 
-    screen_matrix = make_ortho(window_width, window_height);
     GL_CHECK(glUniformMatrix4fv(color_program.u_transform, 1, false, screen_matrix.m));
 
     overlay.draw();

@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "gerber_math.h"
+#include "gerber_2d.h"
 #include "gerber_util.h"
 
 namespace gerber_lib
@@ -13,6 +14,7 @@ namespace gerber_lib
     namespace gerber_2d
     {
         struct matrix;
+        struct vec2d;
 
         //////////////////////////////////////////////////////////////////////
 
@@ -20,6 +22,12 @@ namespace gerber_lib
         {
             float x;
             float y;
+
+            vec2f() = default;
+            vec2f(float x, float y) : x(x), y(y)
+            {
+            }
+            explicit vec2f(vec2d o);
         };
 
         //////////////////////////////////////////////////////////////////////
@@ -101,6 +109,11 @@ namespace gerber_lib
                 return std::format("(X:{:g},Y:{:g})", x, y);
             }
         };
+
+        inline vec2f::vec2f(vec2d o) : x((float)o.x), y((float)o.y)
+        {
+        }
+
     }    // namespace gerber_2d
 }    // namespace gerber_lib
 GERBER_MAKE_FORMATTER(gerber_lib::gerber_2d::vec2d);
