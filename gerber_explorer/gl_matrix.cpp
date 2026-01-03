@@ -75,28 +75,13 @@ namespace gerber_3d
     }
 
     //////////////////////////////////////////////////////////////////////
-    // Make a transform matrix which optionally flips horizontally/vertically around cx,cy
-    // And then places view_rect in the window
-    // It's assumed that the aspect ratio of screen_w, screen_h == aspect ratio (view_rect)
 
-    gl_matrix make_2d_transform(int screen_w, int screen_h, const rect &view_rect, vec2f center, bool flip_x, bool flip_y)
+    vec2d matrix_apply(vec2d const &v, gl_matrix const &matrix)
     {
-        float sx = (float)(screen_w / view_rect.width());
-        float sy = (float)(screen_h / view_rect.height());
-        float fx = flip_x ? -1.0f : 1.0f;
-        float fy = flip_y ? -1.0f : 1.0f;
-        gl_matrix flip_m = make_identity();
-        flip_m.m[0] = fx;
-        flip_m.m[5] = fy;
-        flip_m.m[12] = center.x - fx * center.x;
-        flip_m.m[13] = center.y - fy * center.y;
-        gl_matrix view_m = make_identity();
-        view_m.m[0] = sx;
-        view_m.m[5] = sy;
-        view_m.m[12] = (float)(-(view_rect.min_pos.x * sx));
-        view_m.m[13] = (float)(-(view_rect.min_pos.y * sy));
-        gl_matrix ortho_m = make_ortho(screen_w, screen_h);
-        gl_matrix temp = matrix_multiply(view_m, flip_m);
-        return matrix_multiply(ortho_m, temp);
+        vec2d result;
+        result.x = matrix.m[0] * v.x + matrix.m[4] * v.y + matrix.m[12];
+        result.y = matrix.m[1] * v.x + matrix.m[5] * v.y + matrix.m[13];
+        return result;
     }
+
 }    // namespace gerber_3d

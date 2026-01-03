@@ -111,9 +111,11 @@ struct gerber_explorer : gl_window {
 
     int window_width{};
     int window_height{};
-
     int window_xpos{};
     int window_ypos{};
+
+    gerber_3d::gl_matrix world_matrix{};
+    gerber_3d::gl_matrix ortho_screen_matrix{};
 
     gerber_layer *selected_layer{ nullptr };
     std::list<gerber_layer *> layers;     // active
@@ -122,9 +124,6 @@ struct gerber_explorer : gl_window {
     rect source_view_rect{};
     bool zoom_anim{ false };
     std::chrono::time_point<std::chrono::high_resolution_clock> target_view_time{};
-    gerber_3d::gl_matrix flip_world_matrix{};
-    gerber_3d::gl_matrix world_matrix{};
-    gerber_3d::gl_matrix screen_matrix{};
 
     gerber_3d::gl_drawlist overlay;
 
@@ -143,7 +142,7 @@ struct gerber_explorer : gl_window {
 
     gerber_3d::gl_vertex_array_textured fullscreen_blit_verts;
 
-    gerber_3d::gl_render_target my_target{};
+    gerber_3d::gl_render_target layer_render_target{};
 
     int multisample_count{ 4 };
     int max_multisamples{ 1 };
@@ -153,8 +152,19 @@ struct gerber_explorer : gl_window {
 
     // when window size changes, zoom to fit
     // this gets cleared if they pan/zoom etc manually
-    bool should_fit_to_window{false};
+    bool should_fit_to_window{ false };
 
+    // bounding rect of all layers
+    rect board_extent;
+    vec2d board_center;
+
+    // -1 or 1 for each x,y based on settings.flip_x/y
+    vec2d flip_xy;
+
+    // scale window to view rect
+    vec2d view_scale;
+
+    vec2d board_pos_from_window_pos(vec2d const &p) const;
     vec2d world_pos_from_window_pos(vec2d const &p) const;
     vec2d window_pos_from_world_pos(vec2d const &p) const;
     void fit_to_window();

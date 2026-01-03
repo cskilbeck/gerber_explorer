@@ -69,6 +69,8 @@ std::string gerber_explorer::window_name() const
     return app_friendly_name;
 }
 
+//////////////////////////////////////////////////////////////////////
+
 vec2d gerber_explorer::world_pos_from_window_pos(vec2d const &p) const
 {
     vec2d scale = view_rect.size().divide(window_size);
@@ -77,10 +79,19 @@ vec2d gerber_explorer::world_pos_from_window_pos(vec2d const &p) const
 
 //////////////////////////////////////////////////////////////////////
 
+vec2d gerber_explorer::board_pos_from_window_pos(vec2d const &p) const
+{
+    vec2d pos;
+    pos.x = (p.x - board_center.x) * flip_xy.x + board_center.x;
+    pos.y = (p.y - board_center.y) * flip_xy.y + board_center.y;
+    return vec2d{ pos.x, window_size.y - pos.y }.multiply(view_scale).add(view_rect.min_pos);
+}
+
+//////////////////////////////////////////////////////////////////////
+
 vec2d gerber_explorer::window_pos_from_world_pos(vec2d const &p) const
 {
-    vec2d scale = window_size.divide(view_rect.size());
-    vec2d pos = p.subtract(view_rect.min_pos).multiply(scale);
+    vec2d pos = p.subtract(view_rect.min_pos).multiply(view_scale);
     return { pos.x, window_size.y - pos.y };
 }
 
@@ -91,11 +102,7 @@ void gerber_explorer::fit_to_window()
     if(selected_layer != nullptr && selected_layer->is_valid()) {
         zoom_to_rect(selected_layer->extent());
     } else {
-        rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
-        for(auto layer : layers) {
-            all = all.union_with(layer->extent());
-        }
-        zoom_to_rect(all);
+        zoom_to_rect(board_extent);
     }
 }
 
@@ -888,17 +895,37 @@ void gerber_explorer::on_render()
         return;
     }
 
+    view_scale = window_size.divide(view_rect.size());
+
     // get center of bounding rect of all layers (for flip)
     rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
     for(auto layer : layers) {
         all = all.union_with(layer->extent());
     }
+    board_extent = all;
+    board_center = all.center();
+
+    flip_xy = { settings.flip_x ? -1.0 : 1.0, settings.flip_y ? -1.0 : 1.0 };
 
     float pixel_scale = (float)(window_rect.width() / view_rect.width());
 
-    screen_matrix = make_ortho(window_width, window_height);
+    ortho_screen_matrix = make_ortho(window_width, window_height);
 
-    flip_world_matrix = make_2d_transform(window_width, window_height, view_rect, vec2f(all.center()), settings.flip_x, settings.flip_y);
+    gl_matrix flip_m = make_identity();
+    flip_m.m[0] = (float)flip_xy.x;
+    flip_m.m[5] = (float)flip_xy.y;
+    flip_m.m[12] = (float)(board_center.x - flip_xy.x * board_center.x);
+    flip_m.m[13] = (float)(board_center.y - flip_xy.y * board_center.y);
+    gl_matrix view_m = make_identity();
+    view_m.m[0] = (float)view_scale.x;
+    view_m.m[5] = (float)view_scale.y;
+    view_m.m[12] = (float)(-(view_rect.min_pos.x * view_scale.x));
+    view_m.m[13] = (float)(-(view_rect.min_pos.y * view_scale.y));
+    gl_matrix temp = matrix_multiply(view_m, flip_m);
+    world_matrix = matrix_multiply(ortho_screen_matrix, temp);
+
+    //////////////////////////////////////////////////////////////////////
+    // Draw stuff
 
     GL_CHECK(glClearColor(0, 0, 0, 1.0f));
     GL_CHECK(glDisable(GL_DEPTH_TEST));
@@ -913,53 +940,49 @@ void gerber_explorer::on_render()
     update_buffer<GL_ARRAY_BUFFER>(fullscreen_triangle);
     GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
-    if(my_target.width != window_width || my_target.height != window_height || my_target.num_samples != multisample_count) {
-        my_target.cleanup();
-        my_target.init(window_width, window_height, multisample_count, 1);
+    if(layer_render_target.width != window_width || layer_render_target.height != window_height || layer_render_target.num_samples != multisample_count) {
+        layer_render_target.cleanup();
+        layer_render_target.init(window_width, window_height, multisample_count, 1);
     }
 
-    // float scale = (float)view_rect.width() / window_width;
     float outline_width = (settings.outline_width + 1) / pixel_scale;
 
     for(auto r = layers.begin(); r != layers.end(); ++r) {
         gerber_layer &layer = **r;
 
         if(layer.visible) {
-            my_target.bind_framebuffer();
+
+            // draw the layer into the render target
+
+            layer_render_target.bind_framebuffer();
 
             GL_CHECK(glViewport(0, 0, window_width, window_height));
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            layer.draw(settings.wireframe, outline_width, flip_world_matrix);
+            layer.draw(settings.wireframe, outline_width, world_matrix);
 
             // draw the render to the window
 
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
             GL_CHECK(glViewport(0, 0, window_width, window_height));
-            // GL_CHECK(glViewport(pos.x, pos.y, window_size.x, window_size.y));
-
             GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-
             textured_program.use();
-
-            my_target.bind_textures();
-
+            layer_render_target.bind_textures();
             glUniform4fv(textured_program.u_red, 1, layer.fill_color.f);
             glUniform4fv(textured_program.u_green, 1, layer.clear_color.f);
             glUniform4fv(textured_program.u_blue, 1, (float const *)&settings.outline_color);
             glUniform1f(textured_program.u_alpha, layer.alpha / 255.0f);
-            glUniform1i(textured_program.u_num_samples, my_target.num_samples);
+            glUniform1i(textured_program.u_num_samples, layer_render_target.num_samples);
             glUniform1i(textured_program.u_cover_sampler, 0);
-            glUniformMatrix4fv(textured_program.u_transform, 1, false, screen_matrix.m);
-
+            glUniformMatrix4fv(textured_program.u_transform, 1, false, ortho_screen_matrix.m);
             fullscreen_blit_verts.activate();
-
             glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
             glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glDrawArrays(GL_TRIANGLES, 0, 3);
         }
     }
+
+    // draw the overlay graphics
 
     glLineWidth(1.0f);
 
@@ -1003,7 +1026,7 @@ void gerber_explorer::on_render()
 
     color_program.use();
 
-    GL_CHECK(glUniformMatrix4fv(color_program.u_transform, 1, false, screen_matrix.m));
+    GL_CHECK(glUniformMatrix4fv(color_program.u_transform, 1, false, ortho_screen_matrix.m));
 
     overlay.draw();
 }
