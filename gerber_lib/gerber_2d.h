@@ -38,9 +38,20 @@ namespace gerber_lib
             double y{};
 
             vec2d() = default;
-            vec2d(double x, double y);
             vec2d(double x, double y, matrix const &transform);
-            vec2d(vec2d const &o, matrix const &transform);
+
+            //////////////////////////////////////////////////////////////////////
+
+            vec2d(double x, double y) : x(x), y(y)
+            {
+            }
+
+            //////////////////////////////////////////////////////////////////////
+
+            vec2d(vec2d const &o, matrix const &transform) : vec2d(o.x, o.y, transform)
+            {
+            }
+
 
             explicit vec2d(vec2f const &v) : x{ v.x }, y{ v.y }
             {

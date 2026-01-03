@@ -595,7 +595,7 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
                         layer->fill_color.from_string(loaded_layer.color);
                         layer->clear_color = gl_color::clear;
                         layer->draw_mode = loaded_layer.draw_mode;
-                        layer->name = std::format("{:02d}:{}", layer->index, std::filesystem::path(g->filename).filename().string());
+                        layer->name = std::format("{}", std::filesystem::path(g->filename).filename().string());
                         LOG_DEBUG("Finished loading {}, {}", layer->index, loaded_layer.filename);
                         {
                             std::lock_guard loaded_lock(loaded_mutex);
@@ -899,8 +899,6 @@ void gerber_explorer::on_render()
     screen_matrix = make_ortho(window_width, window_height);
 
     flip_world_matrix = make_2d_transform(window_width, window_height, view_rect, vec2f(all.center()), settings.flip_x, settings.flip_y);
-
-    // flip_world_matrix = matrix_multiply(projection_matrix, flip_view_matrix);
 
     GL_CHECK(glClearColor(0, 0, 0, 1.0f));
     GL_CHECK(glDisable(GL_DEPTH_TEST));

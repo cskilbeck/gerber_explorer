@@ -118,11 +118,14 @@ if (MSVC)
     target_compile_options(${PROJECT} PRIVATE
             /MP       # multiprocessor build
             /wd4100   # unreferenced formal parameter
+            /wd4324   # padding due to alignment
             /wd4505   # unreferenced function with internal linkage has been removed
+            /arch:AVX2
             /WX)      # warnings-as-errors
 
 else ()
     target_compile_options(${PROJECT} PRIVATE
+            -mavx2
             -Wall
             -Wextra
             -Wpedantic
@@ -132,6 +135,8 @@ else ()
             -Wno-implicit-fallthrough
             -Wno-multichar)
 endif ()
+
+set_target_properties(${PROJECT} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})
 
 target_compile_definitions(${PROJECT} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
 

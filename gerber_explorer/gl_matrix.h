@@ -4,7 +4,7 @@
 
 namespace gerber_3d
 {
-    struct gl_matrix
+    struct alignas(16) gl_matrix
     {
         float m[16];
     };
