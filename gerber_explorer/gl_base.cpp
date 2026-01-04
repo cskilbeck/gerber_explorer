@@ -515,6 +515,11 @@ namespace gerber_3d
 
     int gl_render_target::init(GLuint new_width, GLuint new_height, GLuint multisample_count, GLuint slots)
     {
+        if(num_slots > max_num_slots) {
+            cleanup();
+            return 1;
+        }
+
         num_samples = multisample_count;
         num_slots = slots;
 
@@ -556,16 +561,15 @@ namespace gerber_3d
         bind_textures();
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         for(GLuint slot = 0; slot < num_slots; ++slot) {
-            GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + slot, GL_TEXTURE_2D_MULTISAMPLE, texture_ids[slot], 0));
+            GL_CHECK(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + slot, GL_TEXTURE_2D_MULTISAMPLE, texture_ids[slot], 0));
         }
-        std::vector<GLenum> buffers;
-        buffers.reserve(num_slots);
+        std::array<GLenum, max_num_slots> buffers;
         GLenum a = GL_COLOR_ATTACHMENT0;
         for(GLuint i = 0; i < num_slots; ++i) {
-            buffers.push_back(a);
+            buffers[i] = a;
             a += 1;
         }
-        GL_CHECK(glNamedFramebufferDrawBuffers(fbo, num_slots, buffers.data()));
+        GL_CHECK(glDrawBuffers(static_cast<GLsizei>(num_slots), buffers.data()));
     }
 
     //////////////////////////////////////////////////////////////////////

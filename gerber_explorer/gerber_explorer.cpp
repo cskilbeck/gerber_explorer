@@ -184,7 +184,6 @@ void gerber_explorer::on_drop(int count, const char **paths)
     }
 }
 
-
 //////////////////////////////////////////////////////////////////////
 
 void gerber_explorer::on_key(int key, int scancode, int action, int mods)
@@ -481,7 +480,7 @@ bool gerber_explorer::on_init()
 
     fullscreen_blit_verts.init(3);
 
-    glGetInternalformativ(GL_TEXTURE_2D_MULTISAMPLE, GL_RGBA, GL_SAMPLES, 1, &max_multisamples);
+    glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &max_multisamples);
 
     LOG_INFO("MAX GL Multisamples: {}", max_multisamples);
 

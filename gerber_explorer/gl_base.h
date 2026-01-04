@@ -67,6 +67,8 @@ namespace gerber_3d
 
     struct gl_render_target
     {
+        static GLuint constexpr max_num_slots = 16;
+
         GLuint fbo{};
 
         std::vector<GLuint> texture_ids{};

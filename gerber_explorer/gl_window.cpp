@@ -214,12 +214,14 @@ void gl_window::init()
         LOG_ERROR("GLAD LOAD FAILED, Exiting...");
     }
 
-    GL_CHECK(glDebugMessageCallback(log_gl, nullptr));
-    GL_CHECK(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS));
-    GL_CHECK(glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE));
-    GL_CHECK(glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW, 0, nullptr, GL_FALSE));
-    GL_CHECK(glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_MEDIUM, 0, nullptr, GL_FALSE));
-    GL_CHECK(glEnable(GL_DEBUG_OUTPUT));
+    if(GLAD_GL_ARB_debug_output) {
+        GL_CHECK(glDebugMessageCallbackARB(log_gl, nullptr));
+        GL_CHECK(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB));
+        GL_CHECK(glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, nullptr, GL_FALSE));
+        GL_CHECK(glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_MEDIUM_ARB, 0, nullptr, GL_FALSE));
+        GL_CHECK(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB));
+    }
+
 
     // Seems you need this if GL >= 4.0 even if vertex array not used directly
     IMGUI_CHECKVERSION();
