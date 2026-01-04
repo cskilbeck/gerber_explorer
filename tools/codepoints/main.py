@@ -36,8 +36,6 @@ def convert_header_to_utf8(input_filename, output_filename):
 
         # Add the range defines at the bottom if we found any codepoints
         if min_cp != float('inf'):
-            if max_cp > 0xFFFF:
-                max_cp = 0xFFFF
             output_lines.append("\n// Range Information\n")
             output_lines.append(f"#define MATSYM_MIN_CODEPOINT 0x{min_cp:04x}\n")
             output_lines.append(f"#define MATSYM_MAX_CODEPOINT 0x{max_cp:04x}\n")

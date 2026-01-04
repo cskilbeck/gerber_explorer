@@ -244,7 +244,7 @@ void gl_window::init()
     font_cfg.MergeMode = true;
     font_cfg.PixelSnapH = true;
     font_cfg.GlyphMinAdvanceX = 18.0f;
-    font_cfg.GlyphOffset.y = fontSize / 6;;
+    font_cfg.GlyphOffset.y = fontSize / 6;
     static const ImWchar icon_ranges[] = { MATSYM_MIN_CODEPOINT, MATSYM_MAX_CODEPOINT, 0 };
 
     // 4. Load the icon font (it merges into the font loaded in step 1)

@@ -139,6 +139,7 @@ endif ()
 set_target_properties(${PROJECT} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})
 
 target_compile_definitions(${PROJECT} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
+target_compile_definitions(${PROJECT} PUBLIC IMGUI_USE_WCHAR32)
 
 target_include_directories(${PROJECT} PRIVATE
         ${CMRC_INCLUDE_DIR}

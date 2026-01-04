@@ -2236,4 +2236,4 @@
 
 // Range Information
 #define MATSYM_MIN_CODEPOINT 0xe000
-#define MATSYM_MAX_CODEPOINT 0xffff
+#define MATSYM_MAX_CODEPOINT 0x10fffd
