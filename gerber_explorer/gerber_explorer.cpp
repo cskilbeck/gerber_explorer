@@ -73,8 +73,7 @@ std::string gerber_explorer::window_name() const
 
 vec2d gerber_explorer::world_pos_from_window_pos(vec2d const &p) const
 {
-    vec2d scale = view_rect.size().divide(window_size);
-    return vec2d{ p.x, window_size.y - p.y }.multiply(scale).add(view_rect.min_pos);
+    return vec2d{ p.x, window_size.y - p.y }.divide(view_scale).add(view_rect.min_pos);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -84,7 +83,7 @@ vec2d gerber_explorer::board_pos_from_window_pos(vec2d const &p) const
     vec2d pos;
     pos.x = (p.x - board_center.x) * flip_xy.x + board_center.x;
     pos.y = (p.y - board_center.y) * flip_xy.y + board_center.y;
-    return vec2d{ pos.x, window_size.y - pos.y }.multiply(view_scale).add(view_rect.min_pos);
+    return vec2d{ pos.x, window_size.y - pos.y }.divide(view_scale).add(view_rect.min_pos);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -125,21 +124,11 @@ void gerber_explorer::zoom_to_rect(rect const &zoom_rect, double border_ratio)
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::zoom_image(vec2d const &pos, double zoom_scale)
+void gerber_explorer::zoom_at_point(vec2d const &zoom_pos, double zoom_scale)
 {
-    // normalized position within view_rect
-    vec2d zoom_pos = vec2d{ (double)pos.x, window_size.y - (double)pos.y }.divide(window_size);
-
-    // scaled view_rect size
-    vec2d new_size{ view_rect.width() / zoom_scale, view_rect.height() / zoom_scale };
-
-    // world position of pos
-    vec2d p = view_rect.min_pos.add(zoom_pos.multiply(view_rect.size()));
-
-    // new rectangle offset from world position
-    vec2d bottom_left = p.subtract(new_size.multiply(zoom_pos));
-    vec2d top_right = bottom_left.add(new_size);
-    view_rect = { bottom_left, top_right };
+    vec2d bl = view_rect.min_pos.subtract(zoom_pos).multiply(zoom_scale).add(zoom_pos);
+    vec2d tr = view_rect.max_pos.subtract(zoom_pos).multiply(zoom_scale).add(zoom_pos);
+    view_rect = { bl, tr };
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -240,8 +229,8 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
 
 void gerber_explorer::on_scroll(double xoffset, double yoffset)
 {
-    double scale_factor = (yoffset > 0) ? 1.1 : 0.9;
-    zoom_image(mouse_pos, scale_factor);
+    double scale_factor = (yoffset > 0) ? 0.9 : 1.1;
+    zoom_at_point(world_pos_from_window_pos(mouse_pos), scale_factor);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -322,7 +311,7 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
             double factor = (d.x - d.y) * 0.01;
             // sometimes cursor coords jump for reasons I don't understand so clamp
             factor = std::max(-0.15, std::min(factor, 0.15));
-            zoom_image(drag_mouse_start_pos, 1.0 + factor);
+            zoom_at_point(mouse_world_pos, 1.0 - factor);
             should_fit_to_window = false;
         } else {
             ignore_mouse_moves -= 1;
@@ -427,6 +416,7 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
     case mouse_drag_zoom:
         zoom_anim = false;
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        mouse_world_pos = world_pos_from_window_pos(pos);
         drag_mouse_cur_pos = pos;
         drag_mouse_start_pos = pos;
         // ignore the next 2 mouse moves because sometimes they are kind of

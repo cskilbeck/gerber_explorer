@@ -169,7 +169,7 @@ struct gerber_explorer : gl_window {
     vec2d window_pos_from_world_pos(vec2d const &p) const;
     void fit_to_window();
     void zoom_to_rect(rect const &zoom_rect, double border_ratio = 1.1);
-    void zoom_image(vec2d const &pos, double zoom_scale);
+    void zoom_at_point(vec2d const &zoom_pos, double zoom_scale);
     void update_view_rect();
 
     void load_gerber(settings::layer_t const &layer);
