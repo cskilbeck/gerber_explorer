@@ -34,53 +34,7 @@ cmrc_add_resource_library(my_shaders
         "${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_fragment_shader.glsl"
         "${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_vertex_shader.glsl")
 
-######################################################################
-# GLFW
-
-FetchContent_Declare(
-        glfw
-        GIT_REPOSITORY https://github.com/glfw/glfw.git
-        GIT_TAG 3.4)
-
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-
-FetchContent_MakeAvailable(glfw)
-
-######################################################################
-# JSON
-
-FetchContent_Declare(
-        json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG v3.11.3)
-
-FetchContent_MakeAvailable(json)
-
-######################################################################
-# IMGUI
-
-FetchContent_Declare(
-        imgui
-        GIT_REPOSITORY https://github.com/ocornut/imgui.git
-        GIT_TAG docking)
-
-FetchContent_MakeAvailable(imgui)
-
-set(IMGUI_SOURCES
-        ${imgui_SOURCE_DIR}/imgui.cpp
-        ${imgui_SOURCE_DIR}/imgui_draw.cpp
-        ${imgui_SOURCE_DIR}/imgui_tables.cpp
-        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-        ${imgui_SOURCE_DIR}/imgui_demo.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
-
-######################################################################
-# OPENGL
-
-find_package(OpenGL REQUIRED)
+target_include_directories(my_assets PUBLIC assets)
 
 ######################################################################
 # MAIN
@@ -92,7 +46,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(${PROJECT}
-        ${IMGUI_SOURCES}
         main.cpp
         gl_colors.h
         log_drawer.h
@@ -110,8 +63,7 @@ add_executable(${PROJECT}
         util.h
         util.cpp
         settings.cpp
-        settings.h
-        assets/matsym_codepoints_utf8.h)
+        settings.h)
 
 if (MSVC)
     string(REPLACE "/W3" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -139,14 +91,11 @@ endif ()
 set_target_properties(${PROJECT} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})
 
 target_compile_definitions(${PROJECT} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
-target_compile_definitions(${PROJECT} PUBLIC IMGUI_USE_WCHAR32)
 
 target_include_directories(${PROJECT} PRIVATE
-        ${CMRC_INCLUDE_DIR}
-        ${imgui_SOURCE_DIR}
-        ${imgui_SOURCE_DIR}/backends)
+        ${CMRC_INCLUDE_DIR})
 
-target_link_libraries(${PROJECT} PRIVATE gerber_lib libtess2 glad glfw OpenGL::GL nlohmann_json::nlohmann_json nfd my_assets my_shaders)
+target_link_libraries(${PROJECT} PRIVATE gerber_lib libtess2 nlohmann_json::nlohmann_json nfd my_assets my_shaders gerber_gl)
 
 if (MSVC)
     set_target_properties(gerber_explorer PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
