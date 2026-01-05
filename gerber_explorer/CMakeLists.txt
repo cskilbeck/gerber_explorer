@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 include(FetchContent)
 
 ######################################################################
-# CMRC
+# CMRC (CMake Resource Compiler)
 
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
@@ -17,10 +17,14 @@ list(APPEND CMAKE_MODULE_PATH "${cmrc_SOURCE_DIR}")
 
 include(CMakeRC)
 
+### Fonts for ImGui
+
 cmrc_add_resource_library(my_assets
         WHENCE "${CMAKE_CURRENT_SOURCE_DIR}/assets"
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/Roboto-Medium.ttf"
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/MaterialIcons-Regular.ttf")
+
+### GL Shader sources
 
 cmrc_add_resource_library(my_shaders
         WHENCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders"

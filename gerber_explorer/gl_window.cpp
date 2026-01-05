@@ -29,7 +29,7 @@ namespace
     using gerber_lib::gerber_2d::rect;
     using gerber_lib::gerber_2d::vec2d;
 
-    std::string imgui_ini_filename = config_path("gerber_explorer", "imgui.ini").string();
+    std::string const imgui_ini_filename = config_path("gerber_explorer", "imgui.ini").string();
 
     void log_gl([[maybe_unused]] GLenum source, [[maybe_unused]] GLenum type, [[maybe_unused]] GLuint id, [[maybe_unused]] GLenum severity,
                 [[maybe_unused]] GLsizei length, const GLchar *message, [[maybe_unused]] const void *userParam)
@@ -87,6 +87,12 @@ namespace
     {
         gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
         glwindow->on_window_pos(width, height);
+    }
+
+    void on_glfw_refresh(GLFWwindow *window)
+    {
+        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
+        glwindow->on_window_refresh();
     }
 
     void on_glfw_pos(GLFWwindow *window, int x, int y)
@@ -207,6 +213,7 @@ void gl_window::init()
     glfwSetWindowSizeCallback(window, on_glfw_size);
     glfwSetWindowPosCallback(window, on_glfw_pos);
     glfwSetDropCallback(window, on_glfw_drop);
+    glfwSetWindowRefreshCallback(window, on_glfw_refresh);
 
     glfwMakeContextCurrent(window);
 
@@ -222,12 +229,9 @@ void gl_window::init()
         GL_CHECK(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB));
     }
 
-
-    // Seems you need this if GL >= 4.0 even if vertex array not used directly
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
-
 
     auto fs = cmrc::my_assets::get_filesystem();
     auto roboto_font_file = fs.open("Roboto-Medium.ttf");
@@ -241,13 +245,13 @@ void gl_window::init()
     ImFontConfig font_cfg{};
     font_cfg.FontDataOwnedByAtlas = false; // CRITICAL: Tells ImGui NOT to call free()
     io.Fonts->AddFontFromMemoryTTF(const_cast<void *>(roboto_font_data_ptr), static_cast<int>(roboto_font_data_size), fontSize, &font_cfg);
+
     font_cfg.MergeMode = true;
     font_cfg.PixelSnapH = true;
     font_cfg.GlyphMinAdvanceX = 18.0f;
     font_cfg.GlyphOffset.y = fontSize / 6;
     static const ImWchar icon_ranges[] = { MATSYM_MIN_CODEPOINT, MATSYM_MAX_CODEPOINT, 0 };
 
-    // 4. Load the icon font (it merges into the font loaded in step 1)
     io.Fonts->AddFontFromMemoryTTF(const_cast<void *>(matsym_font_data_ptr), static_cast<int>(matsym_font_data_size), fontSize, &font_cfg);
 
     io.IniFilename = imgui_ini_filename.c_str();
@@ -311,24 +315,31 @@ void gl_window::init()
 
 //////////////////////////////////////////////////////////////////////
 
+void gl_window::on_frame()
+{
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+    on_render();
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    ImGuiIO &io = ImGui::GetIO();
+    if(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+        GLFWwindow *backup_current_context = glfwGetCurrentContext();
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+        glfwMakeContextCurrent(backup_current_context);
+    }
+    glfwSwapBuffers(window);
+}
+
+//////////////////////////////////////////////////////////////////////
+
 bool gl_window::update()
 {
     glfwPollEvents();
     if(!glfwWindowShouldClose(window)) {
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-        on_render();
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        ImGuiIO &io = ImGui::GetIO();
-        if(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-            GLFWwindow *backup_current_context = glfwGetCurrentContext();
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-            glfwMakeContextCurrent(backup_current_context);
-        }
-        glfwSwapBuffers(window);
+        on_frame();
         return true;
     }
     on_closed();

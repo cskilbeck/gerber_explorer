@@ -199,6 +199,9 @@ struct gerber_explorer : gl_window {
     void save_settings(std::filesystem::path const &path);
     void load_settings(std::filesystem::path const &path);
 
+    void on_window_size(int w, int h) override;
+    void on_window_refresh() override;
+
     bool on_init() override;
     void on_render() override;
     void on_closed() override;

@@ -23,6 +23,7 @@ struct gl_window
     bool update();
 
     virtual bool on_init() = 0;
+    virtual void on_frame();
     virtual void on_render() = 0;
 
     virtual void on_closed();
@@ -47,6 +48,10 @@ struct gl_window
     {
     }
 
+    virtual void on_window_refresh()
+    {
+    }
+
     virtual std::string window_name() const
     {
         return "glfw";
@@ -54,7 +59,6 @@ struct gl_window
 
     virtual void on_window_size(int w, int h);
     virtual void on_window_pos(int x, int y);
-
     GLFWwindow *window{};
     window_state_t window_state;
 

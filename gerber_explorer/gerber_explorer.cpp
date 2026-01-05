@@ -363,7 +363,7 @@ void gerber_explorer::on_closed()
 void gerber_explorer::load_settings(std::filesystem::path const &path)
 {
     settings.load(path);
-    LOG_INFO("Settings loaded...");
+    LOG_DEBUG("Settings loaded...");
     window_state.width = settings.window_width;
     window_state.height = settings.window_height;
     window_state.x = settings.window_xpos;
@@ -372,6 +372,22 @@ void gerber_explorer::load_settings(std::filesystem::path const &path)
     for(auto const &layer : settings.files) {
         load_gerber(layer);
     }
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::on_window_size(int w, int h)
+{
+    gl_window::on_window_size(w, h);
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::on_window_refresh()
+{
+    gl_window::on_window_refresh();
+    on_frame();
+    view_rect = target_view_rect;
 }
 
 //////////////////////////////////////////////////////////////////////
