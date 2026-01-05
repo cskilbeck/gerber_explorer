@@ -7,6 +7,11 @@ include(FetchContent)
 find_package(OpenGL REQUIRED)
 
 ######################################################################
+# GLAD
+
+include(glad.cmake)
+
+######################################################################
 # GLFW
 
 FetchContent_Declare(

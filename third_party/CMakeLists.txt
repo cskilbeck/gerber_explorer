@@ -12,6 +12,9 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(json)
 
 include(libtess.cmake)
-include(glad.cmake)
 include(gl.cmake)
 add_subdirectory(nativefiledialog-extended-1.2.1)
+
+add_library(third_party INTERFACE)
+
+target_link_libraries(third_party INTERFACE libtess2 nlohmann_json::nlohmann_json nfd gerber_gl)

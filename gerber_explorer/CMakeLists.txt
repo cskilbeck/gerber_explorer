@@ -95,7 +95,7 @@ target_compile_definitions(${PROJECT} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WAR
 target_include_directories(${PROJECT} PRIVATE
         ${CMRC_INCLUDE_DIR})
 
-target_link_libraries(${PROJECT} PRIVATE gerber_lib libtess2 nlohmann_json::nlohmann_json nfd my_assets my_shaders gerber_gl)
+target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets my_shaders)
 
 if (MSVC)
     set_target_properties(gerber_explorer PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
