@@ -20,7 +20,7 @@
 #include "gerber_image.h"
 #include "gerber_reader.h"
 
-LOG_CONTEXT("gerber_lib", info);
+LOG_CONTEXT("gerber_lib", debug);
 
 namespace
 {
@@ -2184,6 +2184,7 @@ namespace gerber_lib
 
     gerber_error_code gerber::fill_polygon(gerber_draw_interface &drawer, double diameter, int num_sides, double angle_degrees) const
     {
+        LOG_DEBUG("fill_polygon");
         (void)drawer;
         (void)diameter;
         (void)num_sides;

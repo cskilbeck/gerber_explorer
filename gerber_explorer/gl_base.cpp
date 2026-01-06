@@ -148,10 +148,10 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_line_program::set_color(uint32_t solid_color) const
+    void gl_line_program::set_color(gl::color solid_color) const
     {
-        gl_color::float4 f = gl_color::to_floats(solid_color);
-        GL_CHECK(glUniform4f(u_color, f[0], f[1], f[2], f[3]));
+        gl::colorf4 f(solid_color);
+        GL_CHECK(glUniform4f(u_color, f.red(), f.green(), f.blue(), f.alpha()));
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -189,6 +189,7 @@ namespace gerber_3d
         // GL_CHECK(glVertexAttribDivisor(2, 0));
 
         u_thickness = get_uniform("thickness");
+        u_viewport_size = get_uniform("viewport_size");
         u_color = get_uniform("color");
         return 0;
     }
@@ -214,10 +215,10 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_layer_program::set_color(uint32_t cover) const
+    void gl_layer_program::set_color(gl::color cover) const
     {
-        gl_color::float4 cov = gl_color::to_floats(cover);
-        GL_CHECK(glUniform4f(u_color, cov[0], cov[1], cov[2], cov[3]));
+        gl::colorf4 f(cover);
+        GL_CHECK(glUniform4f(u_color, f.red(), f.green(), f.blue(), f.alpha()));
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -237,10 +238,10 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_solid_program::set_color(uint32_t solid_color) const
+    void gl_solid_program::set_color(gl::color solid_color) const
     {
-        gl_color::float4 f = gl_color::to_floats(solid_color);
-        GL_CHECK(glUniform4f(u_color, f[0], f[1], f[2], f[3]));
+        gl::colorf4 f(solid_color);
+        GL_CHECK(glUniform4f(u_color, f.red(), f.green(), f.blue(), f.alpha()));
     }
 
     //////////////////////////////////////////////////////////////////////

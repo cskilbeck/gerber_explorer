@@ -86,7 +86,7 @@ namespace
     void on_glfw_size(GLFWwindow *window, int width, int height)
     {
         gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
-        glwindow->on_window_pos(width, height);
+        glwindow->on_window_size(width, height);
     }
 
     void on_glfw_refresh(GLFWwindow *window)

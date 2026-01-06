@@ -32,7 +32,7 @@ namespace gerber_3d
 
     struct tesselator_span
     {
-        int start; // glDrawElements(start, length) (for interior triangles)
+        int start;    // glDrawElements(start, length) (for interior triangles)
         int length;
     };
 
@@ -74,7 +74,8 @@ namespace gerber_3d
         void set_gerber(gerber_lib::gerber *g) override;
         void on_finished_loading() override;
         void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, int entity_id) override;
-        void draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix);
+        void draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix,
+                  gerber_lib::gerber_2d::vec2d const &window_size);
 
         gl_tesselator tesselator;
 

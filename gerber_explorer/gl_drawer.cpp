@@ -8,7 +8,9 @@
 #include "log_drawer.h"
 #include "gl_drawer.h"
 
-LOG_CONTEXT("gl_drawer", info);
+#include "gl_colors.h"
+
+LOG_CONTEXT("gl_drawer", debug);
 
 //////////////////////////////////////////////////////////////////////
 
@@ -44,7 +46,6 @@ namespace gerber_3d
 
     void gl_tesselator::new_entity(int entity_id, draw_call_flags flags)
     {
-        LOG_DEBUG("BOUNDARY New Entity: {}", entity_id);
         finish_entity();
 
         entities.emplace_back(entity_id, (int)fills.size(), 0, flags);
@@ -288,7 +289,8 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix)
+    void gl_drawer::draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix,
+                         gerber_2d::vec2d const &window_size)
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -307,12 +309,13 @@ namespace gerber_3d
             vertex_array.activate();
             index_array.activate();
 
-            uint32_t fill_color = 0xff0000ff;
-            uint32_t clear_color = 0xff00ff00;
+            gl::color fill_color = gl::colors::red;
+            gl::color clear_color = gl::colors::green;
 
             if(invert) {
                 std::swap(fill_color, clear_color);
-                glClearColor(1, 0, 0, 1);    // fill_color (red)
+                gl::colorf4 f(fill_color);
+                glClearColor(f.red(), f.green(), f.blue(), f.alpha());
                 glClear(GL_COLOR_BUFFER_BIT);
             }
 
@@ -338,17 +341,18 @@ namespace gerber_3d
         }
 
         if(outline) {
-            uint32_t outline_color = 0xffff0000;
+            gl::color outline_color = gl::colors::blue;
             line_program->use();
             line_program->line_array.activate();
             line_program->set_color(outline_color);
             glUniform1f(line_program->u_thickness, outline_thickness);
+            glUniform2f(line_program->u_viewport_size, (float)window_size.x, (float)window_size.y);
             GL_CHECK(glUniformMatrix4fv(line_program->u_transform, 1, false, matrix.m));
             GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, lines_vbo[0]));
             GL_CHECK(glVertexAttribPointer(gl_line_program::pos_a_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_solid), (void *)(offsetof(gl_vertex_solid, x))));
             GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, lines_vbo[1]));
             GL_CHECK(glVertexAttribPointer(gl_line_program::pos_b_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_solid), (void *)(offsetof(gl_vertex_solid, x))));
-            GL_CHECK(glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)(tesselator.outline_vertices_start.size() - 1)));
+            GL_CHECK(glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)(tesselator.outline_vertices_start.size())));
         }
     }
 }    // namespace gerber_3d

@@ -4,6 +4,7 @@
 
 #include "gerber_log.h"
 #include "gerber_2d.h"
+#include "gl_colors.h"
 
 namespace gerber_3d
 {
@@ -175,7 +176,7 @@ namespace gerber_3d
 
         int init() override;
 
-        void set_color(uint32_t solid_color) const;
+        void set_color(gl::color solid_color) const;
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -189,7 +190,7 @@ namespace gerber_3d
 
         int init() override;
 
-        void set_color(uint32_t cover) const;
+        void set_color(gl::color cover) const;
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -230,6 +231,7 @@ namespace gerber_3d
         static constexpr int position_location = 2;
 
         GLuint u_thickness;
+        GLuint u_viewport_size;
         GLuint u_color;
 
         static const float quad[8];
@@ -237,7 +239,7 @@ namespace gerber_3d
         gl_line_array line_array;
         GLuint lines_vbo_id{ 0 };
 
-        void set_color(uint32_t solid_color) const;
+        void set_color(gl::color solid_color) const;
 
         int init() override;
     };
@@ -307,7 +309,7 @@ namespace gerber_3d
             drawlist.clear();
         }
 
-        void add_vertex(vec2d const &pos, uint32_t color)
+        void add_vertex(vec2d const &pos, gl::color color)
         {
             if(drawlist.empty()) {
                 return;
@@ -329,7 +331,7 @@ namespace gerber_3d
             add_drawlist_entry(GL_LINES);
         }
 
-        void add_line(vec2d const &start, vec2d const &end, uint32_t color)
+        void add_line(vec2d const &start, vec2d const &end, gl::color color)
         {
             add_vertex(start, color);
             add_vertex(end, color);

@@ -35,8 +35,8 @@ struct gerber_explorer : gl_window {
             return {};
         }
 
-        gl_color::float4 fill_color;
-        gl_color::float4 clear_color;
+        gl::colorf4 fill_color;
+        gl::colorf4 clear_color;
 
         bool is_valid() const
         {
@@ -51,7 +51,7 @@ struct gerber_explorer : gl_window {
             return layer.gerber_file->image.info.extent;
         }
 
-        void draw(bool wireframe, float outline_thickness, gerber_3d::gl_matrix const &matrix)
+        void draw(bool wireframe, float outline_thickness, gerber_3d::gl_matrix const &matrix, gerber_lib::gerber_2d::vec2d const &window_size)
         {
             bool fill;
             bool outline;
@@ -69,7 +69,7 @@ struct gerber_explorer : gl_window {
                 outline = true;
                 break;
             }
-            layer.draw(fill, outline, wireframe, outline_thickness, invert, matrix);
+            layer.draw(fill, outline, wireframe, outline_thickness, invert, matrix, window_size);
         }
 
         bool operator<(gerber_layer const &other)
@@ -147,9 +147,6 @@ struct gerber_explorer : gl_window {
     int multisample_count{ 4 };
     int max_multisamples{ 1 };
 
-    // does `window_size` (and friends) reflect current, actual window size?
-    bool window_size_is_current{false};
-
     // when window size changes, zoom to fit
     // this gets cleared if they pan/zoom etc manually
     bool should_fit_to_window{ false };
@@ -157,6 +154,8 @@ struct gerber_explorer : gl_window {
     // bounding rect of all layers
     rect board_extent;
     vec2d board_center;
+
+    void update_board_extent();
 
     // -1 or 1 for each x,y based on settings.flip_x/y
     vec2d flip_xy;
