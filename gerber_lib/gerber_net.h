@@ -22,8 +22,8 @@ namespace gerber_lib
         gerber_axis_select axis_select{ axis_select_none };
         gerber_mirror_state mirror_state{ mirror_state_none };
         gerber_unit unit{ unit_inch };
-        gerber_2d::vec2d offset{ 0.0, 0.0 };
-        gerber_2d::vec2d scale{ 1.0, 1.0 };
+        vec2d offset{ 0.0, 0.0 };
+        vec2d scale{ 1.0, 1.0 };
 
         std::string to_string() const;
 
@@ -36,9 +36,9 @@ namespace gerber_lib
 
     struct gerber_net
     {
-        gerber_2d::vec2d start{};
-        gerber_2d::vec2d end{};
-        gerber_2d::rect bounding_box{};
+        vec2d start{};
+        vec2d end{};
+        rect bounding_box{};
         int aperture{};
         gerber_aperture_state aperture_state{ aperture_state_off };
         gerber_interpolation interpolation_method{ interpolation_linear };

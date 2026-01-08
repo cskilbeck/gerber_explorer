@@ -43,7 +43,7 @@ struct gerber_explorer : gl_window {
             return layer.gerber_file != nullptr;
         }
 
-        gerber_lib::gerber_2d::rect extent() const
+        gerber_lib::rect extent() const
         {
             if(!is_valid()) {
                 return rect{};
@@ -51,7 +51,7 @@ struct gerber_explorer : gl_window {
             return layer.gerber_file->image.info.extent;
         }
 
-        void draw(bool wireframe, float outline_thickness, gerber_3d::gl_matrix const &matrix, gerber_lib::gerber_2d::vec2d const &window_size)
+        void draw(bool wireframe, float outline_thickness, gerber_3d::gl_matrix const &matrix, gerber_lib::vec2d const &window_size)
         {
             bool fill;
             bool outline;
@@ -78,9 +78,9 @@ struct gerber_explorer : gl_window {
         }
     };
 
-    using rect = gerber_lib::gerber_2d::rect;
-    using vec2d = gerber_lib::gerber_2d::vec2d;
-    using matrix = gerber_lib::gerber_2d::matrix;
+    using rect = gerber_lib::rect;
+    using vec2d = gerber_lib::vec2d;
+    using matrix = gerber_lib::matrix;
 
     enum mouse_drag_action
     {

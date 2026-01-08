@@ -15,7 +15,7 @@ namespace gerber_3d
     gl_matrix make_ortho(int w, int h);
     gl_matrix matrix_multiply(gl_matrix const &a, gl_matrix const &b);
 
-    gerber_lib::gerber_2d::vec2f matrix_apply(gerber_lib::gerber_2d::vec2f const &v, gl_matrix const &matrix);
-    gerber_lib::gerber_2d::vec2d matrix_apply(gerber_lib::gerber_2d::vec2d const &v, gl_matrix const &matrix);
+    gerber_lib::vec2f matrix_apply(gerber_lib::vec2f const &v, gl_matrix const &matrix);
+    gerber_lib::vec2d matrix_apply(gerber_lib::vec2d const &v, gl_matrix const &matrix);
 
 }    // namespace gerber_3d

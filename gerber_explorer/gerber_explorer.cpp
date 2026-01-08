@@ -17,9 +17,9 @@ LOG_CONTEXT("gerber_explorer", debug);
 
 namespace
 {
-    using gerber_lib::gerber_2d::rect;
-    using gerber_lib::gerber_2d::vec2d;
-    using gerber_lib::gerber_2d::vec2f;
+    using gerber_lib::rect;
+    using gerber_lib::vec2d;
+    using gerber_lib::vec2f;
     using namespace gerber_3d;
 
     long long const zoom_lerp_time_ms = 700;

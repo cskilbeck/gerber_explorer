@@ -18,14 +18,13 @@ namespace gerber_3d
 {
     struct gl_matrix;
     using namespace gerber_lib;
-    using gerber_2d::vec2d;
 
-    bool is_clockwise(std::vector<gerber_2d::vec2f> const &points, size_t start, size_t end)
+    bool is_clockwise(std::vector<vec2f> const &points, size_t start, size_t end)
     {
         double sum = 0;
         for(size_t i = start, n = end - 1; i != end; n = i++) {
-            gerber_2d::vec2f const &p1 = points[i];
-            gerber_2d::vec2f const &p2 = points[n];
+            vec2f const &p1 = points[i];
+            vec2f const &p2 = points[n];
             sum += (p2.x - p1.x) * (p2.y + p1.y);
         }
         return sum < 0;    // Negative sum indicates clockwise orientation
@@ -164,7 +163,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_tesselator::flag_touching_entities(gerber_2d::rect const &world_rect, int clear_flags, int set_flags)
+    void gl_tesselator::flag_touching_entities(rect const &world_rect, int clear_flags, int set_flags)
     {
         for(auto &e : entities) {
             e.flags &= ~clear_flags;
@@ -200,7 +199,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_tesselator::flag_enclosed_entities(gerber_2d::rect const &world_rect, int clear_flags, int set_flags)
+    void gl_tesselator::flag_enclosed_entities(rect const &world_rect, int clear_flags, int set_flags)
     {
         for(auto &e : entities) {
             e.flags &= ~clear_flags;

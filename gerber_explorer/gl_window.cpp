@@ -26,8 +26,8 @@ CMRC_DECLARE(my_assets);
 
 namespace
 {
-    using gerber_lib::gerber_2d::rect;
-    using gerber_lib::gerber_2d::vec2d;
+    using gerber_lib::rect;
+    using gerber_lib::vec2d;
 
     std::string const imgui_ini_filename = config_path("gerber_explorer", "imgui.ini").string();
 

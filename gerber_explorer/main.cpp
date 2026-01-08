@@ -20,6 +20,7 @@
 // X fix fit_to_window on load
 // X put shaders in separate source files
 //
+// thick arc shader
 // picking / selection
 // separate gl_vertex_array / gl_vertex_buffer
 // reduce gpu usage - only draw frame when necessary

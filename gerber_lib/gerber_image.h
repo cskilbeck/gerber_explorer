@@ -26,7 +26,7 @@ namespace gerber_lib
     {
         std::string image_name;
         gerber_polarity polarity{ polarity_positive };
-        gerber_2d::rect extent{ DBL_MAX, DBL_MAX, -DBL_MAX, -DBL_MAX };
+        rect extent{ DBL_MAX, DBL_MAX, -DBL_MAX, -DBL_MAX };
         double offset_a{};
         double offset_b{};
         double image_rotation{};

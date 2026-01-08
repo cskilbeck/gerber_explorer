@@ -1,9 +1,10 @@
 #include "gl_matrix.h"
 
-using namespace  gerber_lib::gerber_2d;
-
 namespace gerber_3d
 {
+    using gerber_lib::vec2f;
+    using gerber_lib::vec2d;
+
     //////////////////////////////////////////////////////////////////////
 
     gl_matrix make_identity()

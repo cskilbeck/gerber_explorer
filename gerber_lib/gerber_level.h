@@ -18,8 +18,8 @@ namespace gerber_lib
         bool first_instance{ false };
         gerber_knockout_type knockout_type{ knockout_type_no_knockout };
         gerber_polarity polarity{ polarity_positive };
-        gerber_2d::vec2d lower_left{};
-        gerber_2d::vec2d size{};
+        vec2d lower_left{};
+        vec2d size{};
         double border{ 0.0 };
 
         std::string to_string() const
@@ -35,8 +35,8 @@ namespace gerber_lib
 
     struct gerber_step_and_repeat
     {
-        gerber_2d::vec2d pos{ 1, 1 };
-        gerber_2d::vec2d distance{ 0, 0 };
+        vec2d pos{ 1, 1 };
+        vec2d distance{ 0, 0 };
 
         std::string to_string() const
         {

@@ -36,8 +36,9 @@ namespace gerber_3d
 
     struct gl_program
     {
-        virtual ~gl_program() = default;
         LOG_CONTEXT("gl_program", debug);
+
+        virtual ~gl_program() = default;
 
         GLuint program_id{};
         GLuint vertex_shader_id{};
@@ -275,8 +276,8 @@ namespace gerber_3d
 
     struct gl_drawlist
     {
-        using rect = gerber_lib::gerber_2d::rect;
-        using vec2d = gerber_lib::gerber_2d::vec2d;
+        using rect = gerber_lib::rect;
+        using vec2d = gerber_lib::vec2d;
 
         struct gl_drawlist_entry
         {

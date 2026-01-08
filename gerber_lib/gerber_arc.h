@@ -13,8 +13,8 @@ namespace gerber_lib
 
     struct gerber_arc
     {
-        gerber_2d::vec2d pos{};
-        gerber_2d::vec2d size{};
+        vec2d pos{};
+        vec2d size{};
         double start_angle{};
         double end_angle{};
 

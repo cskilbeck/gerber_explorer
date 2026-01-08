@@ -26,7 +26,6 @@ namespace
 {
     using namespace gerber_lib;
     using namespace gerber_util;
-    using namespace gerber_2d;
 
     int hide_elements = 0
 
@@ -118,12 +117,10 @@ namespace
 
     gerber_error_code calculate_arc_sq(gerber_net *net, bool is_clockwise, vec2d const &center)
     {
-        using namespace gerber_2d;
-
-        std::array centers{ vec2d{ net->start.x + center.x, net->start.y + center.y },
-                            vec2d{ net->start.x + center.x, net->start.y - center.y },
-                            vec2d{ net->start.x - center.x, net->start.y + center.y },
-                            vec2d{ net->start.x - center.x, net->start.y - center.y } };
+        std::array<vec2d, 4> centers{ vec2d{ net->start.x + center.x, net->start.y + center.y },
+                                      vec2d{ net->start.x + center.x, net->start.y - center.y },
+                                      vec2d{ net->start.x - center.x, net->start.y + center.y },
+                                      vec2d{ net->start.x - center.x, net->start.y - center.y } };
 
         double constexpr allowable_deviation = 0.0005;
         double best_deviation{ DBL_MAX };
@@ -1987,8 +1984,6 @@ namespace gerber_lib
 
                     if(!state.is_region_fill) {
 
-                        using namespace gerber_2d;
-
                         gerber_error_code error = stats.increment_d_list_count(net->aperture, 1, reader.line_number);
 
                         if(error != ok) {
@@ -2072,8 +2067,7 @@ namespace gerber_lib
 
                                 gerber_arc const &arc = net->circle_segment;
 
-                                rect arc_extent{};
-                                get_arc_extents(arc.pos, arc.size.x / 2, arc.start_angle, arc.end_angle, arc_extent);
+                                rect arc_extent = get_arc_extents(arc.pos, arc.size.x / 2, arc.start_angle, arc.end_angle);
 
                                 vec2d ha{ ap_size.x / 2, ap_size.y / 2 };
                                 arc_extent.min_pos = arc_extent.min_pos.subtract(ha);

@@ -31,7 +31,7 @@ namespace gerber_3d
         int outline_offset;                      // offset into outline_vertices_start/end
         int outline_size{};                      // # of verts in the outline
         int flags;                               // clear/fill/hover/select
-        gerber_lib::gerber_2d::rect bounds{};    // for picking speedup
+        gerber_lib::rect bounds{};    // for picking speedup
     };
 
     struct tesselator_span
@@ -42,7 +42,7 @@ namespace gerber_3d
 
     struct gl_tesselator
     {
-        using vec2f = gerber_lib::gerber_2d::vec2f;
+        using vec2f = gerber_lib::vec2f;
         using vert = vec2f;
 
         TESStesselator *boundary_stesselator{};
@@ -66,16 +66,16 @@ namespace gerber_3d
         void finish_entity();
         void finalize();
 
-        void flag_entities_at_point(gerber_lib::gerber_2d::vec2d point, int clear_flags, int set_flags);
-        void flag_touching_entities(gerber_lib::gerber_2d::rect const &world_rect, int clear_flags, int set_flags);
-        void flag_enclosed_entities(gerber_lib::gerber_2d::rect const &world_rect, int clear_flags, int set_flags);
+        void flag_entities_at_point(gerber_lib::vec2d point, int clear_flags, int set_flags);
+        void flag_touching_entities(gerber_lib::rect const &world_rect, int clear_flags, int set_flags);
+        void flag_enclosed_entities(gerber_lib::rect const &world_rect, int clear_flags, int set_flags);
     };
 
     //////////////////////////////////////////////////////////////////////
 
     struct gl_drawer : gerber_lib::gerber_draw_interface
     {
-        using vec2f = gerber_lib::gerber_2d::vec2f;
+        using vec2f = gerber_lib::vec2f;
 
         gl_drawer() = default;
 
@@ -83,7 +83,7 @@ namespace gerber_3d
         void on_finished_loading() override;
         void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, int entity_id) override;
         void draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix,
-                  gerber_lib::gerber_2d::vec2d const &window_size);
+                  gerber_lib::vec2d const &window_size);
 
         gl_tesselator tesselator;
 

@@ -44,13 +44,13 @@ namespace gerber_lib
         {
             struct
             {
-                gerber_2d::vec2d start;
-                gerber_2d::vec2d end;
+                vec2d start;
+                vec2d end;
             } line;
 
             struct
             {
-                gerber_2d::vec2d center;
+                vec2d center;
                 double start_degrees;
                 double end_degrees;
                 double radius;
@@ -62,11 +62,11 @@ namespace gerber_lib
         {
         }
 
-        explicit gerber_draw_element(gerber_2d::vec2d const &start, gerber_2d::vec2d const &end) : draw_element_type(draw_element_line), line{ start, end }
+        explicit gerber_draw_element(vec2d const &start, vec2d const &end) : draw_element_type(draw_element_line), line{ start, end }
         {
         }
 
-        explicit gerber_draw_element(gerber_2d::vec2d const &center, double start_degrees, double end_degrees, double radius)
+        explicit gerber_draw_element(vec2d const &center, double start_degrees, double end_degrees, double radius)
             : draw_element_type(draw_element_arc), arc{ center, start_degrees, end_degrees, radius }
         {
         }
