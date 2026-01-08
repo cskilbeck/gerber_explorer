@@ -208,7 +208,7 @@ namespace gerber_3d
             return err;
         }
 
-        u_color = get_uniform("cover_in");
+        u_color = get_uniform("u_color");
 
         return 0;
     }

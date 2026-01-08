@@ -185,6 +185,79 @@ namespace gerber_lib
             return { { x1, y1 }, { x2, y2 } };
         }
 
+        //////////////////////////////////////////////////////////////////////
+
+        bool line_intersects_rect(rect const &r, vec2f const &p1, vec2f const &p2)
+        {
+            double line_min_x = p1.x < p2.x ? p1.x : p2.x;
+            double line_max_x = p1.x > p2.x ? p1.x : p2.x;
+            if(line_max_x < r.min_pos.x || line_min_x > r.max_pos.x) {
+                return false;
+            }
+
+            double line_min_y = p1.y < p2.y ? p1.y : p2.y;
+            double line_max_y = p1.y > p2.y ? p1.y : p2.y;
+            if(line_max_y < r.min_pos.y || line_min_y > r.max_pos.y) {
+                return false;
+            }
+
+            double tmin = 0.0;
+            double tmax = 1.0;
+            double dx = p2.x - p1.x;
+            double dy = p2.y - p1.y;
+
+            auto clip = [&tmax, &tmin](double p, double q) {
+                if(p == 0) {
+                    return q >= 0;
+                }
+                double t = q / p;
+                if(p < 0) {
+                    if(t > tmax) {
+                        return false;
+                    }
+                    if(t > tmin) {
+                        tmin = t;
+                    }
+                } else {
+                    if(t < tmin) {
+                        return false;
+                    }
+                    if(t < tmax) {
+                        tmax = t;
+                    }
+                }
+                return true;
+            };
+
+            if(!clip(-dx, p1.x - r.min_pos.x)) {
+                return false;
+            }
+            if(!clip(dx, r.max_pos.x - p1.x)) {
+                return false;
+            }
+            if(!clip(-dy, p1.y - r.min_pos.y)) {
+                return false;
+            }
+            if(!clip(dy, r.max_pos.y - p1.y)) {
+                return false;
+            }
+
+            return tmin <= tmax;
+        }
+
+        //////////////////////////////////////////////////////////////////////
+
+        bool point_in_poly(vec2f *points, int num_points, vec2f p)
+        {
+            bool inside = false;
+            for(size_t i = 0, j = num_points - 1; i < num_points; j = i++) {
+                if(((points[i].y > p.y) != (points[j].y > p.y)) &&
+                   (p.x < (points[j].x - points[i].x) * (p.y - points[i].y) / (points[j].y - points[i].y) + points[i].x)) {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
 
     }    // namespace gerber_2d
 

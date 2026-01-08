@@ -2,15 +2,12 @@
 
 layout(location = 0) in vec2 position;
 
-out vec4 cover;
+out vec4 color;
 
 uniform mat4 transform;
-uniform vec4 cover_in;
-uniform vec2 center;
-uniform bool x_flip;
-uniform bool y_flip;
+uniform vec4 u_color;
 
 void main() {
     gl_Position = transform * vec4(position, 0.0f, 1.0f);
-    cover = cover_in;
+    color = u_color;
 }

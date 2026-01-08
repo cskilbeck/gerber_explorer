@@ -197,7 +197,7 @@ namespace gl
             f[ired] = ((x >> iredpos) & 0xff) * s;
             f[igreen] = ((x >> igreenpos) & 0xff) * s;
             f[iblue] = ((x >> ibluepos) & 0xff) * s;
-            f[ialpha] = (x >> ialphapos) * s;
+            f[ialpha] = ((x >> ialphapos) & 0xff) * s;
         }
 
         colorf4(float red, float green, float blue, float alpha)
@@ -206,12 +206,6 @@ namespace gl
             f[igreen] = green;
             f[iblue] = blue;
             f[ialpha] = alpha;
-        }
-
-        colorf4 &operator=(float *v)
-        {
-            memcpy(f, v, sizeof(float) * 4);
-            return *this;
         }
 
         colorf4 &operator=(color c)
@@ -231,12 +225,11 @@ namespace gl
 
         std::string to_string()
         {
-            uint32_t abgr = static_cast<color>(*this);
-            int alpha = (abgr >> ialphapos) & 0xff;
-            int blue = (abgr >> ibluepos) & 0xff;
-            int green = (abgr >> igreenpos) & 0xff;
-            int red = (abgr >> iredpos) & 0xff;
-            return std::format("#{:02x}{:02x}{:02x}{:02x}", alpha, blue, green, red);
+            int a = (int)(alpha() * 255.0f);
+            int b = (int)(blue() * 255.0f);
+            int g = (int)(green() * 255.0f);
+            int r = (int)(red() * 255.0f);
+            return std::format("#{:02x}{:02x}{:02x}{:02x}", a, b, g, r);
         }
 
         void from_string(std::string const &v)
@@ -261,11 +254,11 @@ namespace gl
 
         explicit operator color() const
         {
-            uint32_t red = ((int)(f[ired] * 255.0f) & 0xff) << iredpos;
-            uint32_t green = ((int)(f[igreen] * 255.0f) & 0xff) << igreenpos;
-            uint32_t blue = ((int)(f[iblue] * 255.0f) & 0xff) << ibluepos;
-            uint32_t alpha = ((int)(f[ialpha] * 255.0f) & 0xff) << ialphapos;
-            return alpha | blue | green | red;
+            uint32_t r = (int)(red() * 255.0f) << iredpos;
+            uint32_t g = (int)(green() * 255.0f) << igreenpos;
+            uint32_t b = (int)(blue() * 255.0f) << ibluepos;
+            uint32_t a = (int)(alpha() * 255.0f) << ialphapos;
+            return a | b | g | r;
         }
 
         float const &operator[](int i) const
@@ -289,4 +282,4 @@ namespace gl
         return colorf4(color);
     }
 
-}    // namespace gl_color
+}    // namespace gl

@@ -1,9 +1,9 @@
 #version 410 core
 
-in vec4 cover;
+in vec4 color;
 
 out vec4 fragment;
 
 void main() {
-    fragment = cover;
+    fragment = color;
 }

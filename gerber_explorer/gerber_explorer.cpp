@@ -275,7 +275,9 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
                 vec2d mx = drag_rect_corrected.max_pos;
                 rect d = rect{ mn, mx }.normalize();
                 if(d.width() > 2 && d.height() > 2) {
-                    zoom_to_rect({ world_pos_from_window_pos(vec2d{ mn.x, mx.y }), world_pos_from_window_pos(vec2d{ mx.x, mn.y }) });
+                    vec2d min(world_pos_from_window_pos(mn));
+                    vec2d max(world_pos_from_window_pos(mx));
+                    zoom_to_rect({min, max});
                     should_fit_to_window = false;
                 }
             }
@@ -338,14 +340,29 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
     case mouse_drag_select: {
         drag_mouse_cur_pos = mouse_pos;
         drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
+        if(selected_layer != nullptr) {
+            rect f = drag_rect;
+            f.min_pos = world_pos_from_window_pos(f.min_pos);
+            f.max_pos = world_pos_from_window_pos(f.max_pos);
+            f = f.normalize();
+            if(drag_rect.min_pos.x > drag_rect.max_pos.x) {
+                selected_layer->layer.tesselator.flag_touching_entities(f, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+            } else {
+                selected_layer->layer.tesselator.flag_enclosed_entities(f, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+            }
+        }
+
         // select_entities(drag_rect, (GetKeyState(VK_SHIFT) & 0x8000) == 0);
     } break;
 
-    case mouse_drag_none: {
-    } break;
-
     default:
-        break;
+    case mouse_drag_none: {
+        // Just hovering, highlight entities under the mouse if selected_layer != nullptr
+        if(selected_layer != nullptr) {
+            vec2d pos = world_pos_from_window_pos(mouse_pos);
+            selected_layer->layer.tesselator.flag_entities_at_point(pos, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+        }
+    } break;
     }
 }
 
@@ -624,7 +641,7 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
                         layer->invert = loaded_layer.inverted;
                         layer->visible = loaded_layer.visible;
                         layer->fill_color.from_string(loaded_layer.color);
-                        layer->clear_color = gl::colorf4(gl::colors::clear);
+                        layer->clear_color = gl::colorf4(gl::colors::magenta);
                         layer->draw_mode = loaded_layer.draw_mode;
                         layer->name = std::format("{}", std::filesystem::path(g->filename).filename().string());
                         LOG_DEBUG("Finished loading {}, {}", layer->index, loaded_layer.filename);
@@ -895,6 +912,8 @@ void gerber_explorer::on_render()
         }
     }
 
+    glLineWidth(1.0f);
+
     ui();
 
     //  ImVec2 pos{ 0, 0 };
@@ -1002,8 +1021,6 @@ void gerber_explorer::on_render()
 
     // draw the overlay graphics
 
-    glLineWidth(1.0f);
-
     overlay.reset();
 
     if(mouse_mode == mouse_drag_zoom_select) {
@@ -1034,9 +1051,9 @@ void gerber_explorer::on_render()
 
     if(mouse_mode == mouse_drag_select) {
         rect f{ drag_mouse_start_pos, drag_mouse_cur_pos };
-        uint32_t color = 0x60ff8020;
+        uint32_t color = 0x40ff8020;
         if(f.min_pos.x > f.max_pos.x) {
-            color = 0x6080ff20;
+            color = 0x4080ff20;
         }
         overlay.add_rect(f, color);
         overlay.add_outline_rect(f, 0xffffffff);

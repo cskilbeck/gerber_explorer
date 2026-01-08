@@ -381,6 +381,9 @@ namespace gerber_lib
             return inside;
         }
 
+        bool line_intersects_rect(rect const &r, vec2f const &p1, vec2f const &p2);
+        bool point_in_poly(vec2f *points, int num_points, vec2f p);
+
     }    // namespace gerber_2d
 
 }    // namespace gerber_lib
