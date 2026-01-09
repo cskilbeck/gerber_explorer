@@ -4,7 +4,31 @@
 
 #include "gerber_log.h"
 #include "gerber_2d.h"
+#include "gl_base.h"
 #include "gl_colors.h"
+
+//////////////////////////////////////////////////////////////////////
+
+extern int gl_log;
+
+#if defined(_DEBUG) || 1
+#define GL_CHECK(x)                                                                        \
+    do {                                                                                   \
+        if(gl_log != 0) {                                                                  \
+            LOG_INFO("{}", #x);                                                            \
+        }                                                                                  \
+        x;                                                                                 \
+        GLenum __err = glGetError();                                                       \
+        if(__err != 0) {                                                                   \
+            LOG_ERROR("ERROR {} from {} at line {} of {}", __err, #x, __LINE__, __FILE__); \
+        }                                                                                  \
+    } while(0)
+#else
+#define GL_CHECK(x) \
+    do {            \
+        x;          \
+    } while(0)
+#endif
 
 namespace gerber_3d
 {
@@ -134,13 +158,11 @@ namespace gerber_3d
     };
 
     //////////////////////////////////////////////////////////////////////
-    // special double feature for the instances thick line nonsense
+    // special for the quad points to make instanced thick lines
 
-    struct gl_line_array : gl_vertex_array
+    struct gl_vertex_array_quad_points : gl_vertex_array
     {
-        gl_line_array() = default;
-
-        // location of start/end are fixed at 0,1
+        gl_vertex_array_quad_points() = default;
 
         int init(GLsizei vert_count) override;
         int activate() const override;
@@ -227,9 +249,9 @@ namespace gerber_3d
 
     struct gl_line_program : gl_program
     {
-        static constexpr int pos_a_location = 0;         // Instanced
-        static constexpr int pos_b_location = 1;         // Instanced
-        static constexpr int position_location = 2;
+        static constexpr int position_location = 0;
+        static constexpr int pos_a_location = 1;    // Instanced
+        static constexpr int pos_b_location = 2;    // Instanced
 
         GLuint u_thickness;
         GLuint u_viewport_size;
@@ -237,8 +259,7 @@ namespace gerber_3d
 
         static const float quad[8];
 
-        gl_line_array line_array;
-        GLuint lines_vbo_id{ 0 };
+        gl_vertex_array_quad_points quad_points_array;
 
         void set_color(gl::color solid_color) const;
 
@@ -247,12 +268,51 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
+    struct gl_arc_program : gl_program
+    {
+        static constexpr int position_location = 0;
+        static constexpr int center_location = 1;         // Instanced
+        static constexpr int radius_location = 2;         // Instanced
+        static constexpr int start_angle_location = 3;    // Instanced
+        static constexpr int sweep_location = 4;          // Instanced
+        static constexpr int extent_min_location = 5;     // Instanced
+        static constexpr int extent_max_location = 6;     // Instanced
+
+        GLuint u_thickness;
+        GLuint u_viewport_size;
+        GLuint u_color;
+
+        static const float quad[8];
+
+        gl_vertex_array_quad_points quad_points_array;
+
+        void set_color(gl::color solid_color) const;
+
+        int init() override;
+
+        struct arc
+        {
+            gerber_lib::vec2f center;
+            float radius;
+            float start_angle;
+            float sweep;
+            gerber_lib::vec2f extent_min;
+            gerber_lib::vec2f extent_max;
+        };
+    };
+
+    //////////////////////////////////////////////////////////////////////
+
     template <int X, typename T> void update_buffer(T const &elems)
     {
+        LOG_CONTEXT("update_buffer", debug);
         using V = typename T::value_type;
         auto total = sizeof(V) * elems.size();
-        void *v = glMapBufferRange(X, 0, total, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-        memcpy(v, elems.data(), total);
+        void *v;
+        GL_CHECK(v = glMapBufferRange(X, 0, total, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT));
+        if(v != nullptr) {
+            memcpy(v, elems.data(), total);
+        }
         glUnmapBuffer(X);
     }
 
@@ -361,21 +421,3 @@ namespace gerber_3d
     };
 
 }    // namespace gerber_3d
-
-//////////////////////////////////////////////////////////////////////
-
-#if defined(_DEBUG) || 1
-#define GL_CHECK(x)                                                                        \
-    do {                                                                                   \
-        x;                                                                                 \
-        GLenum __err = glGetError();                                                       \
-        if(__err != 0) {                                                                   \
-            LOG_ERROR("ERROR {} from {} at line {} of {}", __err, #x, __LINE__, __FILE__); \
-        }                                                                                  \
-    } while(0)
-#else
-#define GL_CHECK(x) \
-    do {            \
-        x;          \
-    } while(0)
-#endif

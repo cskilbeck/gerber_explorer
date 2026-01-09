@@ -15,12 +15,17 @@
 
 LOG_CONTEXT("gerber_explorer", debug);
 
+static double start_angle = 0;
+static double end_angle = 190;
+
 namespace
 {
     using gerber_lib::rect;
     using gerber_lib::vec2d;
     using gerber_lib::vec2f;
     using namespace gerber_3d;
+
+    rect arc_extent;
 
     long long const zoom_lerp_time_ms = 700;
 
@@ -238,13 +243,6 @@ void gerber_explorer::on_scroll(double xoffset, double yoffset)
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::select_entity(vec2d const &window_pos)
-{
-    // vec2d world_pos = world_pos_from_window_pos(window_pos);
-}
-
-//////////////////////////////////////////////////////////////////////
-
 void gerber_explorer::on_mouse_button(int button, int action, int mods)
 {
     switch(action) {
@@ -254,7 +252,6 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
             if((mods & GLFW_MOD_CONTROL) != 0) {
                 set_mouse_mode(mouse_drag_zoom_select, mouse_pos);
             } else {
-                select_entity(mouse_pos);
                 set_mouse_mode(mouse_drag_maybe_select, mouse_pos);
             }
             break;
@@ -277,7 +274,7 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
                 if(d.width() > 2 && d.height() > 2) {
                     vec2d min(world_pos_from_window_pos(mn));
                     vec2d max(world_pos_from_window_pos(mx));
-                    zoom_to_rect({min, max});
+                    zoom_to_rect({ min, max });
                     should_fit_to_window = false;
                 }
             }
@@ -517,6 +514,7 @@ bool gerber_explorer::on_init()
     layer_program.init();
     textured_program.init();
     line_program.init();
+    arc_program.init();
 
     overlay.init();
 
@@ -869,7 +867,7 @@ void gerber_explorer::ui()
     ImGui::End();
 
     ImGui::Begin("Info");
-    ImGui::Text("%12.8f,%12.8f", view_rect.width(), view_rect.height());
+    ImGui::Text("%12.8f,%12.8f", start_angle, end_angle);
     ImGui::End();
 }
 
@@ -998,6 +996,64 @@ void gerber_explorer::on_render()
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             layer.draw(settings.wireframe, outline_width, world_matrix, window_size);
 
+            // DRAW AN ARC
+
+            double radius = 40;
+            vec2d center{ 50, 50 };
+
+            if(glfwGetKey(window, GLFW_KEY_LEFT) != 0) {
+                end_angle -= 1;
+            }
+            if(glfwGetKey(window, GLFW_KEY_RIGHT) != 0) {
+                end_angle += 1;
+            }
+            if(glfwGetKey(window, GLFW_KEY_UP) != 0) {
+                start_angle += 1;
+            }
+            if(glfwGetKey(window, GLFW_KEY_DOWN) != 0) {
+                start_angle -= 1;
+            }
+            if(glfwGetKey(window, GLFW_KEY_SPACE) != 0) {
+                start_angle = 0;
+                end_angle = 190;
+            }
+
+            arc_extent = get_arc_extents(center, radius, start_angle, end_angle);
+
+            std::array<gl_arc_program::arc, 1> arcs = {
+                vec2f(center), (float)radius, gerber_lib::deg_2_radf(start_angle), gerber_lib::deg_2_radf(end_angle - start_angle), vec2f(arc_extent.min_pos), vec2f(arc_extent.max_pos)
+            };
+
+            arc_program.use();
+            arc_program.quad_points_array.activate();
+
+            using arc = gl_arc_program::arc;
+
+            static GLuint arc_vbo;
+            static bool init = false;
+            if(!init) {
+                init = true;
+                GL_CHECK(glGenBuffers(1, &arc_vbo));
+                GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, arc_vbo));
+                GL_CHECK(glBufferData(GL_ARRAY_BUFFER, sizeof(arc) * arcs.size(), nullptr, GL_DYNAMIC_DRAW));
+            }
+
+            GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, arc_vbo));
+            update_buffer<GL_ARRAY_BUFFER>(arcs);
+
+            arc_program.set_color(0xff00ff00);
+            GL_CHECK(glUniform1f(arc_program.u_thickness, 22.0f));
+            GL_CHECK(glUniform2f(arc_program.u_viewport_size, (float)window_size.x, (float)window_size.y));
+            GL_CHECK(glUniformMatrix4fv(arc_program.u_transform, 1, false, world_matrix.m));
+
+            GL_CHECK(glVertexAttribPointer(gl_arc_program::center_location, 2, GL_FLOAT, GL_FALSE, sizeof(arc), (void *)(offsetof(arc, center))));
+            GL_CHECK(glVertexAttribPointer(gl_arc_program::radius_location, 1, GL_FLOAT, GL_FALSE, sizeof(arc), (void *)(offsetof(arc, radius))));
+            GL_CHECK(glVertexAttribPointer(gl_arc_program::start_angle_location, 1, GL_FLOAT, GL_FALSE, sizeof(arc), (void *)(offsetof(arc, start_angle))));
+            GL_CHECK(glVertexAttribPointer(gl_arc_program::sweep_location, 1, GL_FLOAT, GL_FALSE, sizeof(arc), (void *)(offsetof(arc, sweep))));
+            GL_CHECK(glVertexAttribPointer(gl_arc_program::extent_min_location, 2, GL_FLOAT, GL_FALSE, sizeof(arc), (void *)(offsetof(arc, extent_min))));
+            GL_CHECK(glVertexAttribPointer(gl_arc_program::extent_max_location, 2, GL_FLOAT, GL_FALSE, sizeof(arc), (void *)(offsetof(arc, extent_max))));
+            GL_CHECK(glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)arcs.size()));
+
             // draw the render to the window
 
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -1058,6 +1114,9 @@ void gerber_explorer::on_render()
         overlay.add_rect(f, color);
         overlay.add_outline_rect(f, 0xffffffff);
     }
+
+    rect ext{window_pos_from_world_pos(arc_extent.min_pos), window_pos_from_world_pos(arc_extent.max_pos)};
+    overlay.add_outline_rect(ext, gl::colors::green);
 
     color_program.use();
 

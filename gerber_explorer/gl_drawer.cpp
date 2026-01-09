@@ -409,7 +409,7 @@ namespace gerber_3d
 
         if(outline) {
             line_program->use();
-            line_program->line_array.activate();
+            line_program->quad_points_array.activate();
             line_program->set_color(outline_color);
             glUniform1f(line_program->u_thickness, outline_thickness);
             glUniform2f(line_program->u_viewport_size, (float)window_size.x, (float)window_size.y);

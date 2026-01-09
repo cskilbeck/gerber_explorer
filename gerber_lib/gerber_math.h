@@ -22,6 +22,20 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
+    inline float deg_2_radf(float x)
+    {
+        return (float)(x * (M_PI / 180.0));
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    inline float deg_2_radf(double x)
+    {
+        return (float)(x * (M_PI / 180.0));
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
     inline double rad_2_deg(double x)
     {
         return x * (180 / M_PI);

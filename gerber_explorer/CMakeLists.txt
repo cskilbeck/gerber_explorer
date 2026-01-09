@@ -34,6 +34,8 @@ cmrc_add_resource_library(my_shaders
         "${CMAKE_CURRENT_SOURCE_DIR}/shaders/layer_vertex_shader.glsl"
         "${CMAKE_CURRENT_SOURCE_DIR}/shaders/line_fragment_shader.glsl"
         "${CMAKE_CURRENT_SOURCE_DIR}/shaders/line_vertex_shader.glsl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/arc_fragment_shader.glsl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/arc_vertex_shader.glsl"
         "${CMAKE_CURRENT_SOURCE_DIR}/shaders/solid_vertex_shader.glsl"
         "${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_fragment_shader.glsl"
         "${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_vertex_shader.glsl")

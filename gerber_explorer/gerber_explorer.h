@@ -139,6 +139,7 @@ struct gerber_explorer : gl_window {
     gerber_3d::gl_layer_program layer_program{};
     gerber_3d::gl_textured_program textured_program{};
     gerber_3d::gl_line_program line_program{};
+    gerber_3d::gl_arc_program arc_program{};
 
     gerber_3d::gl_vertex_array_textured fullscreen_blit_verts;
 
@@ -172,8 +173,6 @@ struct gerber_explorer : gl_window {
     void update_view_rect();
 
     void load_gerber(settings::layer_t const &layer);
-
-    void select_entity(vec2d const &window_pos);
 
     std::list<gerber_layer *> loaded_layers; // loaded in the other thread, waiting to be added to layers
 

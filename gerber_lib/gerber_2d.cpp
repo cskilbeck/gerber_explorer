@@ -127,7 +127,7 @@ namespace gerber_lib
         } else {
 
             // get the endpoints of the arc
-            auto arc_point = [&](double d) {
+            auto arc_point = [&center, radius](double d) {
                 double radians = deg_2_rad(d);
                 return vec2d{ center.x + cos(radians) * radius, center.y + sin(radians) * radius };
             };
@@ -152,9 +152,9 @@ namespace gerber_lib
             // check if the arc goes through any cardinal points
             auto crosses_cardinal = [&](double d) {
                 if(s <= e) {
-                    return s <= d && d < e;
+                    return s <= d && d <= e;
                 }
-                return s <= d || d < e;
+                return s <= d || d <= e;
             };
 
             if(crosses_cardinal(0)) {

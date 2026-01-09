@@ -1,8 +1,8 @@
 #version 410 core
 
-layout (location = 0) in vec2 posA;// Instanced
-layout (location = 1) in vec2 posB;// Instanced
-layout (location = 2) in vec2 position;// (-0.5, -0.5) to (0.5, 0.5)
+layout (location = 0) in vec2 position;// (-0.5, -0.5) to (0.5, 0.5)
+layout (location = 1) in vec2 posA;// Instanced
+layout (location = 2) in vec2 posB;// Instanced
 
 uniform mat4 transform;
 uniform vec2 viewport_size;

@@ -17,6 +17,8 @@ LOG_CONTEXT("gl_base", debug);
 
 CMRC_DECLARE(my_shaders);
 
+int gl_log = 0;
+
 namespace
 {
     std::string shader_src(char const *name)
@@ -25,6 +27,13 @@ namespace
         auto src = my_shaders.open(name);
         return std::string(src.begin(), src.size());
     }
+
+    //////////////////////////////////////////////////////////////////////
+    // a quad for instanced line/arc shaders
+
+    const std::array<gerber_3d::gl_vertex_solid, 4> line_quad_verts{ -0.5f, -0.5f, 0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.5f };
+    const std::array<gerber_3d::gl_vertex_solid, 4> arc_quad_verts{ 0, 0, 1, 0, 0, 1, 1, 1 };
+
 }    // namespace
 
 namespace gerber_3d
@@ -156,8 +165,6 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    static const std::array<gl_vertex_solid, 4> quad_verts{ -0.5f, -0.5f, 0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.5f };
-
     int gl_line_program::init()
     {
         program_name = "line";
@@ -169,25 +176,56 @@ namespace gerber_3d
         if(err != 0) {
             return err;
         }
-        line_array.init(8);
-        line_array.activate();
-        update_buffer<GL_ARRAY_BUFFER>(quad_verts);
-
-        // extra buffer for the lines
-        GL_CHECK(glGenBuffers(1, &lines_vbo_id));
+        quad_points_array.init(4);
+        quad_points_array.activate();
+        update_buffer<GL_ARRAY_BUFFER>(line_quad_verts);
 
         // attribute for instanced line start
-        GL_CHECK(glEnableVertexAttribArray(0));
-        GL_CHECK(glVertexAttribDivisor(0, 1));
-
-        // attribute for instanced line end
-        GL_CHECK(glEnableVertexAttribArray(1));
-        GL_CHECK(glVertexAttribDivisor(1, 1));
+        for(int i = pos_a_location; i <= pos_b_location; ++i) {
+            GL_CHECK(glEnableVertexAttribArray(i));
+            GL_CHECK(glVertexAttribDivisor(i, 1));
+        }
 
         // attribute for instanced quad points already enabled in line_array.activate()
         // GL_CHECK(glEnableVertexAttribArray(2));
         // GL_CHECK(glVertexAttribDivisor(2, 0));
 
+        u_thickness = get_uniform("thickness");
+        u_viewport_size = get_uniform("viewport_size");
+        u_color = get_uniform("color");
+        return 0;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    void gl_arc_program::set_color(gl::color solid_color) const
+    {
+        gl::colorf4 f(solid_color);
+        GL_CHECK(glUniform4f(u_color, f.red(), f.green(), f.blue(), f.alpha()));
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    int gl_arc_program::init()
+    {
+        program_name = "arc";
+
+        vertex_shader_source = shader_src("arc_vertex_shader.glsl");
+        fragment_shader_source = shader_src("arc_fragment_shader.glsl");
+
+        int err = gl_program::init();
+        if(err != 0) {
+            return err;
+        }
+        quad_points_array.init(4);
+        quad_points_array.activate();
+        update_buffer<GL_ARRAY_BUFFER>(arc_quad_verts);
+
+        // enable instanced elements
+        for(int i = center_location; i <= extent_max_location; ++i) {
+            GL_CHECK(glEnableVertexAttribArray(i));
+            GL_CHECK(glVertexAttribDivisor(i, 1));
+        }
         u_thickness = get_uniform("thickness");
         u_viewport_size = get_uniform("viewport_size");
         u_color = get_uniform("color");
@@ -402,7 +440,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_line_array::init(GLsizei vert_count)
+    int gl_vertex_array_quad_points::init(GLsizei vert_count)
     {
         // this is for the quad verts
         gl_vertex_array::init(vert_count);
@@ -415,7 +453,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_line_array::activate() const
+    int gl_vertex_array_quad_points::activate() const
     {
         gl_vertex_array::activate();
         glEnableVertexAttribArray(gl_line_program::position_location);
