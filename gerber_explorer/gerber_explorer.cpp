@@ -86,10 +86,10 @@ vec2d gerber_explorer::world_pos_from_window_pos(vec2d const &p) const
 
 vec2d gerber_explorer::board_pos_from_window_pos(vec2d const &p) const
 {
-    vec2d pos;
-    pos.x = (p.x - board_center.x) * flip_xy.x + board_center.x;
-    pos.y = (p.y - board_center.y) * flip_xy.y + board_center.y;
-    return vec2d{ pos.x, window_size.y - pos.y }.divide(view_scale).add(view_rect.min_pos);
+    vec2d pos = vec2d{ p.x, window_size.y - p.y }.divide(view_scale).add(view_rect.min_pos);
+    pos.x = (pos.x - board_center.x) * flip_xy.x + board_center.x;
+    pos.y = (pos.y - board_center.y) * flip_xy.y + board_center.y;
+    return pos;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -339,8 +339,8 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
         drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
         if(selected_layer != nullptr) {
             rect f = drag_rect;
-            f.min_pos = world_pos_from_window_pos(f.min_pos);
-            f.max_pos = world_pos_from_window_pos(f.max_pos);
+            f.min_pos = board_pos_from_window_pos(f.min_pos);
+            f.max_pos = board_pos_from_window_pos(f.max_pos);
             f = f.normalize();
             if(drag_rect.min_pos.x > drag_rect.max_pos.x) {
                 selected_layer->layer.tesselator.flag_touching_entities(f, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
@@ -348,15 +348,13 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
                 selected_layer->layer.tesselator.flag_enclosed_entities(f, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
             }
         }
-
-        // select_entities(drag_rect, (GetKeyState(VK_SHIFT) & 0x8000) == 0);
     } break;
 
     default:
     case mouse_drag_none: {
         // Just hovering, highlight entities under the mouse if selected_layer != nullptr
         if(selected_layer != nullptr) {
-            vec2d pos = world_pos_from_window_pos(mouse_pos);
+            vec2d pos = board_pos_from_window_pos(mouse_pos);
             selected_layer->layer.tesselator.flag_entities_at_point(pos, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
         }
     } break;
