@@ -25,6 +25,13 @@ namespace gerber_lib
 
         bool changed_state{ false };
 
+        void changed(bool changed = true)
+        {
+            // LOG_CONTEXT("state", debug);
+            // LOG_DEBUG("Change to {}", changed);
+            changed_state = changed;
+        }
+
         gerber_aperture_state aperture_state;
         gerber_interpolation interpolation;
         gerber_interpolation previous_interpolation;

@@ -176,7 +176,7 @@ struct gerber_explorer : gl_window {
 
     std::list<gerber_layer *> loaded_layers; // loaded in the other thread, waiting to be added to layers
 
-    // how many gerberes queued up for loading?
+    // how many gerbers queued up for loading?
     // when this transitions to 0, zoom to fit
     int gerbers_to_load{0};
 

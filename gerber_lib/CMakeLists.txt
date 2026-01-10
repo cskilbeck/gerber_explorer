@@ -41,10 +41,7 @@ add_library(${PROJECT}
 
 set_target_properties(${PROJECT} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})
 
-target_include_directories(${PROJECT} PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/${LIB_TESS2}/Include
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include>)
+target_include_directories(${PROJECT} PUBLIC .)
 
 if (MSVC)
     string(REPLACE "/W3" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")

@@ -3,7 +3,7 @@
 in vec2 v_center_px;
 in vec2 v_current_px;
 in float v_radius_px;
-in vec2 v_angles; // x = start, y = sweep
+in vec2 v_angles;// x = start, y = sweep
 
 uniform float thickness;
 uniform vec4 color;
@@ -30,14 +30,13 @@ void main() {
     // could do a 'full circle' early check here but most of them aren't full circles
 
     float d = sqrt(dist_sq);
-    float ring_dist = abs(d - v_radius_px);
 
     float ang = atan(dir.y, dir.x);
     float rel_ang = mod(ang - v_angles.x, TWO_PI);
 
     float final_dist;
     if (rel_ang <= v_angles.y) {
-        final_dist = ring_dist;
+        final_dist = abs(d - v_radius_px);
     } else {
         vec2 p_start = v_radius_px * vec2(cos(v_angles.x), sin(v_angles.x));
         vec2 p_end   = v_radius_px * vec2(cos(v_angles.x + v_angles.y), sin(v_angles.x + v_angles.y));
@@ -49,6 +48,8 @@ void main() {
 
     float alpha = clamp((half_thick - final_dist) + 0.5, 0.0, 1.0);
 
-    if (alpha <= 0.0) discard;
+    if (alpha <= 0.0) {
+        discard;
+    }
     fragColor = vec4(color.rgb, color.a * alpha);
 }

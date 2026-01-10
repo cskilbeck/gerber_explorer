@@ -49,6 +49,7 @@
     GERBER_ERROR_CODE(invalid_interpolation)        \
     GERBER_ERROR_CODE(invalid_file_attributes)      \
     GERBER_ERROR_CODE(duplicate_aperture_number)    \
+    GERBER_ERROR_CODE(bad_outline_points_data)      \
     GERBER_ERROR_CODE(unsupported_command)          \
     GERBER_ERROR_CODE(invalid_primitive_number)     \
     GERBER_ERROR_CODE(mismatched_brackets)          \

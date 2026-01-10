@@ -350,7 +350,7 @@ namespace gerber_lib
 
     gerber_error_code gerber_aperture::execute_aperture_macro(double scale)
     {
-        LOG_CONTEXT("execute_aperture_macro", info);
+        LOG_CONTEXT("execute_aperture_macro", verbose);
 
         LOG_DEBUG("Execute aperture macro \"{}\"", aperture_macro->name);
 
@@ -555,12 +555,37 @@ namespace gerber_lib
                         macro->parameters[circle_centre_y] *= scale;
                         break;
 
-                    case aperture_type_macro_outline:
+                    case aperture_type_macro_outline: {
                         exposure = macro->parameters[outline_exposure];
-                        for(int i = 2; i < num_of_parameters - 1; ++i) {
-                            macro->parameters[i] *= scale;
+                        int num_points = (int)macro->parameters[outline_number_of_points];
+                        int num_params = (int)macro->parameters.size();
+                        int required_with = num_points * 2 + outline_num_parameters;
+                        int required_without = required_with - 2;
+
+                        if(num_params != required_with && num_params != required_without) {
+                            LOG_ERROR("Bad point count for outline");
+                            return error_bad_outline_points_data;
                         }
-                        break;
+
+                        // does it have the extra point?
+                        if(num_params == required_with) {
+                            num_points += 1;
+                        }
+                        // scale the points
+                        for(int i = 0; i < num_points; ++i) {
+                            macro->parameters[i * 2 + outline_first_x] *= scale;
+                            macro->parameters[i * 2 + outline_first_y] *= scale;
+                        }
+                        // if it doesn't have the extra point, add it (pushing rotation to the end)
+                        if(num_params == required_without) {
+                            int last_x = num_points * 2 + outline_rotation;
+                            double rotation = macro->parameters[last_x];
+                            macro->parameters[last_x] = macro->parameters[outline_first_x] * scale;
+                            macro->parameters.push_back(macro->parameters[outline_first_y] * scale);
+                            macro->parameters.push_back(rotation);
+
+                        }
+                    }break;
 
                     case aperture_type_macro_polygon:
                         exposure = macro->parameters[polygon_exposure];

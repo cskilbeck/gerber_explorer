@@ -69,7 +69,7 @@ namespace gerber_lib
         void update_net_bounds(rect &bounds, double x, double y, double w, double h) const;
         void update_image_bounds(rect &bounds, double repeat_offset_x, double repeat_offset_y, gerber_image &cur_image) const;
 
-        gerber_error_code get_aperture_points(gerber_macro_parameters const &macro, gerber_net *net, std::vector<vec2d> &points);
+        gerber_error_code get_aperture_points(gerber_macro_parameters const &macro, gerber_net *net, std::vector<vec2d> &points) const;
 
         gerber_error_code parse_file(char const *file_path);
         gerber_error_code parse_memory(char const *data, size_t size);

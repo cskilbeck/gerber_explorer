@@ -339,14 +339,14 @@ namespace gerber_lib
         case 36:
             state.previous_interpolation = state.interpolation;
             state.interpolation = interpolation_region_start;
-            state.changed_state = true;
+            state.changed();
             stats.g36 += 1;
             break;
 
         // Turn off Region Fill
         case 37:
             state.interpolation = interpolation_region_end;
-            state.changed_state = true;
+            state.changed();
             stats.g37 += 1;
             break;
 
@@ -422,7 +422,7 @@ namespace gerber_lib
 
     gerber_error_code gerber::parse_d_code()
     {
-        LOG_CONTEXT("parse_d_code", info);
+        LOG_CONTEXT("parse_d_code", debug);
 
         int code;
         CHECK(reader.get_int(&code));
@@ -432,21 +432,21 @@ namespace gerber_lib
         // Exposure on.
         case 1:
             state.aperture_state = aperture_state_on;
-            state.changed_state = true;
+            state.changed();
             stats.d1 += 1;
             break;
 
         // Exposure off.
         case 2:
             state.aperture_state = aperture_state_off;
-            state.changed_state = true;
+            state.changed();
             stats.d2 += 1;
             break;
 
         // Flash aperture.
         case 3:
             state.aperture_state = aperture_state_flash;
-            state.changed_state = true;
+            state.changed();
             stats.d3 += 1;
             break;
 
@@ -459,7 +459,7 @@ namespace gerber_lib
                 stats.error(reader, error_bad_aperture_number, "D{} out of bounds", code);
                 stats.d_code_errors += 1;
             }
-            state.changed_state = false;
+            state.changed(false);
             break;
         }
         return ok;
@@ -507,7 +507,7 @@ namespace gerber_lib
 
     gerber_error_code gerber::parse_rs274x(gerber_net *net)
     {
-        LOG_CONTEXT("RS274X", info);
+        LOG_CONTEXT("RS274X", debug);
 
         double unit_scale{ 1.0 };
 
@@ -518,7 +518,7 @@ namespace gerber_lib
         uint32_t command;
         CHECK(reader.read_short(&command, 2));
 
-        LOG_DEBUG("command {}", string_from_uint32(command));
+        // LOG_DEBUG("command {}", string_from_uint32(command));
 
         // If it falls out of this switch/case statement, then
         // the trailing * and % need to be eaten
@@ -534,6 +534,7 @@ namespace gerber_lib
 
             auto macro = std::make_unique<gerber_aperture_macro>();
             CHECK(macro->parse_aperture_macro(reader));
+            LOG_DEBUG("AM {}", *macro);
             image.aperture_macros.push_back(macro.release());
             return ok;
 
@@ -546,6 +547,8 @@ namespace gerber_lib
             auto aperture = std::make_unique<gerber_aperture>();
 
             if(parse_aperture_definition(aperture.get(), &image, unit_scale) == ok) {
+
+                LOG_DEBUG("AD {}", *aperture);
 
                 int aperture_number = aperture->aperture_number;
 
@@ -568,6 +571,7 @@ namespace gerber_lib
                         stats.error(reader, error_bad_aperture_number, "{}, must be >= {}, using {}", aperture_number, min_aperture, min_aperture);
                         aperture_number = min_aperture;
                     }
+                    LOG_DEBUG("Set net aperture to {}", aperture_number);
                     net->aperture = aperture_number;
 
                 } else {
@@ -1139,6 +1143,8 @@ namespace gerber_lib
                 return stats.error(reader, error_invalid_knockout_polarity, "expected [D|C], got {}", string_from_char(c));
             }
 
+            LOG_DEBUG("KNOCKOUT: {}", state.level->knockout.knockout_type);
+
             state.level->knockout.lower_left = { 0, 0 };
             state.level->knockout.size = { 0, 0 };
             state.level->knockout.border = 0.0;
@@ -1493,7 +1499,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::get_aperture_points(gerber_macro_parameters const &macro, gerber_net *net, std::vector<vec2d> &points)
+    gerber_error_code gerber::get_aperture_points(gerber_macro_parameters const &macro, gerber_net *net, std::vector<vec2d> &points) const
     {
         switch(macro.aperture_type) {
 
@@ -1645,7 +1651,7 @@ namespace gerber_lib
 
     gerber_error_code gerber::parse_gerber_segment(gerber_net *net)
     {
-        LOG_CONTEXT("parse_segment", info);
+        LOG_CONTEXT("parse_segment", debug);
 
         rect whole_box{ DBL_MAX, DBL_MAX, -DBL_MAX, -DBL_MAX };
 
@@ -1686,6 +1692,9 @@ namespace gerber_lib
             } break;
 
             case 'D': {
+                if(reader.line_number == 856) {
+                    LOG_DEBUG("D at line {}", reader.line_number);
+                }
                 CHECK(parse_d_code());
             } break;
 
@@ -1703,12 +1712,12 @@ namespace gerber_lib
                 if(image.format.coordinate == coordinate_incremental) {
                     if(coordinate != 0) {
                         state.current_x += coordinate;
-                        state.changed_state = true;
+                        state.changed();
                     }
                 } else {
                     if(state.current_x != coordinate) {
                         state.current_x = coordinate;
-                        state.changed_state = true;
+                        state.changed();
                     }
                 }
             } break;
@@ -1723,12 +1732,12 @@ namespace gerber_lib
                 if(image.format.coordinate == coordinate_incremental) {
                     if(coordinate != 0) {
                         state.current_y += coordinate;
-                        state.changed_state = true;
+                        state.changed();
                     }
                 } else {
                     if(state.current_y != coordinate) {
                         state.current_y = coordinate;
-                        state.changed_state = true;
+                        state.changed();
                     }
                 }
                 // LOG_DEBUG("Y: X = {}, Y = {}", state.current_x, state.current_y);
@@ -1743,7 +1752,7 @@ namespace gerber_lib
                 }
                 state.center_x = coordinate;
                 // LOG_DEBUG("CX = {}", state.center_x);
-                state.changed_state = true;
+                state.changed();
             } break;
 
             case 'J': {
@@ -1755,7 +1764,7 @@ namespace gerber_lib
                 }
                 state.center_y = coordinate;
                 // LOG_DEBUG("CY = {}", state.center_y);
-                state.changed_state = true;
+                state.changed();
             } break;
 
             case '%': {
@@ -1764,13 +1773,15 @@ namespace gerber_lib
 
             case '*': {
 
-                // LOG_DEBUG("* at line {}", reader.line_number);
+                if(reader.line_number == 856) {
+                    LOG_DEBUG("* at line {}", reader.line_number);
+                }
 
                 stats.star_count += 1;
                 if(!state.changed_state) {
                     break;
                 }
-                state.changed_state = false;
+                state.changed(false);
 
                 // Don't even bother saving the geberNet if the aperture state is GERBER_APERTURE_STATE_OFF and we
                 // aren't starting a polygon fill (where we need it to get to the start point)
@@ -1815,22 +1826,22 @@ namespace gerber_lib
                         case interpolation_clockwise_circular:
                         case interpolation_counterclockwise_circular:
                             add_entity();
-                            LOG_VERBOSE("ENTITY {} OCCURS: {}", entity_id, entities.back());
+                            LOG_VERBOSE("ENTITY {} OCCURS: {} ({})", entity_id, entities.back(), state.aperture_state);
                             entity_id += 1;
                             break;
                         case interpolation_region_start:
                             add_entity();
-                            LOG_VERBOSE("ENTITY {} OCCURS: {}", entity_id, entities.back());
+                            LOG_VERBOSE("ENTITY {} OCCURS: {} ({})", entity_id, entities.back(), state.aperture_state);
                             break;
                         case interpolation_region_end:
-                            LOG_ERROR("Shouldn't get here...");
+                            LOG_ERROR("Shouldn't get here...({})", state.aperture_state);
                             break;
                         }
                         break;
 
                     case aperture_state_flash:
                         add_entity();
-                        LOG_VERBOSE("ENTITY {} OCCURS: {}", entity_id, entities.back());
+                        LOG_VERBOSE("ENTITY {} OCCURS: {} ({})", entity_id, entities.back(), state.aperture_state);
                         entity_id += 1;
                         break;
                     }
@@ -2226,7 +2237,14 @@ namespace gerber_lib
             } break;
 
             case aperture_type_macro_outline: {
-                // FAIL_IF(m->parameters.size() < outline_num_parameters, error_bad_parameter_count);
+                FAIL_IF(m->parameters.size() < outline_num_parameters, error_bad_parameter_count);
+                std::vector<vec2d> points;
+                CHECK(get_aperture_points(*m, net, points));
+                std::vector<gerber_draw_element> e;
+                for(size_t i=0; i<points.size()-1; ++i) {
+                    e.emplace_back(points[i], points[i+1]);
+                }
+                drawer.fill_elements(e.data(), e.size(), polarity_dark, net->entity_id);
             } break;
 
             case aperture_type_macro_polygon: {

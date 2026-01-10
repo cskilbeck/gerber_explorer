@@ -39,7 +39,6 @@ namespace gerber_3d
         fill_vertices.clear();    // the verts (for outlines and fills)
         indices.clear();          // the indices (for fills)
         fills.clear();            // spans for drawing fills (GL_LINE_LOOP)
-        contours = 0;
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -66,14 +65,13 @@ namespace gerber_3d
             e.bounds.expand_to_contain(vec2d(points[i]));
         }
         tessAddContour(boundary_stesselator, 2, points.data() + offset, sizeof(float) * 2, (int)(points.size() - offset));
-        contours += 1;
     }
 
     //////////////////////////////////////////////////////////////////////
 
     void gl_tesselator::finish_entity()
     {
-        if(boundary_stesselator != nullptr && contours != 0) {
+        if(boundary_stesselator != nullptr) {
 
             tessTesselate(boundary_stesselator, TESS_WINDING_POSITIVE, TESS_BOUNDARY_CONTOURS, 0, 2, nullptr);
 
@@ -377,10 +375,9 @@ namespace gerber_3d
             vertex_array.activate();
             index_array.activate();
 
-
             if(invert) {
-                std::swap(fill_color, clear_color);
                 gl::colorf4 f(fill_color);
+                std::swap(fill_color, clear_color);
                 glClearColor(f.red(), f.green(), f.blue(), f.alpha());
                 glClear(GL_COLOR_BUFFER_BIT);
             }

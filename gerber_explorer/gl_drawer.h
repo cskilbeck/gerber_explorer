@@ -55,10 +55,10 @@ namespace gerber_3d
         std::vector<vec2f> outline_vertices_start;
         std::vector<vec2f> outline_vertices_end;
 
+        std::vector<gl_arc_program::arc> outline_arcs;
+
         std::vector<GLuint> indices;
         std::vector<tesselator_span> fills;
-
-        int contours{};
 
         void clear();
         void new_entity(int entity_id, int flags);
