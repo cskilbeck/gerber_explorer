@@ -268,6 +268,39 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
+    struct gl_line2_program : gl_program
+    {
+        static constexpr int position_location = 0;
+
+        GLuint u_thickness;           // global line thickness
+        GLuint u_viewport_size;       // needed for pixel thickness
+        GLuint u_hover_color;         // coverage colors for hovered
+        GLuint u_select_color;        // and selected lines
+
+        GLuint u_instance_sampler;    // sampler for TBO of struct lines, fetch based on gl_InstanceId
+        GLuint u_vert_sampler;        // sampler for the vertices
+        GLuint u_flags_sampler;       // sampler for flags (1 byte per entity_id)
+
+        static const float quad[8];
+
+        gl_vertex_array_quad_points quad_points_array;
+
+        void set_hover_color(gl::color hover_color) const;
+        void set_select_color(gl::color select_color) const;
+
+        int init() override;
+
+        struct line
+        {
+            uint32_t start_index;
+            uint32_t end_index;
+            uint32_t entity_id;
+            uint32_t pad;   // Gah
+        };
+    };
+
+    //////////////////////////////////////////////////////////////////////
+
     struct gl_arc_program : gl_program
     {
         static constexpr int position_location = 0;

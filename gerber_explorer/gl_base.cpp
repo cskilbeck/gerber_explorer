@@ -24,6 +24,9 @@ namespace
     std::string shader_src(char const *name)
     {
         auto my_shaders = cmrc::my_shaders::get_filesystem();
+        if(!my_shaders.is_file(name)) {
+            return {};
+        }
         auto src = my_shaders.open(name);
         return std::string(src.begin(), src.size());
     }
@@ -93,6 +96,10 @@ namespace gerber_3d
 
     int gl_program::init()
     {
+        if(vertex_shader_source.empty() || fragment_shader_source.empty()) {
+            LOG_ERROR("SHADER SOURCE MISSING");
+            return 1;
+        }
         vertex_shader_id = compile_shader(GL_VERTEX_SHADER, vertex_shader_source.c_str());
         fragment_shader_id = compile_shader(GL_FRAGMENT_SHADER, fragment_shader_source.c_str());
 
@@ -193,6 +200,33 @@ namespace gerber_3d
         u_thickness = get_uniform("thickness");
         u_viewport_size = get_uniform("viewport_size");
         u_color = get_uniform("color");
+        return 0;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    int gl_line2_program::init()
+    {
+        program_name = "line";
+
+        vertex_shader_source = shader_src("line2_vertex_shader.glsl");
+        fragment_shader_source = shader_src("line2_fragment_shader.glsl");
+
+        int err = gl_program::init();
+        if(err != 0) {
+            return err;
+        }
+        quad_points_array.init(4);
+        quad_points_array.activate();
+        update_buffer<GL_ARRAY_BUFFER>(line_quad_verts);
+
+        u_thickness = get_uniform("thickness");
+        u_viewport_size = get_uniform("viewport_size");
+        u_hover_color = get_uniform("hover_color");
+        u_select_color = get_uniform("select_color");
+        u_instance_sampler = get_uniform("instance_sampler");
+        u_vert_sampler = get_uniform("vert_sampler");
+        u_flags_sampler = get_uniform("flags_sampler");
         return 0;
     }
 

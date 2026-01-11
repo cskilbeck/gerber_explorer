@@ -513,6 +513,7 @@ bool gerber_explorer::on_init()
     textured_program.init();
     line_program.init();
     arc_program.init();
+    line2_program.init();
 
     overlay.init();
 
@@ -993,6 +994,83 @@ void gerber_explorer::on_render()
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             layer.draw(settings.wireframe, outline_width, world_matrix, window_size);
+
+            if(true) {
+                // this just calls glUseProgram, it compiled OK
+                line2_program.use();
+
+                // 3 verts
+                std::array verts{
+                    vec2f{10, 10},
+                    vec2f{50, 10},
+                    vec2f{30, 50},
+                    vec2f{80, 10},
+                    vec2f{120, 10},
+                    vec2f{100, 50}
+                };
+
+                // 3 lines
+                std::array lines{
+                    gl_line2_program::line{0, 1, 0},
+                    gl_line2_program::line{1, 2, 0},
+                    gl_line2_program::line{2, 0, 0},
+                    gl_line2_program::line{3, 4, 1},
+                    gl_line2_program::line{4, 5, 1},
+                    gl_line2_program::line{5, 3, 1},
+                };
+
+                // 2 flags (see 3rd element in lines)
+                std::array<uint8_t, 2> flags{
+                    2,1
+                };
+
+                static GLuint buffers[3];
+                static GLuint textures[3];
+
+                static bool init{false};
+                if(!init) {
+                    init = true;
+                    glGenBuffers(3, buffers);
+                    glBindBuffer(GL_TEXTURE_BUFFER, buffers[0]);
+                    glBufferData(GL_TEXTURE_BUFFER, lines.size() * sizeof(gl_line2_program::line), lines.data(), GL_STATIC_DRAW);
+                    glBindBuffer(GL_TEXTURE_BUFFER, buffers[1]);
+                    glBufferData(GL_TEXTURE_BUFFER, verts.size() * sizeof(vec2f), verts.data(), GL_STATIC_DRAW);
+                    glBindBuffer(GL_TEXTURE_BUFFER, buffers[2]);
+                    glBufferData(GL_TEXTURE_BUFFER, flags.size() * sizeof(uint8_t), flags.data(), GL_STATIC_DRAW);
+
+                    glGenTextures(3, textures);
+                    glBindTexture(GL_TEXTURE_BUFFER, textures[0]);
+                    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32UI, buffers[0]);
+                    glBindTexture(GL_TEXTURE_BUFFER, textures[1]);
+                    glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, buffers[1]);
+                    glBindTexture(GL_TEXTURE_BUFFER, textures[2]);
+                    glTexBuffer(GL_TEXTURE_BUFFER, GL_R8UI, buffers[2]);
+                }
+                glUniform1i(line2_program.u_instance_sampler, 0); // instance_sampler -> GL_TEXTURE0
+                glUniform1i(line2_program.u_vert_sampler, 1); // vert_sampler     -> GL_TEXTURE1
+                glUniform1i(line2_program.u_flags_sampler, 2); // flags_sampler    -> GL_TEXTURE2
+
+                GL_CHECK(glUniform1f(line2_program.u_thickness, 4.0f));
+                GL_CHECK(glUniform2f(line2_program.u_viewport_size, (float)window_size.x, (float)window_size.y));
+                GL_CHECK(glUniformMatrix4fv(line2_program.u_transform, 1, false, world_matrix.m));
+                gl::colorf4 select(gl::colors::blue);
+                gl::colorf4 hover(gl::colors::red);
+                GL_CHECK(glUniform4fv(line2_program.u_select_color, 1, select.f));
+                GL_CHECK(glUniform4fv(line2_program.u_hover_color, 1, hover.f));
+
+                // 3. Before your Draw call (e.g., glDrawArraysInstanced)
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_BUFFER, textures[0]); // The Lines TBO (RGBA32UI)
+
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_BUFFER, textures[1]); // The Verts TBO (RG32F)
+
+                glActiveTexture(GL_TEXTURE2);
+                glBindTexture(GL_TEXTURE_BUFFER, textures[2]); // The Flags TBO (R8UI)
+
+                line2_program.quad_points_array.activate();
+                glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)lines.size());
+            }
 
             // DRAW AN ARC
             if (false) {

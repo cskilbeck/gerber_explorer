@@ -140,6 +140,7 @@ struct gerber_explorer : gl_window {
     gerber_3d::gl_textured_program textured_program{};
     gerber_3d::gl_line_program line_program{};
     gerber_3d::gl_arc_program arc_program{};
+    gerber_3d::gl_line2_program line2_program{};
 
     gerber_3d::gl_vertex_array_textured fullscreen_blit_verts;
 
