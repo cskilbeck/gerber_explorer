@@ -43,21 +43,22 @@ namespace gerber_3d
                 vec2f tr(world_rect.max_pos);
                 vec2f tl{ bl.x, tr.y };
                 vec2f br{ tr.x, bl.y };
-                auto p = outline_vertices_start.data() + e.outline_offset;
+                auto p = outline_vertices.data() + e.outline_offset;
                 int s = e.outline_size;
                 hit = point_in_poly(p, s, bl) || point_in_poly(p, s, tr) || point_in_poly(p, s, tl) || point_in_poly(p, s, br);
             }
             // else do more expensive check (if bounding rects overlap)
             if(!hit && world_rect.overlaps_rect(e.bounds)) {
                 int s = e.outline_offset;
-                for(int i = 0; i < e.outline_size; ++i) {
-                    vec2f const &p1 = outline_vertices_start[s];
-                    vec2f const &p2 = outline_vertices_end[s];
+                int end = s + e.outline_size - 1;
+                int t = end;
+                for(; s != end; t = s++) {
+                    vec2f const &p1 = outline_vertices[s];
+                    vec2f const &p2 = outline_vertices[t];
                     if(line_intersects_rect(world_rect, p1, p2)) {
                         hit = true;
                         break;
                     }
-                    s += 1;
                 }
             }
             if(hit) {
@@ -85,7 +86,7 @@ namespace gerber_3d
         for(auto &e : entities) {
             e.flags &= ~clear_flags;
             if(e.bounds.contains(point)) {
-                auto p = outline_vertices_start.data() + e.outline_offset;
+                auto p = outline_vertices.data() + e.outline_offset;
                 int s = e.outline_size;
                 if(point_in_poly(p, s, vec2f(point))) {
                     e.flags |= set_flags;
@@ -103,6 +104,9 @@ namespace gerber_3d
         fill_vertices.clear();    // the verts (for outlines and fills)
         fill_indices.clear();          // the indices (for fills)
         fill_spans.clear();            // spans for drawing fills (GL_LINE_LOOP)
+        outline_vertices.clear();
+        outline_lines.clear();
+        entity_flags.clear();
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -111,7 +115,7 @@ namespace gerber_3d
     {
         finish_entity();
 
-        entities.emplace_back(entity_id, (int)fill_spans.size(), 0, (int)outline_vertices_start.size(), 0, flags);
+        entities.emplace_back(entity_id, (int)fill_spans.size(), 0, (int)outline_vertices.size(), 0, flags);
         boundary_stesselator = tessNewTess(nullptr);
         tessSetOption(boundary_stesselator, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 1);
         tessSetOption(boundary_stesselator, TESS_REVERSE_CONTOURS, 1);
@@ -161,20 +165,14 @@ namespace gerber_3d
                 float const *f = &verts[b * 2];
                 // float const *s = f;
                 tessAddContour(interior_tesselator, 2, f, sizeof(float) * 2, n);
-                size_t base = outline_vertices_start.size();
                 for(int p = 0; p < n; ++p) {
-                    if(p != 0) {
-                        outline_vertices_end.emplace_back(f[0], f[1]);
-                    }
-                    outline_vertices_start.emplace_back(f[0], f[1]);
+                    outline_vertices.emplace_back(f[0], f[1]);
                     f += 2;
                 }
-                // add first point at the end for thick line drawing later
-                outline_vertices_end.push_back(outline_vertices_start[base]);
             }
 
             tesselator_entity &e = entities.back();
-            e.outline_size = (int)(outline_vertices_start.size() - e.outline_offset);
+            e.outline_size = (int)(outline_vertices.size() - e.outline_offset);
 
             tessTesselate(interior_tesselator, TESS_WINDING_POSITIVE, TESS_POLYGONS, 3, 2, nullptr);
 
@@ -236,13 +234,8 @@ namespace gerber_3d
         new_entity(current_entity_id, current_flag);
         finalize();
 
-        //////////
+        // create the lines index buffer and flags buffer
 
-        outline_lines.clear();
-        outline_vertices.clear();
-        entity_flags.clear();
-
-        // create the vertices, lines and flags
         entity_flags.resize(entities.size() + 1);
         for(size_t i=0; i<entities.size(); ++i) {
             tesselator_entity &e = entities[i];
@@ -256,18 +249,16 @@ namespace gerber_3d
             size_t t = s + e.outline_size - 1;
             size_t u = t;
             for(; s <= u; t = s++) {
-                outline_vertices.push_back(outline_vertices_start[s]);
                 outline_lines.emplace_back((uint32_t)s, (uint32_t)t, (uint32_t)id, 0);
             }
         }
-
     }
 
     //////////////////////////////////////////////////////////////////////
 
     void gl_drawer::on_finished_loading()
     {
-        if(fill_vertices.empty() || fill_indices.empty() || outline_vertices_start.empty()) {
+        if(fill_vertices.empty() || fill_indices.empty() || outline_vertices.empty()) {
             LOG_INFO("Layer {} is empty", this->gerber_file->filename);
             return;
         }
@@ -297,15 +288,6 @@ namespace gerber_3d
         index_array.init(static_cast<GLsizei>(fill_indices.size()));
         index_array.activate();
         update_buffer<GL_ELEMENT_ARRAY_BUFFER>(fill_indices);
-
-        // allocate/update the line verts
-        GL_CHECK(glGenBuffers(2, lines_vbo));
-        GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, lines_vbo[0]));
-        GL_CHECK(glBufferData(
-            GL_ARRAY_BUFFER, outline_vertices_start.size() * sizeof(vert), outline_vertices_start.data(), GL_STATIC_DRAW));
-        GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, lines_vbo[1]));
-        GL_CHECK(glBufferData(
-            GL_ARRAY_BUFFER, outline_vertices_end.size() * sizeof(vert), outline_vertices_end.data(), GL_STATIC_DRAW));
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -493,16 +475,4 @@ namespace gerber_3d
         GL_CHECK(glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)outline_lines.size()));
     }
 
-    //////////////////////////////////////////////////////////////////////
-
-    void gl_drawer::draw(bool fill_on, bool outline_on, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix, vec2d const &window_size)
-    {
-        if(fill_on) {
-            fill(wireframe, invert, matrix, window_size);
-        }
-
-        if(outline_on) {
-            outline(outline_thickness, matrix, window_size);
-        }
-    }
 }    // namespace gerber_3d

@@ -45,6 +45,7 @@ namespace gerber_3d
     struct gl_drawer : gerber_lib::gerber_draw_interface
     {
         using vec2f = gerber_lib::vec2f;
+        using vert = vec2f;
 
         gl_drawer() = default;
 
@@ -57,23 +58,18 @@ namespace gerber_3d
         // callback to create draw calls from elements
         void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, int entity_id) override;
 
-        // draw it
-        void draw(bool fill_on, bool outline_on, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix,
-                  gerber_lib::vec2d const &window_size);
-
-        void fill(bool wireframe, bool invert, gl_matrix const &matrix, gerber_lib::vec2d const &window_size);
-        void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &window_size);
-
-        using vec2f = gerber_lib::vec2f;
-        using vert = vec2f;
-
-        //
+        // admin for tesselation etc
         void clear();
         void new_entity(int entity_id, int flags);
         void append_points(size_t offset);
         void finish_entity();
         void finalize();
 
+        // for actually drawing it
+        void fill(bool wireframe, bool invert, gl_matrix const &matrix, gerber_lib::vec2d const &window_size);
+        void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &window_size);
+
+        // picking/selection
         void flag_entities_at_point(gerber_lib::vec2d point, int clear_flags, int set_flags);
         void flag_touching_entities(gerber_lib::rect const &world_rect, int clear_flags, int set_flags);
         void flag_enclosed_entities(gerber_lib::rect const &world_rect, int clear_flags, int set_flags);
@@ -86,12 +82,13 @@ namespace gerber_3d
         // tesselation
         TESStesselator *boundary_stesselator{};
         std::vector<tesselator_entity> entities;
+
         std::vector<vec2f> temp_points;
-        std::vector<vec2f> outline_vertices_start;
-        std::vector<vec2f> outline_vertices_end;
+
         std::vector<gl_line2_program::line> outline_lines;
         std::vector<vec2f> outline_vertices;
         std::vector<uint8_t> entity_flags; // one byte per entity
+
         std::vector<vert> fill_vertices;
         std::vector<GLuint> fill_indices;
         std::vector<tesselator_span> fill_spans;
@@ -106,9 +103,6 @@ namespace gerber_3d
 
         // indices for interior triangles
         gl_index_buffer index_array;
-
-        // vertices for outline (2 because start, end)
-        GLuint lines_vbo[2];
 
         GLuint line_buffers[3];
         GLuint textures[3];
