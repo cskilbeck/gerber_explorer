@@ -1016,12 +1016,12 @@ void gerber_explorer::on_render()
             }
             glClearColor(f.red(), f.green(), f.blue(), f.alpha());
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            layer.layer.fill(world_matrix, entity_flags_t::fill, entity_flags_t::clear, entity_flags_t::hovered);
-            blend_layer(fill, clear, gl::colorf4(gl::colors::magenta), layer.alpha / 255.0f);
+            layer.layer.fill(world_matrix, entity_flags_t::none, entity_flags_t::clear, entity_flags_t::fill);
+            blend_layer(gl::colorf4(0,0,0,0), clear, fill, layer.alpha / 255.0f);
         }
     }
 
-    // draw selected layer on top of all other layers
+    // draw ouline of selected entities in selected layer on top of all other layers
 
     if(selected_layer != nullptr) {
         layer_render_target.bind_framebuffer();
@@ -1029,7 +1029,7 @@ void gerber_explorer::on_render()
         GL_CHECK(glClearColor(0, 0, 0, 1));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         selected_layer->layer.fill(world_matrix, entity_flags_t::hovered, entity_flags_t::clear, entity_flags_t::none);
-        blend_layer(gl::colorf4(0.25f, 0.5f, 1, 1), gl::colorf4(0, 0, 0, 0), gl::colorf4(0, 0, 0, 0), 0.5f);
+        blend_layer(gl::colorf4(gl::colors::magenta), gl::colorf4(0, 0, 0, 0), gl::colorf4(0, 0, 0, 0), 0.5f);
 
         // Draw outline for hovered/selected entities in the selected layer
         layer_render_target.bind_framebuffer();
@@ -1037,7 +1037,7 @@ void gerber_explorer::on_render()
         GL_CHECK(glClearColor(0, 0, 0, 0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         selected_layer->layer.outline(settings.outline_width + 1.0f, world_matrix, window_size);
-        blend_layer(gl::colorf4(gl::colors::white), gl::colorf4(gl::colors::magenta), gl::colorf4(gl::colors::black), 1.0f);
+        blend_layer(gl::colorf4(gl::colors::light_pink), gl::colorf4(gl::colors::magenta), gl::colorf4(gl::colors::red), 1.0f);
     }
 
     // draw the overlay graphics
