@@ -876,7 +876,7 @@ void gerber_explorer::update_board_extent()
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::blit_layer(gl::colorf4 const &fill_color, gl::colorf4 const &clear_color, float alpha)
+void gerber_explorer::blend_layer(gl::colorf4 const &col_r, gl::colorf4 const &col_g, gl::colorf4 const &col_b, float alpha)
 {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
@@ -886,9 +886,9 @@ void gerber_explorer::blit_layer(gl::colorf4 const &fill_color, gl::colorf4 cons
     textured_program.use();
     layer_render_target.bind_textures();
 
-    GL_CHECK(glUniform4fv(textured_program.u_red, 1, fill_color.f));
-    GL_CHECK(glUniform4fv(textured_program.u_green, 1, clear_color.f));
-    GL_CHECK(glUniform4fv(textured_program.u_blue, 1, (float const *)&settings.outline_color));
+    GL_CHECK(glUniform4fv(textured_program.u_red, 1, col_r.f));
+    GL_CHECK(glUniform4fv(textured_program.u_green, 1, col_g.f));
+    GL_CHECK(glUniform4fv(textured_program.u_blue, 1, col_b.f));
     GL_CHECK(glUniform1f(textured_program.u_alpha, alpha));
     GL_CHECK(glUniform1i(textured_program.u_num_samples, layer_render_target.num_samples));
     GL_CHECK(glUniform1i(textured_program.u_cover_sampler, 0));
@@ -985,10 +985,14 @@ void gerber_explorer::on_render()
 
     GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
+    // resize the offscreen render target if the window size changed
+
     if(layer_render_target.width != window_width || layer_render_target.height != window_height || layer_render_target.num_samples != multisample_count) {
         layer_render_target.cleanup();
         layer_render_target.init(window_width, window_height, multisample_count, 1);
     }
+
+    // draw the layers
 
     for(auto r = layers.begin(); r != layers.end(); ++r) {
         gerber_layer &layer = **r;
@@ -996,27 +1000,44 @@ void gerber_explorer::on_render()
         if(layer.visible) {
             layer_render_target.bind_framebuffer();
             GL_CHECK(glViewport(0, 0, window_width, window_height));
-            GL_CHECK(glClearColor(0, 0, 0, 0));
+
+            if(settings.wireframe) {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            } else {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            }
+
+            gl::colorf4 fill = layer.fill_color;
+            gl::colorf4 clear = layer.clear_color;
+            gl::colorf4 f(gl::colors::black);
+            if(layer.invert) {
+                f = gl::colorf4(fill);
+                std::swap(fill, clear);
+            }
+            glClearColor(f.red(), f.green(), f.blue(), f.alpha());
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            layer.fill(settings.wireframe, world_matrix);
-            blit_layer(layer.fill_color, layer.clear_color, layer.alpha / 255.0f);
+            layer.layer.fill(world_matrix, entity_flags_t::fill, entity_flags_t::clear, entity_flags_t::hovered);
+            blend_layer(fill, clear, gl::colorf4(gl::colors::magenta), layer.alpha / 255.0f);
         }
     }
 
+    // draw selected layer on top of all other layers
+
     if(selected_layer != nullptr) {
+        layer_render_target.bind_framebuffer();
+        GL_CHECK(glViewport(0, 0, window_width, window_height));
+        GL_CHECK(glClearColor(0, 0, 0, 1));
+        GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
+        selected_layer->layer.fill(world_matrix, entity_flags_t::hovered, entity_flags_t::clear, entity_flags_t::none);
+        blend_layer(gl::colorf4(0.25f, 0.5f, 1, 1), gl::colorf4(0, 0, 0, 0), gl::colorf4(0, 0, 0, 0), 0.5f);
+
         // Draw outline for hovered/selected entities in the selected layer
         layer_render_target.bind_framebuffer();
         GL_CHECK(glViewport(0, 0, window_width, window_height));
         GL_CHECK(glClearColor(0, 0, 0, 0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        selected_layer->outline(settings.outline_width + 1.0f, world_matrix, window_size);
-
-        gl::colorf4 fill1(gl::colors::cyan);
-        gl::colorf4 fill2(gl::colors::white_smoke);
-        float wibble = (float)sin(get_time() * 10.0f) * 0.5f + 0.5f;
-        gl::colorf4 fill = gl::colorf4::lerp(fill1, fill2, wibble);
-        gl::colorf4 clear(gl::colors::magenta);
-        blit_layer(fill, clear, 1.0f);
+        selected_layer->layer.outline(settings.outline_width + 1.0f, world_matrix, window_size);
+        blend_layer(gl::colorf4(gl::colors::white), gl::colorf4(gl::colors::magenta), gl::colorf4(gl::colors::black), 1.0f);
     }
 
     // draw the overlay graphics

@@ -7,13 +7,15 @@ uniform float thickness;// global line thickness
 uniform vec2 viewport_size;// needed for pixel thickness
 uniform vec4 hover_color;// coverage colors for hovered
 uniform vec4 select_color;// and selected lines
+
 uniform usamplerBuffer instance_sampler;// GL_TEXTURE0: sampler for TBO of struct lines, fetch based on gl_InstanceId (GL_RGB32UI)
 uniform samplerBuffer vert_sampler;// GL_TEXTURE1: sampler for the vertices (GL_RG32F) [start_index, end_index]
 uniform usamplerBuffer flags_sampler;// GL_TEXTURE2: sampler for TBO of flags [entity_id]
 
 out vec2 v_local_pos;
 out float v_length_px;
-out vec4 v_color;
+out vec4 v_color_a;
+out vec4 v_color_b;
 
 void main() {
 
@@ -38,8 +40,9 @@ void main() {
     if((flags & 2u) != 0) {
         select = 1;
     }
-    v_color = mix(vec4(0), hover_color, hover);
-    v_color = mix(v_color, select_color, select);
+    v_color_a = mix(vec4(0), hover_color, hover);
+    v_color_a = mix(v_color_a, select_color, select);
+    v_color_b = select_color;
 
     // get verts from vert_sampler via start/end index
     vec2 posA = texelFetch(vert_sampler, int(start_index)).rg;

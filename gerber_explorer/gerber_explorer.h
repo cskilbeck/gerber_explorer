@@ -51,42 +51,6 @@ struct gerber_explorer : gl_window {
             return layer.gerber_file->image.info.extent;
         }
 
-        void draw(bool wireframe, float outline_thickness, gerber_3d::gl_matrix const &matrix, gerber_lib::vec2d const &window_size)
-        {
-            bool fill;
-            bool outline;
-            switch(draw_mode) {
-            default:
-                fill = true;
-                outline = false;
-                break;
-            case 1:
-                fill = true;
-                outline = true;
-                break;
-            case 2:
-                fill = false;
-                outline = true;
-                break;
-            }
-            if(fill) {
-                layer.fill(wireframe, invert, matrix);
-            }
-            if(outline) {
-                layer.outline(outline_thickness, matrix, window_size);
-            }
-        }
-
-        void fill(bool wireframe, gerber_3d::gl_matrix const &matrix)
-        {
-            layer.fill(wireframe, invert, matrix);
-        }
-
-        void outline(float outline_thickness, gerber_3d::gl_matrix const &matrix, gerber_lib::vec2d const &window_size)
-        {
-            layer.outline(outline_thickness, matrix, window_size);
-        }
-
         bool operator<(gerber_layer const &other)
         {
             return index < other.index;
@@ -140,12 +104,6 @@ struct gerber_explorer : gl_window {
     bool zoom_anim{ false };
     std::chrono::time_point<std::chrono::high_resolution_clock> target_view_time{};
 
-    static double get_time()
-    {
-        using namespace std::chrono;
-        return duration<double>(system_clock::now().time_since_epoch()).count();
-    }
-
     gerber_3d::gl_drawlist overlay;
 
     gerber_3d::gl_drawer drawer{};
@@ -191,7 +149,7 @@ struct gerber_explorer : gl_window {
     void zoom_at_point(vec2d const &zoom_pos, double zoom_scale);
     void update_view_rect();
 
-    void blit_layer(gl::colorf4 const &fill_color, gl::colorf4 const &clear_color, float alpha);
+    void blend_layer(gl::colorf4 const &col_r, gl::colorf4 const &col_g, gl::colorf4 const &col_b, float alpha);
 
     void load_gerber(settings::layer_t const &layer);
 

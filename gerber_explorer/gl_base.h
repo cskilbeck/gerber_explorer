@@ -265,14 +265,17 @@ namespace gerber_3d
         static constexpr int position_location = 0;
 
         GLuint u_transform;
-        GLuint u_thickness;           // global line thickness
-        GLuint u_viewport_size;       // needed for pixel thickness
-        GLuint u_hover_color;         // coverage colors for hovered
-        GLuint u_select_color;        // and selected lines
+        GLuint u_thickness;        // global line thickness
+        GLuint u_viewport_size;    // needed for pixel thickness
+        GLuint u_hover_color;      // coverage colors for hovered
+        GLuint u_select_color;     // and selected lines
 
         GLuint u_lines_sampler;    // sampler for TBO of struct lines, fetch based on gl_InstanceId
-        GLuint u_vert_sampler;        // sampler for the vertices
-        GLuint u_flags_sampler;       // sampler for flags (1 byte per entity_id)
+        GLuint u_vert_sampler;     // sampler for the vertices
+        GLuint u_flags_sampler;    // sampler for flags (1 byte per entity_id)
+
+        GLuint u_check_size;
+        GLuint u_check_offset;
 
         static const float quad[8];
 
@@ -288,7 +291,7 @@ namespace gerber_3d
             uint32_t start_index;
             uint32_t end_index;
             uint32_t entity_id;
-            uint32_t pad;   // Gah
+            uint32_t pad;    // Gah
         };
     };
 

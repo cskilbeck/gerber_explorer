@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <chrono>
 
 //////////////////////////////////////////////////////////////////////
 
@@ -16,3 +17,9 @@ std::filesystem::path config_path(std::string const &application_name, std::stri
 bool IconCheckbox(const char *label, bool *v, const char *icon_on, const char *icon_off);
 bool IconCheckboxTristate(const char *label, int *v, const char *icon_on, const char *icon_off, const char *icon_mixed);
 bool IconButton(const char *label, const char *icon);
+
+static double get_time()
+{
+    using namespace std::chrono;
+    return duration<double>(system_clock::now().time_since_epoch()).count();
+}

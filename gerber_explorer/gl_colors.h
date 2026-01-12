@@ -166,7 +166,7 @@ namespace gl
 
         colorf4() = default;
 
-        explicit colorf4(float *v)
+        explicit colorf4(float const *v)
         {
             memcpy(f, v, sizeof(float) * 4);
         }

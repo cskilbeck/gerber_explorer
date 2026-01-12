@@ -2,9 +2,12 @@
 
 in vec2 v_local_pos;
 in float v_length_px;
-in vec4 v_color;
+in vec4 v_color_a;
+in vec4 v_color_b;
 
 uniform float thickness;
+uniform float check_size;
+uniform vec2 check_offset;
 
 out vec4 fragColor;
 
@@ -20,5 +23,10 @@ void main() {
 
     if (alpha <= 0.0) discard;
 
-    fragColor = vec4(v_color.rgb, v_color.a * alpha);
+    vec2 pos = gl_FragCoord.xy + check_offset;
+    vec2 cell = floor(pos / check_size);
+    float checker = mod(cell.x + cell.y, 2.0);
+
+    vec3 col = mix(v_color_a.rgb, v_color_b.rgb, checker);
+    fragColor = vec4(col.rgb, 1.0f);
 }

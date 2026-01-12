@@ -7,6 +7,7 @@
 #include "gerber_lib.h"
 #include "log_drawer.h"
 #include "gl_drawer.h"
+#include "util.h"
 
 #include "gl_colors.h"
 
@@ -102,8 +103,8 @@ namespace gerber_3d
         LOG_DEBUG("BOUNDARY TESSELATOR: Clear");
         entities.clear();         // the entities (each may consist of multiple draw calls (if a macro has disconnected primitives))
         fill_vertices.clear();    // the verts (for outlines and fills)
-        fill_indices.clear();          // the indices (for fills)
-        fill_spans.clear();            // spans for drawing fills (GL_LINE_LOOP)
+        fill_indices.clear();     // the indices (for fills)
+        fill_spans.clear();       // spans for drawing fills (GL_LINE_LOOP)
         outline_vertices.clear();
         outline_lines.clear();
         entity_flags.clear();
@@ -189,7 +190,7 @@ namespace gerber_3d
 
             uint32_t index_base = static_cast<uint32_t>(fill_indices.size());
 
-            uint32_t fill_base = static_cast<uint32_t>(fill_spans.size());
+            // uint32_t fill_base = static_cast<uint32_t>(fill_spans.size());
 
             for(int x = 0; x < tri_nelems; ++x) {
                 int const *p = &tri_elems[x * 3];
@@ -204,7 +205,7 @@ namespace gerber_3d
             }
             fill_spans.emplace_back(index_base, static_cast<int>(fill_indices.size() - index_base));
 
-            e.num_fills = static_cast<int>(fill_spans.size() - fill_base);
+            e.num_fills = 1;//static_cast<int>(fill_spans.size() - fill_base);
 
             tessDeleteTess(interior_tesselator);
 
@@ -237,7 +238,7 @@ namespace gerber_3d
         // create the lines index buffer and flags buffer
 
         entity_flags.resize(entities.size() + 1);
-        for(size_t i=0; i<entities.size(); ++i) {
+        for(size_t i = 0; i < entities.size(); ++i) {
             tesselator_entity &e = entities[i];
             auto id = e.entity_id;
             if(id >= entity_flags.size()) {
@@ -299,7 +300,7 @@ namespace gerber_3d
         double constexpr THRESHOLD = 1e-38;
         double constexpr ARC_DEGREES = 3.6;
 
-        int flag = polarity == polarity_clear ? entity_flags_t::clear : entity_flags_t::none;
+        int flag = polarity == polarity_clear ? entity_flags_t::clear : entity_flags_t::fill;
 
         if(entity_id != current_entity_id) {
             new_entity(entity_id, flag);
@@ -379,7 +380,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::fill(bool wireframe, bool invert, gl_matrix const &matrix)
+    void gl_drawer::fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags)
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -389,9 +390,6 @@ namespace gerber_3d
 
         glEnable(GL_BLEND);
 
-        gl::color fill_color = gl::colors::red;
-        gl::color clear_color = gl::colors::green;
-
         layer_program->use();
 
         GL_CHECK(glUniformMatrix4fv(layer_program->u_transform, 1, false, matrix.m));
@@ -399,24 +397,16 @@ namespace gerber_3d
         vertex_array.activate();
         index_array.activate();
 
-        if(invert) {
-            gl::colorf4 f(fill_color);
-            std::swap(fill_color, clear_color);
-            glClearColor(f.red(), f.green(), f.blue(), f.alpha());
-            glClear(GL_COLOR_BUFFER_BIT);
-        }
-
         for(auto const &e : entities) {
-            if(wireframe) {
-                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            } else {
-                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            }
 
-            if((e.flags & entity_flags_t::clear) != 0) {
-                layer_program->set_color(clear_color);
+            if((e.flags & r_flags) != 0) {
+                layer_program->set_color(gl::colors::red);
+            } else if((e.flags & g_flags) != 0) {
+                layer_program->set_color(gl::colors::green);
+            } else if((e.flags & b_flags) != 0) {
+                layer_program->set_color(gl::colors::blue);
             } else {
-                layer_program->set_color(fill_color);
+                continue;
             }
             int end = e.num_fills + e.first_fill;
             for(int i = e.first_fill; i < end; ++i) {
@@ -455,17 +445,23 @@ namespace gerber_3d
         line2_program->use();
         line2_program->quad_points_array.activate();
         GL_CHECK(glActiveTexture(GL_TEXTURE0));
-        GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, textures[0])); // The Lines TBO (RGBA32UI)
+        GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, textures[0]));    // The Lines TBO (RGBA32UI)
         GL_CHECK(glActiveTexture(GL_TEXTURE1));
-        GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, textures[1])); // The Verts TBO (RG32F)
+        GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, textures[1]));    // The Verts TBO (RG32F)
         GL_CHECK(glActiveTexture(GL_TEXTURE2));
-        GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, textures[2])); // The Flags TBO (R8UI)
+        GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, textures[2]));    // The Flags TBO (R8UI)
 
-        GL_CHECK(glUniform1i(line2_program->u_lines_sampler, 0)); // lines_sampler -> GL_TEXTURE0
-        GL_CHECK(glUniform1i(line2_program->u_vert_sampler, 1)); // vert_sampler     -> GL_TEXTURE1
-        GL_CHECK(glUniform1i(line2_program->u_flags_sampler, 2)); // flags_sampler    -> GL_TEXTURE2
+        GL_CHECK(glUniform1i(line2_program->u_lines_sampler, 0));    // lines_sampler -> GL_TEXTURE0
+        GL_CHECK(glUniform1i(line2_program->u_vert_sampler, 1));     // vert_sampler     -> GL_TEXTURE1
+        GL_CHECK(glUniform1i(line2_program->u_flags_sampler, 2));    // flags_sampler    -> GL_TEXTURE2
         GL_CHECK(glUniform1f(line2_program->u_thickness, outline_thickness));
         GL_CHECK(glUniform2f(line2_program->u_viewport_size, (float)window_size.x, (float)window_size.y));
+        GL_CHECK(glUniform1f(line2_program->u_check_size, 4.0f));
+
+        float now = (float)fmod(get_time() * 16, 8.0);
+
+        GL_CHECK(glUniform2f(line2_program->u_check_offset, now, now));
+
         GL_CHECK(glUniformMatrix4fv(line2_program->u_transform, 1, false, matrix.m));
         GL_CHECK(glUniform4fv(line2_program->u_select_color, 1, gl::colorf4(outline_color).f));
         GL_CHECK(glUniform4fv(line2_program->u_hover_color, 1, gl::colorf4(fill_color).f));

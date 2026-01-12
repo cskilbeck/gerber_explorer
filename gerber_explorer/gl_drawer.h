@@ -17,8 +17,9 @@ namespace gerber_3d
     {
         int constexpr none = 0;
         int constexpr clear = (1 << 0);
-        int constexpr hovered = (1 << 1);
-        int constexpr selected = (1 << 2);
+        int constexpr fill = (1 << 1);
+        int constexpr hovered = (1 << 2);
+        int constexpr selected = (1 << 3);
     }    // namespace entity_flags_t
 
     //////////////////////////////////////////////////////////////////////
@@ -66,7 +67,7 @@ namespace gerber_3d
         void finalize();
 
         // for actually drawing it
-        void fill(bool wireframe, bool invert, gl_matrix const &matrix);
+        void fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags);
         void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &window_size);
 
         // picking/selection
