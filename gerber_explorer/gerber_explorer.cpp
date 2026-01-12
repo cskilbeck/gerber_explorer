@@ -337,9 +337,8 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
         drag_mouse_cur_pos = mouse_pos;
         drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
         if(selected_layer != nullptr) {
-            rect f = drag_rect.normalize();
-            f.min_pos = board_pos_from_window_pos(f.min_pos);
-            f.max_pos = board_pos_from_window_pos(f.max_pos);
+            rect f{ board_pos_from_window_pos(drag_rect.min_pos), board_pos_from_window_pos(drag_rect.max_pos) };
+            f = f.normalize();
             if(drag_rect.min_pos.x > drag_rect.max_pos.x) {
                 selected_layer->layer.flag_touching_entities(f, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
             } else {
@@ -478,10 +477,6 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
     case mouse_drag_maybe_select: {
         zoom_anim = false;
         drag_mouse_start_pos = mouse_pos;
-        // vec2d world_pos = world_pos_from_window_pos(pos);
-        // for(auto const &l : layers) {
-        //     l->layer->tesselator.pick_entities(world_pos, l->selected_entities);
-        // }
     } break;
 
     case mouse_drag_select:
@@ -509,7 +504,6 @@ bool gerber_explorer::on_init()
     color_program.init();
     layer_program.init();
     textured_program.init();
-    line_program.init();
     arc_program.init();
     line2_program.init();
 
@@ -630,7 +624,6 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
                         next_index = std::max(layer->index + 1, next_index);
                         layer->layer.set_gerber(g);
                         layer->layer.layer_program = &layer_program;
-                        layer->layer.line_program = &line_program;
                         layer->layer.line2_program = &line2_program;
                         layer->invert = loaded_layer.inverted;
                         layer->visible = loaded_layer.visible;
@@ -1005,7 +998,7 @@ void gerber_explorer::on_render()
             GL_CHECK(glViewport(0, 0, window_width, window_height));
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            layer.fill(settings.wireframe, world_matrix, window_size);
+            layer.fill(settings.wireframe, world_matrix);
             blit_layer(layer.fill_color, layer.clear_color, layer.alpha / 255.0f);
         }
     }
@@ -1018,7 +1011,10 @@ void gerber_explorer::on_render()
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         selected_layer->outline(settings.outline_width + 1.0f, world_matrix, window_size);
 
-        gl::colorf4 fill(gl::colors::cyan);
+        gl::colorf4 fill1(gl::colors::cyan);
+        gl::colorf4 fill2(gl::colors::white_smoke);
+        float wibble = (float)sin(get_time() * 10.0f) * 0.5f + 0.5f;
+        gl::colorf4 fill = gl::colorf4::lerp(fill1, fill2, wibble);
         gl::colorf4 clear(gl::colors::magenta);
         blit_layer(fill, clear, 1.0f);
     }
@@ -1063,7 +1059,7 @@ void gerber_explorer::on_render()
         overlay.add_outline_rect(f, 0xffffffff);
     }
 
-    rect ext{window_pos_from_world_pos(arc_extent.min_pos), window_pos_from_world_pos(arc_extent.max_pos)};
+    rect ext{ window_pos_from_world_pos(arc_extent.min_pos), window_pos_from_world_pos(arc_extent.max_pos) };
     overlay.add_outline_rect(ext, gl::colors::green);
 
     color_program.use();

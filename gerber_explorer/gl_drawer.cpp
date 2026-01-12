@@ -379,7 +379,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::fill(bool wireframe, bool invert, gl_matrix const &matrix, vec2d const &window_size)
+    void gl_drawer::fill(bool wireframe, bool invert, gl_matrix const &matrix)
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -389,7 +389,6 @@ namespace gerber_3d
 
         glEnable(GL_BLEND);
 
-        gl::color outline_color = gl::colors::blue;
         gl::color fill_color = gl::colors::red;
         gl::color clear_color = gl::colors::green;
 
@@ -414,9 +413,7 @@ namespace gerber_3d
                 glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             }
 
-            if((e.flags & entity_flags_t::hovered) != 0) {
-                layer_program->set_color(outline_color);
-            } else if((e.flags & entity_flags_t::clear) != 0) {
+            if((e.flags & entity_flags_t::clear) != 0) {
                 layer_program->set_color(clear_color);
             } else {
                 layer_program->set_color(fill_color);

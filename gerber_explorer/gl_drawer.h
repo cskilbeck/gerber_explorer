@@ -66,7 +66,7 @@ namespace gerber_3d
         void finalize();
 
         // for actually drawing it
-        void fill(bool wireframe, bool invert, gl_matrix const &matrix, gerber_lib::vec2d const &window_size);
+        void fill(bool wireframe, bool invert, gl_matrix const &matrix);
         void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &window_size);
 
         // picking/selection
@@ -95,7 +95,7 @@ namespace gerber_3d
 
         // drawing
         gl_layer_program *layer_program{};
-        gl_line_program *line_program{};
+        // gl_line_program *line_program{};
         gl_line2_program *line2_program{};
 
         // all the verts for interiors

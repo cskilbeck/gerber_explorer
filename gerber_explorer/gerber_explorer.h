@@ -70,16 +70,16 @@ struct gerber_explorer : gl_window {
                 break;
             }
             if(fill) {
-                layer.fill(wireframe, invert, matrix, window_size);
+                layer.fill(wireframe, invert, matrix);
             }
             if(outline) {
                 layer.outline(outline_thickness, matrix, window_size);
             }
         }
 
-        void fill(bool wireframe, gerber_3d::gl_matrix const &matrix, gerber_lib::vec2d const &window_size)
+        void fill(bool wireframe, gerber_3d::gl_matrix const &matrix)
         {
-            layer.fill(wireframe, false, matrix, window_size);
+            layer.fill(wireframe, invert, matrix);
         }
 
         void outline(float outline_thickness, gerber_3d::gl_matrix const &matrix, gerber_lib::vec2d const &window_size)
@@ -140,6 +140,12 @@ struct gerber_explorer : gl_window {
     bool zoom_anim{ false };
     std::chrono::time_point<std::chrono::high_resolution_clock> target_view_time{};
 
+    static double get_time()
+    {
+        using namespace std::chrono;
+        return duration<double>(system_clock::now().time_since_epoch()).count();
+    }
+
     gerber_3d::gl_drawlist overlay;
 
     gerber_3d::gl_drawer drawer{};
@@ -153,7 +159,6 @@ struct gerber_explorer : gl_window {
     gerber_3d::gl_color_program color_program{};
     gerber_3d::gl_layer_program layer_program{};
     gerber_3d::gl_textured_program textured_program{};
-    gerber_3d::gl_line_program line_program{};
     gerber_3d::gl_arc_program arc_program{};
     gerber_3d::gl_line2_program line2_program{};
 

@@ -208,6 +208,16 @@ namespace gl
             f[ialpha] = alpha;
         }
 
+        static colorf4 lerp(colorf4 const &x, colorf4 const &y, float l)
+        {
+            float i = 1.0f - l;
+            float r = x.red() * l + y.red() * i;
+            float g = x.green() * l + y.green() * i;
+            float b = x.blue() * l + y.blue() * i;
+            float a = x.alpha() * l + y.alpha() * i;
+            return colorf4(r, g, b, a);
+        }
+
         colorf4 &operator=(color c)
         {
             return *this = colorf4(c);
