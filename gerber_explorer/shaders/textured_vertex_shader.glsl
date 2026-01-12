@@ -1,14 +1,11 @@
 #version 410 core
 
-layout(location = 0) in vec2 position;
-layout(location = 1) in vec2 tex_coord;
-
 out vec2 tex_coord_out;
 
-uniform mat4 transform;
-
 void main() {
-    vec2 pos = position;
-    gl_Position = transform * vec4(pos.xy, 0.0f, 1.0f);
-    tex_coord_out = tex_coord;
+    float x = -1.0 + float((gl_VertexID & 1) << 2);
+    float y = -1.0 + float((gl_VertexID & 2) << 1);
+    tex_coord_out.x = (x + 1.0) * 0.5;
+    tex_coord_out.y = (y + 1.0) * 0.5;
+    gl_Position = vec4(x, y, 0, 1);
 }

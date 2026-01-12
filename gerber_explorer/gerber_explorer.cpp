@@ -79,25 +79,22 @@ std::string gerber_explorer::window_name() const
 
 vec2d gerber_explorer::world_pos_from_window_pos(vec2d const &p) const
 {
-    return vec2d{ p.x, window_size.y - p.y }.divide(view_scale).add(view_rect.min_pos);
+    return vec2d{ p.x, p.y }.divide(view_scale).add(view_rect.min_pos);
 }
 
 //////////////////////////////////////////////////////////////////////
 
 vec2d gerber_explorer::board_pos_from_window_pos(vec2d const &p) const
 {
-    vec2d pos = vec2d{ p.x, window_size.y - p.y }.divide(view_scale).add(view_rect.min_pos);
-    pos.x = (pos.x - board_center.x) * flip_xy.x + board_center.x;
-    pos.y = (pos.y - board_center.y) * flip_xy.y + board_center.y;
-    return pos;
+    vec2d pos = world_pos_from_window_pos(p);
+    return pos.subtract(board_center).multiply(flip_xy).add(board_center);
 }
 
 //////////////////////////////////////////////////////////////////////
 
 vec2d gerber_explorer::window_pos_from_world_pos(vec2d const &p) const
 {
-    vec2d pos = p.subtract(view_rect.min_pos).multiply(view_scale);
-    return { pos.x, window_size.y - pos.y };
+    return p.subtract(view_rect.min_pos).multiply(view_scale);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -250,16 +247,16 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
         switch(button) {
         case GLFW_MOUSE_BUTTON_LEFT:
             if((mods & GLFW_MOD_CONTROL) != 0) {
-                set_mouse_mode(mouse_drag_zoom_select, mouse_pos);
+                set_mouse_mode(mouse_drag_zoom_select);
             } else {
-                set_mouse_mode(mouse_drag_maybe_select, mouse_pos);
+                set_mouse_mode(mouse_drag_maybe_select);
             }
             break;
         case GLFW_MOUSE_BUTTON_RIGHT:
-            set_mouse_mode(mouse_drag_pan, mouse_pos);
+            set_mouse_mode(mouse_drag_pan);
             break;
         case GLFW_MOUSE_BUTTON_MIDDLE:
-            set_mouse_mode(mouse_drag_zoom, mouse_pos);
+            set_mouse_mode(mouse_drag_zoom);
             break;
         }
         break;
@@ -278,13 +275,13 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
                     should_fit_to_window = false;
                 }
             }
-            set_mouse_mode(mouse_drag_none, {});
+            set_mouse_mode(mouse_drag_none);
             break;
         case GLFW_MOUSE_BUTTON_RIGHT:
-            set_mouse_mode(mouse_drag_none, {});
+            set_mouse_mode(mouse_drag_none);
             break;
         case GLFW_MOUSE_BUTTON_MIDDLE:
-            set_mouse_mode(mouse_drag_none, {});
+            set_mouse_mode(mouse_drag_none);
             break;
         }
         break;
@@ -295,14 +292,15 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
 
 void gerber_explorer::on_mouse_move(double xpos, double ypos)
 {
-    mouse_pos = { xpos, ypos };
+    mouse_pos = { xpos, window_height - ypos };
 
     switch(mouse_mode) {
 
     case mouse_drag_pan: {
         vec2d new_mouse_pos = world_pos_from_window_pos(mouse_pos);
         vec2d old_mouse_pos = world_pos_from_window_pos(drag_mouse_start_pos);
-        view_rect = view_rect.offset(new_mouse_pos.subtract(old_mouse_pos).negate());
+        vec2d diff = new_mouse_pos.subtract(old_mouse_pos).negate();
+        view_rect = view_rect.offset(diff);
         drag_mouse_start_pos = mouse_pos;
         should_fit_to_window = false;
     } break;
@@ -310,6 +308,7 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
     case mouse_drag_zoom: {
         if(ignore_mouse_moves <= 0) {
             vec2d d = mouse_pos.subtract(drag_mouse_cur_pos);
+            d.y *= -1;
             double factor = (d.x - d.y) * 0.01;
             factor = std::max(-0.25, std::min(factor, 0.25));
             zoom_at_point(mouse_world_pos, 1.0 - factor);
@@ -329,7 +328,7 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
 
     case mouse_drag_maybe_select: {
         if(mouse_pos.subtract(drag_mouse_start_pos).length() > drag_select_offset_start_distance) {
-            set_mouse_mode(mouse_drag_select, mouse_pos);
+            set_mouse_mode(mouse_drag_select);
             mouse_world_pos = world_pos_from_window_pos(mouse_pos);
         }
     } break;
@@ -338,10 +337,9 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
         drag_mouse_cur_pos = mouse_pos;
         drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
         if(selected_layer != nullptr) {
-            rect f = drag_rect;
+            rect f = drag_rect.normalize();
             f.min_pos = board_pos_from_window_pos(f.min_pos);
             f.max_pos = board_pos_from_window_pos(f.max_pos);
-            f = f.normalize();
             if(drag_rect.min_pos.x > drag_rect.max_pos.x) {
                 selected_layer->layer.flag_touching_entities(f, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
             } else {
@@ -446,7 +444,7 @@ void gerber_explorer::save_settings(std::filesystem::path const &path)
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
+void gerber_explorer::set_mouse_mode(mouse_drag_action action)
 {
     switch(action) {
 
@@ -456,16 +454,16 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
         break;
 
     case mouse_drag_pan:
-        drag_mouse_start_pos = pos;
+        drag_mouse_start_pos = mouse_pos;
         zoom_anim = false;
         break;
 
     case mouse_drag_zoom:
         zoom_anim = false;
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        mouse_world_pos = world_pos_from_window_pos(pos);
-        drag_mouse_cur_pos = pos;
-        drag_mouse_start_pos = pos;
+        mouse_world_pos = world_pos_from_window_pos(mouse_pos);
+        drag_mouse_cur_pos = mouse_pos;
+        drag_mouse_start_pos = mouse_pos;
         // ignore the next 2 mouse moves because sometimes they are kind of
         // random, something to do with GLFW_CURSOR_DISABLED/NORMAL
         ignore_mouse_moves = 2;
@@ -473,13 +471,13 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
 
     case mouse_drag_zoom_select:
         zoom_anim = false;
-        drag_mouse_start_pos = pos;
+        drag_mouse_start_pos = mouse_pos;
         drag_rect = {};
         break;
 
     case mouse_drag_maybe_select: {
         zoom_anim = false;
-        drag_mouse_start_pos = pos;
+        drag_mouse_start_pos = mouse_pos;
         // vec2d world_pos = world_pos_from_window_pos(pos);
         // for(auto const &l : layers) {
         //     l->layer->tesselator.pick_entities(world_pos, l->selected_entities);
@@ -488,7 +486,7 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action, vec2d const &pos)
 
     case mouse_drag_select:
         zoom_anim = false;
-        drag_mouse_cur_pos = pos;
+        drag_mouse_cur_pos = mouse_pos;
         drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
         break;
     }
@@ -516,8 +514,6 @@ bool gerber_explorer::on_init()
     line2_program.init();
 
     overlay.init();
-
-    fullscreen_blit_verts.init(3);
 
     glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &max_multisamples);
 
@@ -968,12 +964,6 @@ void gerber_explorer::on_render()
     GL_CHECK(glDisable(GL_CULL_FACE));
     GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
-    std::array<gl_vertex_textured, 3> fullscreen_triangle;
-    fullscreen_triangle[0] = { 0.0f, 0.0f, 0.0f, 0.0f };
-    fullscreen_triangle[1] = { window_width * 2.0f, 0.0f, 2.0f, 0.0f };
-    fullscreen_triangle[2] = { 0, window_height * 2.0f, 0.0f, 2.0f };
-    fullscreen_blit_verts.activate();
-    update_buffer<GL_ARRAY_BUFFER>(fullscreen_triangle);
     GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
     if(layer_render_target.width != window_width || layer_render_target.height != window_height || layer_render_target.num_samples != multisample_count) {
@@ -998,155 +988,6 @@ void gerber_explorer::on_render()
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             layer.draw(settings.wireframe, outline_width, world_matrix, window_size);
 
-            if(false) {
-
-                line2_program.use();
-
-                // 3 verts
-                std::array verts{
-                    vec2f{10, 10},
-                    vec2f{50, 10},
-                    vec2f{30, 50},
-                    vec2f{80, 10},
-                    vec2f{120, 10},
-                    vec2f{100, 50}
-                };
-
-                // 3 lines
-                std::array lines{
-                    gl_line2_program::line{0, 1, 0},
-                    gl_line2_program::line{1, 2, 0},
-                    gl_line2_program::line{2, 0, 0},
-                    gl_line2_program::line{3, 4, 1},
-                    gl_line2_program::line{4, 5, 1},
-                    gl_line2_program::line{5, 3, 1},
-                };
-
-                // 2 flags (see 3rd element in lines)
-                std::array<uint8_t, 2> flags{
-                    2,1
-                };
-
-                static GLuint buffers[3];
-                static GLuint textures[3];
-
-                static bool init{false};
-                if(!init) {
-                    init = true;
-                    glGenBuffers(3, buffers);
-                    glBindBuffer(GL_TEXTURE_BUFFER, buffers[0]);
-                    glBufferData(GL_TEXTURE_BUFFER, lines.size() * sizeof(gl_line2_program::line), lines.data(), GL_STATIC_DRAW);
-                    glBindBuffer(GL_TEXTURE_BUFFER, buffers[1]);
-                    glBufferData(GL_TEXTURE_BUFFER, verts.size() * sizeof(vec2f), verts.data(), GL_STATIC_DRAW);
-                    glBindBuffer(GL_TEXTURE_BUFFER, buffers[2]);
-                    glBufferData(GL_TEXTURE_BUFFER, flags.size() * sizeof(uint8_t), flags.data(), GL_DYNAMIC_DRAW);
-
-                    glGenTextures(3, textures);
-                    glBindTexture(GL_TEXTURE_BUFFER, textures[0]);
-                    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32UI, buffers[0]);
-                    glBindTexture(GL_TEXTURE_BUFFER, textures[1]);
-                    glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, buffers[1]);
-                    glBindTexture(GL_TEXTURE_BUFFER, textures[2]);
-                    glTexBuffer(GL_TEXTURE_BUFFER, GL_R8UI, buffers[2]);
-                }
-
-                static uint8_t foo{1};
-                uint8_t new_foo = foo;
-                if(glfwGetKey(window, GLFW_KEY_LEFT) != 0) {
-                    new_foo = 2;
-                } else if(glfwGetKey(window, GLFW_KEY_RIGHT) != 0) {
-                    new_foo = 1;
-                }
-                if(foo != new_foo) {
-                    foo = new_foo;
-                    glBindBuffer(GL_TEXTURE_BUFFER, buffers[2]);
-                    glBufferSubData(GL_TEXTURE_BUFFER, 0, 1, &foo);
-                }
-
-                glUniform1i(line2_program.u_lines_sampler, 0); // instance_sampler -> GL_TEXTURE0
-                glUniform1i(line2_program.u_vert_sampler, 1); // vert_sampler     -> GL_TEXTURE1
-                glUniform1i(line2_program.u_flags_sampler, 2); // flags_sampler    -> GL_TEXTURE2
-
-                GL_CHECK(glUniform1f(line2_program.u_thickness, 16.0f));
-                GL_CHECK(glUniform2f(line2_program.u_viewport_size, (float)window_size.x, (float)window_size.y));
-                GL_CHECK(glUniformMatrix4fv(line2_program.u_transform, 1, false, world_matrix.m));
-                gl::colorf4 select(gl::colors::blue);
-                gl::colorf4 hover(gl::colors::red);
-                GL_CHECK(glUniform4fv(line2_program.u_select_color, 1, select.f));
-                GL_CHECK(glUniform4fv(line2_program.u_hover_color, 1, hover.f));
-
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_BUFFER, textures[0]); // The Lines TBO (RGBA32UI)
-
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_BUFFER, textures[1]); // The Verts TBO (RG32F)
-
-                glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_BUFFER, textures[2]); // The Flags TBO (R8UI)
-
-                line2_program.quad_points_array.activate();
-                glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)lines.size());
-            }
-
-            // DRAW AN ARC
-            if (false) {
-                double radius = 40;
-                vec2d center{ 50, 50 };
-
-                if(glfwGetKey(window, GLFW_KEY_LEFT) != 0) {
-                    end_angle -= 1;
-                }
-                if(glfwGetKey(window, GLFW_KEY_RIGHT) != 0) {
-                    end_angle += 1;
-                }
-                if(glfwGetKey(window, GLFW_KEY_UP) != 0) {
-                    start_angle += 1;
-                }
-                if(glfwGetKey(window, GLFW_KEY_DOWN) != 0) {
-                    start_angle -= 1;
-                }
-                if(glfwGetKey(window, GLFW_KEY_SPACE) != 0) {
-                    start_angle = 0;
-                    end_angle = 190;
-                }
-
-                arc_extent = get_arc_extents(center, radius, start_angle, end_angle);
-
-                std::array<gl_arc_program::arc, 1> arcs = {
-                    vec2f(center), (float)radius, gerber_lib::deg_2_radf(start_angle), gerber_lib::deg_2_radf(end_angle - start_angle), vec2f(arc_extent.min_pos), vec2f(arc_extent.max_pos)
-                };
-
-                arc_program.use();
-                arc_program.quad_points_array.activate();
-
-                using arc = gl_arc_program::arc;
-
-                static GLuint arc_vbo;
-                static bool init = false;
-                if(!init) {
-                    init = true;
-                    GL_CHECK(glGenBuffers(1, &arc_vbo));
-                    GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, arc_vbo));
-                    GL_CHECK(glBufferData(GL_ARRAY_BUFFER, sizeof(arc) * arcs.size(), nullptr, GL_DYNAMIC_DRAW));
-                }
-
-                GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, arc_vbo));
-                update_buffer<GL_ARRAY_BUFFER>(arcs);
-
-                arc_program.set_color(0xff00ff00);
-                GL_CHECK(glUniform1f(arc_program.u_thickness, 22.0f));
-                GL_CHECK(glUniform2f(arc_program.u_viewport_size, (float)window_size.x, (float)window_size.y));
-                GL_CHECK(glUniformMatrix4fv(arc_program.u_transform, 1, false, world_matrix.m));
-
-                GL_CHECK(glVertexAttribPointer(gl_arc_program::center_location, 2, GL_FLOAT, GL_FALSE, sizeof(arc), (void *)(offsetof(arc, center))));
-                GL_CHECK(glVertexAttribPointer(gl_arc_program::radius_location, 1, GL_FLOAT, GL_FALSE, sizeof(arc), (void *)(offsetof(arc, radius))));
-                GL_CHECK(glVertexAttribPointer(gl_arc_program::start_angle_location, 1, GL_FLOAT, GL_FALSE, sizeof(arc), (void *)(offsetof(arc, start_angle))));
-                GL_CHECK(glVertexAttribPointer(gl_arc_program::sweep_location, 1, GL_FLOAT, GL_FALSE, sizeof(arc), (void *)(offsetof(arc, sweep))));
-                GL_CHECK(glVertexAttribPointer(gl_arc_program::extent_min_location, 2, GL_FLOAT, GL_FALSE, sizeof(arc), (void *)(offsetof(arc, extent_min))));
-                GL_CHECK(glVertexAttribPointer(gl_arc_program::extent_max_location, 2, GL_FLOAT, GL_FALSE, sizeof(arc), (void *)(offsetof(arc, extent_max))));
-                GL_CHECK(glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)arcs.size()));
-            }
-
             // draw the render to the window
 
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -1154,17 +995,16 @@ void gerber_explorer::on_render()
             GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
             textured_program.use();
             layer_render_target.bind_textures();
-            glUniform4fv(textured_program.u_red, 1, layer.fill_color.f);
-            glUniform4fv(textured_program.u_green, 1, layer.clear_color.f);
-            glUniform4fv(textured_program.u_blue, 1, (float const *)&settings.outline_color);
-            glUniform1f(textured_program.u_alpha, layer.alpha / 255.0f);
-            glUniform1i(textured_program.u_num_samples, layer_render_target.num_samples);
-            glUniform1i(textured_program.u_cover_sampler, 0);
-            glUniformMatrix4fv(textured_program.u_transform, 1, false, ortho_screen_matrix.m);
-            fullscreen_blit_verts.activate();
-            glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-            glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            // GL_CHECK(glBindVertexArray(0));
+            GL_CHECK(glUniform4fv(textured_program.u_red, 1, layer.fill_color.f));
+            GL_CHECK(glUniform4fv(textured_program.u_green, 1, layer.clear_color.f));
+            GL_CHECK(glUniform4fv(textured_program.u_blue, 1, (float const *)&settings.outline_color));
+            GL_CHECK(glUniform1f(textured_program.u_alpha, layer.alpha / 255.0f));
+            GL_CHECK(glUniform1i(textured_program.u_num_samples, layer_render_target.num_samples));
+            GL_CHECK(glUniform1i(textured_program.u_cover_sampler, 0));
+            GL_CHECK(glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD));
+            GL_CHECK(glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+            GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
         }
     }
 
@@ -1184,7 +1024,7 @@ void gerber_explorer::on_render()
     gl::color axes_color = gl::colors::cyan;
     gl::color extent_color = gl::colors::yellow;
 
-    if(settings.show_axes) {    // show_axes
+    if(settings.show_axes) {
         overlay.lines();
         overlay.add_line({ 0, origin.y }, { window_size.x, origin.y }, axes_color);
         overlay.add_line({ origin.x, 0 }, { origin.x, window_size.y }, axes_color);

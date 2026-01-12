@@ -58,11 +58,11 @@ namespace gerber_3d
     //////////////////////////////////////////////////////////////////////
     // base gl_program - transform matrix is common to all
 
-    struct gl_program
+    struct gl_program_base
     {
         LOG_CONTEXT("gl_program", debug);
 
-        virtual ~gl_program() = default;
+        virtual ~gl_program_base() = default;
 
         GLuint program_id{};
         GLuint vertex_shader_id{};
@@ -72,7 +72,7 @@ namespace gerber_3d
 
         GLuint vao{};
 
-        gl_program() = default;
+        gl_program_base() = default;
 
         char const *program_name;    // just for debugging reference
 
@@ -179,22 +179,13 @@ namespace gerber_3d
     };
 
     //////////////////////////////////////////////////////////////////////
-
-    struct gl_vertex_array_textured : gl_vertex_array
-    {
-        gl_vertex_array_textured() = default;
-
-        int init(GLsizei vert_count) override;
-        int activate() const override;
-    };
-
-    //////////////////////////////////////////////////////////////////////
     // uniform color
 
-    struct gl_solid_program : gl_program
+    struct gl_solid_program : gl_program_base
     {
         static int constexpr position_location = 0;
 
+        GLuint u_transform;
         GLuint u_color;
 
         int init() override;
@@ -205,10 +196,11 @@ namespace gerber_3d
     //////////////////////////////////////////////////////////////////////
     // for drawing layers
 
-    struct gl_layer_program : gl_program
+    struct gl_layer_program : gl_program_base
     {
         static int constexpr position_location = 0;
 
+        GLuint u_transform;
         GLuint u_color{};
 
         int init() override;
@@ -219,10 +211,12 @@ namespace gerber_3d
     //////////////////////////////////////////////////////////////////////
     // color per vertex
 
-    struct gl_color_program : gl_program
+    struct gl_color_program : gl_program_base
     {
         static int constexpr position_location = 0;
         static int constexpr vert_color_location = 1;
+
+        GLuint u_transform;
 
         int init() override;
     };
@@ -230,11 +224,8 @@ namespace gerber_3d
     //////////////////////////////////////////////////////////////////////
     // textured, no color
 
-    struct gl_textured_program : gl_program
+    struct gl_textured_program : gl_program_base
     {
-        static int constexpr position_location = 0;
-        static int constexpr tex_coord_location = 1;
-
         GLuint u_red;
         GLuint u_green;
         GLuint u_blue;
@@ -247,12 +238,13 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    struct gl_line_program : gl_program
+    struct gl_line_program : gl_program_base
     {
         static constexpr int position_location = 0;
         static constexpr int pos_a_location = 1;    // Instanced
         static constexpr int pos_b_location = 2;    // Instanced
 
+        GLuint u_transform;
         GLuint u_thickness;
         GLuint u_viewport_size;
         GLuint u_color;
@@ -268,10 +260,11 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    struct gl_line2_program : gl_program
+    struct gl_line2_program : gl_program_base
     {
         static constexpr int position_location = 0;
 
+        GLuint u_transform;
         GLuint u_thickness;           // global line thickness
         GLuint u_viewport_size;       // needed for pixel thickness
         GLuint u_hover_color;         // coverage colors for hovered
@@ -301,7 +294,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    struct gl_arc_program : gl_program
+    struct gl_arc_program : gl_program_base
     {
         static constexpr int position_location = 0;
         static constexpr int center_location = 1;         // Instanced
@@ -311,6 +304,7 @@ namespace gerber_3d
         static constexpr int extent_min_location = 5;     // Instanced
         static constexpr int extent_max_location = 6;     // Instanced
 
+        GLuint u_transform;
         GLuint u_thickness;
         GLuint u_viewport_size;
         GLuint u_color;

@@ -43,7 +43,7 @@ namespace gerber_3d
 {
     //////////////////////////////////////////////////////////////////////
 
-    int gl_program::compile_shader(GLenum shader_type, char const *source) const
+    int gl_program_base::compile_shader(GLenum shader_type, char const *source) const
     {
         GLuint id;
         GL_CHECK(id = glCreateShader(shader_type));
@@ -70,7 +70,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_program::validate(GLuint param) const
+    int gl_program_base::validate(GLuint param) const
     {
         GLint result;
         GL_CHECK(glGetProgramiv(program_id, param, &result));
@@ -93,8 +93,9 @@ namespace gerber_3d
     }
 
     //////////////////////////////////////////////////////////////////////
+    // base without transform
 
-    int gl_program::init()
+    int gl_program_base::init()
     {
         if(vertex_shader_source.empty() || fragment_shader_source.empty()) {
             LOG_ERROR("SHADER SOURCE MISSING");
@@ -122,18 +123,12 @@ namespace gerber_3d
             return rc;
         }
         use();
-
-        // mat4 transform is common to all vertex shaders
-        u_transform = get_uniform("transform");
-        if(u_transform == GL_INVALID_INDEX) {
-            return -1;
-        }
         return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_program::get_uniform(char const *name)
+    int gl_program_base::get_uniform(char const *name)
     {
         int location;
         GL_CHECK(location = glGetUniformLocation(program_id, name));
@@ -145,7 +140,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_program::get_attribute(char const *name)
+    int gl_program_base::get_attribute(char const *name)
     {
         int location;
         GL_CHECK(location = glGetAttribLocation(program_id, name));
@@ -157,7 +152,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_program::use() const
+    void gl_program_base::use() const
     {
         GL_CHECK(glUseProgram(program_id));
     }
@@ -179,7 +174,7 @@ namespace gerber_3d
         vertex_shader_source = shader_src("line_vertex_shader.glsl");
         fragment_shader_source = shader_src("line_fragment_shader.glsl");
 
-        int err = gl_program::init();
+        int err = gl_program_base::init();
         if(err != 0) {
             return err;
         }
@@ -197,6 +192,7 @@ namespace gerber_3d
         // GL_CHECK(glEnableVertexAttribArray(2));
         // GL_CHECK(glVertexAttribDivisor(2, 0));
 
+        u_transform = get_uniform("transform");
         u_thickness = get_uniform("thickness");
         u_viewport_size = get_uniform("viewport_size");
         u_color = get_uniform("color");
@@ -212,7 +208,7 @@ namespace gerber_3d
         vertex_shader_source = shader_src("line2_vertex_shader.glsl");
         fragment_shader_source = shader_src("line2_fragment_shader.glsl");
 
-        int err = gl_program::init();
+        int err = gl_program_base::init();
         if(err != 0) {
             return err;
         }
@@ -220,6 +216,7 @@ namespace gerber_3d
         quad_points_array.activate();
         update_buffer<GL_ARRAY_BUFFER>(line_quad_verts);
 
+        u_transform = get_uniform("transform");
         u_thickness = get_uniform("thickness");
         u_viewport_size = get_uniform("viewport_size");
         u_hover_color = get_uniform("hover_color");
@@ -247,7 +244,7 @@ namespace gerber_3d
         vertex_shader_source = shader_src("arc_vertex_shader.glsl");
         fragment_shader_source = shader_src("arc_fragment_shader.glsl");
 
-        int err = gl_program::init();
+        int err = gl_program_base::init();
         if(err != 0) {
             return err;
         }
@@ -260,6 +257,7 @@ namespace gerber_3d
             GL_CHECK(glEnableVertexAttribArray(i));
             GL_CHECK(glVertexAttribDivisor(i, 1));
         }
+        u_transform = get_uniform("transform");
         u_thickness = get_uniform("thickness");
         u_viewport_size = get_uniform("viewport_size");
         u_color = get_uniform("color");
@@ -275,11 +273,12 @@ namespace gerber_3d
         vertex_shader_source = shader_src("layer_vertex_shader.glsl");
         fragment_shader_source = shader_src("layer_fragment_shader.glsl");
 
-        int err = gl_program::init();
+        int err = gl_program_base::init();
         if(err != 0) {
             return err;
         }
 
+        u_transform = get_uniform("transform");
         u_color = get_uniform("u_color");
 
         return 0;
@@ -300,10 +299,11 @@ namespace gerber_3d
         program_name = "solid";
         vertex_shader_source = shader_src("solid_vertex_shader.glsl");
         fragment_shader_source = shader_src("common_fragment_shader.glsl");
-        int err = gl_program::init();
+        int err = gl_program_base::init();
         if(err != 0) {
             return err;
         }
+        u_transform = get_uniform("transform");
         u_color = get_uniform("uniform_color");
         return 0;
     }
@@ -323,7 +323,12 @@ namespace gerber_3d
         program_name = "color";
         vertex_shader_source = shader_src("color_vertex_shader.glsl");
         fragment_shader_source = shader_src("common_fragment_shader.glsl");
-        return gl_program::init();
+        int err = gl_program_base::init();
+        if(err != 0) {
+            return err;
+        }
+        u_transform = get_uniform("transform");
+        return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -333,23 +338,22 @@ namespace gerber_3d
         program_name = "textured";
         vertex_shader_source = shader_src("textured_vertex_shader.glsl");
         fragment_shader_source = shader_src("textured_fragment_shader.glsl");
-        int err = gl_program::init();
+        int err = gl_program_base::init();
         if(err != 0) {
             return err;
         }
-
         u_red = get_uniform("red_color");
         u_green = get_uniform("green_color");
         u_blue = get_uniform("blue_color");
         u_alpha = get_uniform("alpha");
-        u_num_samples = get_uniform("num_samples");
         u_cover_sampler = get_uniform("cover_sampler");
+        u_num_samples = get_uniform("num_samples");
         return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_program::cleanup()
+    void gl_program_base::cleanup()
     {
         GL_CHECK(glDetachShader(program_id, vertex_shader_id));
         GL_CHECK(glDetachShader(program_id, fragment_shader_id));
@@ -443,18 +447,6 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array_textured::init(GLsizei vert_count)
-    {
-        gl_vertex_array::init(vert_count);
-        int err = alloc(vert_count, sizeof(gl_vertex_textured));
-        if(err != 0) {
-            return err;
-        }
-        return 0;
-    }
-
-    //////////////////////////////////////////////////////////////////////
-
     int gl_vertex_array::activate() const
     {
         GL_CHECK(glBindVertexArray(vao_id));
@@ -509,24 +501,6 @@ namespace gerber_3d
                               GL_TRUE,
                               sizeof(gl_vertex_color),
                               reinterpret_cast<void *>(offsetof(gl_vertex_color, color)));
-        return 0;
-    }
-
-    //////////////////////////////////////////////////////////////////////
-
-    int gl_vertex_array_textured::activate() const
-    {
-        gl_vertex_array::activate();
-        glEnableVertexAttribArray(gl_textured_program::position_location);
-        glEnableVertexAttribArray(gl_textured_program::tex_coord_location);
-        glVertexAttribPointer(gl_textured_program::tex_coord_location,
-                              2,
-                              GL_FLOAT,
-                              GL_FALSE,
-                              sizeof(gl_vertex_textured),
-                              reinterpret_cast<void *>(offsetof(gl_vertex_textured, u)));
-        glVertexAttribPointer(
-            gl_textured_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_textured), (void *)(offsetof(gl_vertex_textured, x)));
         return 0;
     }
 

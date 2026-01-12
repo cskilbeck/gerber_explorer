@@ -19,18 +19,21 @@
 // X thick outline
 // X fix fit_to_window on load
 // X put shaders in separate source files
+// X thick arc shader (but turns out we can't use it)
+// X render-on-window-resize
 //
-// thick arc shader
+// configurable mouse buttons (/keys?)
 // picking / selection
 // separate gl_vertex_array / gl_vertex_buffer
+// 3D view
 // reduce gpu usage - only draw frame when necessary
 // high DPI
 // grid
-// render-on-window-resize
 // fix ImGui viewport thing
-// gerber spec compliance (polygons, holes)
+// gerber spec compliance (regions, polygons, holes)
 // load zip file (how to store path in settings?)
 // detect gerber layer type/position from extension/name/x2 info
+// detect board outline
 // measure tool
 // export PNG
 // ? OpenCascade 3D nonsense ?
@@ -43,13 +46,14 @@
  * X2 comment (%TF.FileFunction,Soldermask,Top*%)
  * filename (from the ok folder from jlcpcb)
  *
- * drills
+ * NPTH drills
  * board
  * profile
  * keepout
  * -----
  * top overlay
  * top soldermask (invert)
+ * (PTH drills)
  * top paste
  * top pads
  *
@@ -57,6 +61,7 @@
  *
  * bottom pads
  * bottom paste
+ * (PTH drills)
  * bottom soldermask (invert)
  * bottom overlay
  * -----

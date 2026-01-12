@@ -92,7 +92,7 @@ struct gerber_explorer : gl_window {
         mouse_drag_select
     };
 
-    void set_mouse_mode(mouse_drag_action action, vec2d const &pos);
+    void set_mouse_mode(mouse_drag_action action);
 
     mouse_drag_action mouse_mode{};
     vec2d drag_mouse_cur_pos{};
@@ -141,8 +141,6 @@ struct gerber_explorer : gl_window {
     gerber_3d::gl_line_program line_program{};
     gerber_3d::gl_arc_program arc_program{};
     gerber_3d::gl_line2_program line2_program{};
-
-    gerber_3d::gl_vertex_array_textured fullscreen_blit_verts;
 
     gerber_3d::gl_render_target layer_render_target{};
 

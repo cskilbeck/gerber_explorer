@@ -43,10 +43,10 @@ namespace gerber_3d
     {
         gl_matrix t{};
         t.m[0] = 2.0f / w;
-        t.m[5] = -2.0f / h;
+        t.m[5] = 2.0f / h;
         t.m[10] = -1.0f;
         t.m[12] = -1.0f;
-        t.m[13] = 1.0f;
+        t.m[13] = -1.0f;
         t.m[15] = 1.0f;
         return t;
     }
