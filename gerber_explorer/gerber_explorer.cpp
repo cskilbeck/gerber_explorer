@@ -971,7 +971,6 @@ void gerber_explorer::on_render()
         layer_render_target.init(window_width, window_height, multisample_count, 1);
     }
 
-    // float outline_width = (settings.outline_width + 1) / pixel_scale;
     float outline_width = (settings.outline_width + 1);
 
     for(auto r = layers.begin(); r != layers.end(); ++r) {

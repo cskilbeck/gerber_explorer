@@ -33,6 +33,16 @@ set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(glfw)
 
 ######################################################################
+# DirectXMath
+
+FetchContent_Declare(
+        directxmath
+        GIT_REPOSITORY https://github.com/microsoft/DirectXMath.git
+        GIT_TAG        apr2025)
+
+FetchContent_MakeAvailable(directxmath)
+
+######################################################################
 # IMGUI
 
 FetchContent_Declare(
@@ -59,7 +69,7 @@ target_include_directories(gerber_gl PUBLIC
         ${imgui_SOURCE_DIR}
         ${imgui_SOURCE_DIR}/backends)
 
-target_link_libraries(gerber_gl PUBLIC glfw glad OpenGL::GL)
+target_link_libraries(gerber_gl PUBLIC glfw glad OpenGL::GL DirectXMath)
 
 ######################################################################
 # JSON
