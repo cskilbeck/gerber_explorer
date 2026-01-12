@@ -40,26 +40,31 @@ namespace gerber_3d
         int length;
     };
 
-    struct gl_tesselator
+    //////////////////////////////////////////////////////////////////////
+
+    struct gl_drawer : gerber_lib::gerber_draw_interface
     {
+        using vec2f = gerber_lib::vec2f;
+
+        gl_drawer() = default;
+
+        // setup from a parsed gerber file
+        void set_gerber(gerber_lib::gerber *g) override;
+
+        // setup anything that has to be done in the main thread
+        void on_finished_loading() override;
+
+        // callback to create draw calls from elements
+        void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, int entity_id) override;
+
+        // draw it
+        void draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix,
+                  gerber_lib::vec2d const &window_size);
+
         using vec2f = gerber_lib::vec2f;
         using vert = vec2f;
 
-        TESStesselator *boundary_stesselator{};
-
-        std::vector<tesselator_entity> entities;
-
-        std::vector<vec2f> points;
-
-        std::vector<vert> fill_vertices;
-        std::vector<vec2f> outline_vertices_start;
-        std::vector<vec2f> outline_vertices_end;
-
-        std::vector<gl_arc_program::arc> outline_arcs;
-
-        std::vector<GLuint> indices;
-        std::vector<tesselator_span> fills;
-
+        //
         void clear();
         void new_entity(int entity_id, int flags);
         void append_points(size_t offset);
@@ -69,31 +74,29 @@ namespace gerber_3d
         void flag_entities_at_point(gerber_lib::vec2d point, int clear_flags, int set_flags);
         void flag_touching_entities(gerber_lib::rect const &world_rect, int clear_flags, int set_flags);
         void flag_enclosed_entities(gerber_lib::rect const &world_rect, int clear_flags, int set_flags);
-    };
-
-    //////////////////////////////////////////////////////////////////////
-
-    struct gl_drawer : gerber_lib::gerber_draw_interface
-    {
-        using vec2f = gerber_lib::vec2f;
-
-        gl_drawer() = default;
-
-        void set_gerber(gerber_lib::gerber *g) override;
-        void on_finished_loading() override;
-        void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, int entity_id) override;
-        void draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix,
-                  gerber_lib::vec2d const &window_size);
-
-        gl_tesselator tesselator;
 
         gerber_lib::gerber *gerber_file{};
         int current_flag{ entity_flags_t::none };
         int base_vert{};
         int current_entity_id{ -1 };
 
+        // tesselation
+        TESStesselator *boundary_stesselator{};
+        std::vector<tesselator_entity> entities;
+        std::vector<vec2f> temp_points;
+        std::vector<vec2f> outline_vertices_start;
+        std::vector<vec2f> outline_vertices_end;
+        std::vector<gl_line2_program::line> outline_lines;
+        std::vector<vec2f> outline_vertices;
+        std::vector<uint8_t> entity_flags; // one byte per entity
+        std::vector<vert> fill_vertices;
+        std::vector<GLuint> fill_indices;
+        std::vector<tesselator_span> fill_spans;
+
+        // drawing
         gl_layer_program *layer_program{};
         gl_line_program *line_program{};
+        gl_line2_program *line2_program{};
 
         // all the verts for interiors
         gl_vertex_array_solid vertex_array;
@@ -103,6 +106,10 @@ namespace gerber_3d
 
         // vertices for outline (2 because start, end)
         GLuint lines_vbo[2];
+
+        GLuint line_buffers[3];
+        GLuint textures[3];
+
     };
 
 }    // namespace gerber_3d

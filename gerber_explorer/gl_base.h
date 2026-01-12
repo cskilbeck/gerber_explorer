@@ -277,7 +277,7 @@ namespace gerber_3d
         GLuint u_hover_color;         // coverage colors for hovered
         GLuint u_select_color;        // and selected lines
 
-        GLuint u_instance_sampler;    // sampler for TBO of struct lines, fetch based on gl_InstanceId
+        GLuint u_lines_sampler;    // sampler for TBO of struct lines, fetch based on gl_InstanceId
         GLuint u_vert_sampler;        // sampler for the vertices
         GLuint u_flags_sampler;       // sampler for flags (1 byte per entity_id)
 

@@ -343,9 +343,9 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
             f.max_pos = board_pos_from_window_pos(f.max_pos);
             f = f.normalize();
             if(drag_rect.min_pos.x > drag_rect.max_pos.x) {
-                selected_layer->layer.tesselator.flag_touching_entities(f, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+                selected_layer->layer.flag_touching_entities(f, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
             } else {
-                selected_layer->layer.tesselator.flag_enclosed_entities(f, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+                selected_layer->layer.flag_enclosed_entities(f, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
             }
         }
     } break;
@@ -355,7 +355,7 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
         // Just hovering, highlight entities under the mouse if selected_layer != nullptr
         if(selected_layer != nullptr) {
             vec2d pos = board_pos_from_window_pos(mouse_pos);
-            selected_layer->layer.tesselator.flag_entities_at_point(pos, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+            selected_layer->layer.flag_entities_at_point(pos, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
         }
     } break;
     }
@@ -635,6 +635,7 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
                         layer->layer.set_gerber(g);
                         layer->layer.layer_program = &layer_program;
                         layer->layer.line_program = &line_program;
+                        layer->layer.line2_program = &line2_program;
                         layer->invert = loaded_layer.inverted;
                         layer->visible = loaded_layer.visible;
                         layer->fill_color.from_string(loaded_layer.color);
@@ -876,7 +877,9 @@ void gerber_explorer::update_board_extent()
 {
     rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
     for(auto layer : layers) {
-        all = all.union_with(layer->extent());
+        if(layer->visible) {
+            all = all.union_with(layer->extent());
+        }
     }
     board_extent = all;
     board_center = all.center();
@@ -995,8 +998,8 @@ void gerber_explorer::on_render()
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             layer.draw(settings.wireframe, outline_width, world_matrix, window_size);
 
-            if(true) {
-                // this just calls glUseProgram, it compiled OK
+            if(false) {
+
                 line2_program.use();
 
                 // 3 verts
@@ -1036,7 +1039,7 @@ void gerber_explorer::on_render()
                     glBindBuffer(GL_TEXTURE_BUFFER, buffers[1]);
                     glBufferData(GL_TEXTURE_BUFFER, verts.size() * sizeof(vec2f), verts.data(), GL_STATIC_DRAW);
                     glBindBuffer(GL_TEXTURE_BUFFER, buffers[2]);
-                    glBufferData(GL_TEXTURE_BUFFER, flags.size() * sizeof(uint8_t), flags.data(), GL_STATIC_DRAW);
+                    glBufferData(GL_TEXTURE_BUFFER, flags.size() * sizeof(uint8_t), flags.data(), GL_DYNAMIC_DRAW);
 
                     glGenTextures(3, textures);
                     glBindTexture(GL_TEXTURE_BUFFER, textures[0]);
@@ -1046,11 +1049,25 @@ void gerber_explorer::on_render()
                     glBindTexture(GL_TEXTURE_BUFFER, textures[2]);
                     glTexBuffer(GL_TEXTURE_BUFFER, GL_R8UI, buffers[2]);
                 }
-                glUniform1i(line2_program.u_instance_sampler, 0); // instance_sampler -> GL_TEXTURE0
+
+                static uint8_t foo{1};
+                uint8_t new_foo = foo;
+                if(glfwGetKey(window, GLFW_KEY_LEFT) != 0) {
+                    new_foo = 2;
+                } else if(glfwGetKey(window, GLFW_KEY_RIGHT) != 0) {
+                    new_foo = 1;
+                }
+                if(foo != new_foo) {
+                    foo = new_foo;
+                    glBindBuffer(GL_TEXTURE_BUFFER, buffers[2]);
+                    glBufferSubData(GL_TEXTURE_BUFFER, 0, 1, &foo);
+                }
+
+                glUniform1i(line2_program.u_lines_sampler, 0); // instance_sampler -> GL_TEXTURE0
                 glUniform1i(line2_program.u_vert_sampler, 1); // vert_sampler     -> GL_TEXTURE1
                 glUniform1i(line2_program.u_flags_sampler, 2); // flags_sampler    -> GL_TEXTURE2
 
-                GL_CHECK(glUniform1f(line2_program.u_thickness, 4.0f));
+                GL_CHECK(glUniform1f(line2_program.u_thickness, 16.0f));
                 GL_CHECK(glUniform2f(line2_program.u_viewport_size, (float)window_size.x, (float)window_size.y));
                 GL_CHECK(glUniformMatrix4fv(line2_program.u_transform, 1, false, world_matrix.m));
                 gl::colorf4 select(gl::colors::blue);
@@ -1058,7 +1075,6 @@ void gerber_explorer::on_render()
                 GL_CHECK(glUniform4fv(line2_program.u_select_color, 1, select.f));
                 GL_CHECK(glUniform4fv(line2_program.u_hover_color, 1, hover.f));
 
-                // 3. Before your Draw call (e.g., glDrawArraysInstanced)
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_BUFFER, textures[0]); // The Lines TBO (RGBA32UI)
 
