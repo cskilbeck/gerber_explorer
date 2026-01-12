@@ -69,7 +69,22 @@ struct gerber_explorer : gl_window {
                 outline = true;
                 break;
             }
-            layer.draw(fill, outline, wireframe, outline_thickness, invert, matrix, window_size);
+            if(fill) {
+                layer.fill(wireframe, invert, matrix, window_size);
+            }
+            if(outline) {
+                layer.outline(outline_thickness, matrix, window_size);
+            }
+        }
+
+        void fill(bool wireframe, gerber_3d::gl_matrix const &matrix, gerber_lib::vec2d const &window_size)
+        {
+            layer.fill(wireframe, false, matrix, window_size);
+        }
+
+        void outline(float outline_thickness, gerber_3d::gl_matrix const &matrix, gerber_lib::vec2d const &window_size)
+        {
+            layer.outline(outline_thickness, matrix, window_size);
         }
 
         bool operator<(gerber_layer const &other)
@@ -170,6 +185,8 @@ struct gerber_explorer : gl_window {
     void zoom_to_rect(rect const &zoom_rect, double border_ratio = 1.1);
     void zoom_at_point(vec2d const &zoom_pos, double zoom_scale);
     void update_view_rect();
+
+    void blit_layer(gl::colorf4 const &fill_color, gl::colorf4 const &clear_color, float alpha);
 
     void load_gerber(settings::layer_t const &layer);
 

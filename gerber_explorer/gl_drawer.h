@@ -58,8 +58,11 @@ namespace gerber_3d
         void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, int entity_id) override;
 
         // draw it
-        void draw(bool fill, bool outline, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix,
+        void draw(bool fill_on, bool outline_on, bool wireframe, float outline_thickness, bool invert, gl_matrix const &matrix,
                   gerber_lib::vec2d const &window_size);
+
+        void fill(bool wireframe, bool invert, gl_matrix const &matrix, gerber_lib::vec2d const &window_size);
+        void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &window_size);
 
         using vec2f = gerber_lib::vec2f;
         using vert = vec2f;

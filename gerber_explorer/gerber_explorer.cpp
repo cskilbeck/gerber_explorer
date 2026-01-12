@@ -883,6 +883,32 @@ void gerber_explorer::update_board_extent()
 
 //////////////////////////////////////////////////////////////////////
 
+void gerber_explorer::blit_layer(gl::colorf4 const &fill_color, gl::colorf4 const &clear_color, float alpha)
+{
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+    GL_CHECK(glViewport(0, 0, window_width, window_height));
+    GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+
+    textured_program.use();
+    layer_render_target.bind_textures();
+
+    GL_CHECK(glUniform4fv(textured_program.u_red, 1, fill_color.f));
+    GL_CHECK(glUniform4fv(textured_program.u_green, 1, clear_color.f));
+    GL_CHECK(glUniform4fv(textured_program.u_blue, 1, (float const *)&settings.outline_color));
+    GL_CHECK(glUniform1f(textured_program.u_alpha, alpha));
+    GL_CHECK(glUniform1i(textured_program.u_num_samples, layer_render_target.num_samples));
+    GL_CHECK(glUniform1i(textured_program.u_cover_sampler, 0));
+
+    GL_CHECK(glEnable(GL_BLEND));
+    GL_CHECK(glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD));
+    GL_CHECK(glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+
+    GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
+}
+
+//////////////////////////////////////////////////////////////////////
+
 void gerber_explorer::on_render()
 {
     // call on_finished_loading (which creates gl buffers) in main thread
@@ -971,40 +997,30 @@ void gerber_explorer::on_render()
         layer_render_target.init(window_width, window_height, multisample_count, 1);
     }
 
-    float outline_width = (settings.outline_width + 1);
-
     for(auto r = layers.begin(); r != layers.end(); ++r) {
         gerber_layer &layer = **r;
 
         if(layer.visible) {
-
-            // draw the layer into the render target
-
             layer_render_target.bind_framebuffer();
-
             GL_CHECK(glViewport(0, 0, window_width, window_height));
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            layer.draw(settings.wireframe, outline_width, world_matrix, window_size);
-
-            // draw the render to the window
-
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            GL_CHECK(glViewport(0, 0, window_width, window_height));
-            GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-            textured_program.use();
-            layer_render_target.bind_textures();
-            // GL_CHECK(glBindVertexArray(0));
-            GL_CHECK(glUniform4fv(textured_program.u_red, 1, layer.fill_color.f));
-            GL_CHECK(glUniform4fv(textured_program.u_green, 1, layer.clear_color.f));
-            GL_CHECK(glUniform4fv(textured_program.u_blue, 1, (float const *)&settings.outline_color));
-            GL_CHECK(glUniform1f(textured_program.u_alpha, layer.alpha / 255.0f));
-            GL_CHECK(glUniform1i(textured_program.u_num_samples, layer_render_target.num_samples));
-            GL_CHECK(glUniform1i(textured_program.u_cover_sampler, 0));
-            GL_CHECK(glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD));
-            GL_CHECK(glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-            GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
+            layer.fill(settings.wireframe, world_matrix, window_size);
+            blit_layer(layer.fill_color, layer.clear_color, layer.alpha / 255.0f);
         }
+    }
+
+    if(selected_layer != nullptr) {
+        // Draw outline for hovered/selected entities in the selected layer
+        layer_render_target.bind_framebuffer();
+        GL_CHECK(glViewport(0, 0, window_width, window_height));
+        GL_CHECK(glClearColor(0, 0, 0, 0));
+        GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
+        selected_layer->outline(settings.outline_width + 1.0f, world_matrix, window_size);
+
+        gl::colorf4 fill(gl::colors::cyan);
+        gl::colorf4 clear(gl::colors::magenta);
+        blit_layer(fill, clear, 1.0f);
     }
 
     // draw the overlay graphics
