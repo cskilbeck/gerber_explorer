@@ -433,19 +433,6 @@ void gerber_explorer::on_window_size(int w, int h)
     gl_window::on_window_size(w, h);
     window_width = w;
     window_height = h;
-    vec2d new_window_size;
-    new_window_size.x = window_width;
-    new_window_size.y = window_height;
-    if(new_window_size.x != window_size.x || new_window_size.y != window_size.y) {
-        vec2d scale_factor = new_window_size.divide(window_size);
-        window_size = new_window_size;
-        window_rect = { { 0, 0 }, window_size };
-        vec2d new_view_size = view_rect.size().multiply(scale_factor);
-        view_rect.max_pos = view_rect.min_pos.add(new_view_size);
-        if(should_fit_to_window) {
-            fit_to_window();
-        }
-    }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -709,9 +696,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer)
 
 void gerber_explorer::ui()
 {
-    // ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
-    // ImGuiDockNode *central_node = ImGui::DockBuilderGetCentralNode(dockspace_id);
-    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+    // ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     if(ImGui::BeginMainMenuBar()) {
@@ -901,7 +886,7 @@ void gerber_explorer::ui()
     ImGui::End();
 
     ImGui::Begin("Info");
-    ImGui::Text("%12.8f,%12.8f", start_angle, end_angle);
+    ImGui::Text("%12.8f,%12.8f ... %12.8f,%12.8f", viewport_rect.min_pos.x, viewport_rect.min_pos.y, viewport_rect.max_pos.x, viewport_rect.max_pos.y);
     ImGui::End();
 }
 
@@ -972,25 +957,51 @@ void gerber_explorer::on_render()
         }
     }
 
-    handle_mouse();
+    ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+    ImGuiDockNode *central_node = ImGui::DockBuilderGetCentralNode(dockspace_id);
 
-    glLineWidth(1.0f);
+    vec2d new_window_size;
+    new_window_size.x = window_width;
+    new_window_size.y = window_height;
+    if(new_window_size.x != window_size.x || new_window_size.y != window_size.y) {
 
-    ui();
+        if(central_node) {
+            ImGuiViewport *main_viewport = ImGui::GetMainViewport();
+            ImVec2 pos = ImVec2(central_node->Pos.x - main_viewport->Pos.x, central_node->Pos.y - main_viewport->Pos.y);
+            ImVec2 size = central_node->Size;
+            viewport_xpos = (int)pos.x;
+            viewport_ypos = (int)pos.y;
+            viewport_width = (int)size.x;
+            viewport_height = (int)size.y;
+        } else {
+            // this should never happen
+            viewport_xpos = 0;
+            viewport_ypos = 0;
+            viewport_width = window_width;
+            viewport_width = window_height;
+        }
+        viewport_rect = rect(vec2d(viewport_xpos, viewport_ypos), vec2d(viewport_xpos + viewport_width, viewport_ypos + viewport_height));
+        viewport_size = viewport_rect.size();
 
-    //  ImVec2 pos{ 0, 0 };
+        vec2d scale_factor = new_window_size.divide(window_size);
+        window_size = new_window_size;
+        window_rect = { { 0, 0 }, window_size };
+        vec2d new_view_size = view_rect.size().multiply(scale_factor);
+        view_rect.max_pos = view_rect.min_pos.add(new_view_size);
+        if(should_fit_to_window) {
+            fit_to_window();
+        }
+    }
 
     int framebuffer_width;
     int framebuffer_height;
     glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
 
-    // if(central_node) {
-    //     ImGuiViewport *main_viewport = ImGui::GetMainViewport();
-    //     pos = ImVec2(central_node->Pos.x - main_viewport->Pos.x, central_node->Pos.y - main_viewport->Pos.y);
-    //     ImVec2 size = central_node->Size;
-    //     window_width = (int)size.x;
-    //     window_height = (int)size.y;
-    // }
+    handle_mouse();
+
+    glLineWidth(1.0f);
+
+    ui();
 
     update_view_rect();
 

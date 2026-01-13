@@ -83,37 +83,44 @@ struct gerber_explorer : gl_window {
     // view rect in world coordinates
     rect view_rect{};
 
-    // window rect in screen coordinates
+    // window screen coordinates
     rect window_rect{};
-
     vec2d window_size{};
-
-    int window_width{};
-    int window_height{};
     int window_xpos{};
     int window_ypos{};
+    int window_width{};
+    int window_height{};
 
+    // viewport - area of the window left over after ImGui docking (in window coordinates)
+    int viewport_xpos{};
+    int viewport_ypos{};
+    int viewport_width{};
+    int viewport_height{};
+    vec2d viewport_size{};
+    rect viewport_rect{};
+
+    // transform matrices
     gerber_3d::gl_matrix world_matrix{};
     gerber_3d::gl_matrix ortho_screen_matrix{};
 
-    gerber_layer *selected_layer{ nullptr };
+    // gerber layers
     std::list<gerber_layer *> layers;     // active
+    gerber_layer *selected_layer{ nullptr };
 
+    // zoom to rect admin
     rect target_view_rect{};
     rect source_view_rect{};
     bool zoom_anim{ false };
     std::chrono::time_point<std::chrono::high_resolution_clock> target_view_time{};
 
+    // overlay graphics (selection rectangle etc)
     gerber_3d::gl_drawlist overlay;
 
-    gerber_3d::gl_drawer drawer{};
-
+    // mouse moves are handled in the render function
     bool mouse_did_move{false};
     vec2d mouse_pos{};
 
-    int debug_draw_call = 0;
-    int debug_outline_line = 0;
-
+    // glsl programs
     gerber_3d::gl_solid_program solid_program{};
     gerber_3d::gl_color_program color_program{};
     gerber_3d::gl_layer_program layer_program{};
@@ -121,13 +128,13 @@ struct gerber_explorer : gl_window {
     gerber_3d::gl_arc_program arc_program{};
     gerber_3d::gl_line2_program line2_program{};
 
+    // for drawing things offscreen and then blending them to the final composition
     gerber_3d::gl_render_target layer_render_target{};
 
     int multisample_count{ 4 };
     int max_multisamples{ 1 };
 
-    // when window size changes, zoom to fit
-    // this gets cleared if they pan/zoom etc manually
+    // when window size changes, zoom to fit (cleared if they pan/zoom etc manually)
     bool should_fit_to_window{ false };
 
     // bounding rect of all layers
