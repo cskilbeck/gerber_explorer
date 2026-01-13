@@ -484,7 +484,7 @@ namespace gerber_3d
         GL_CHECK(glUniform2f(line2_program->u_viewport_size, (float)window_size.x, (float)window_size.y));
         GL_CHECK(glUniform1f(line2_program->u_check_size, 4.0f));
 
-        float now = (float)fmod(get_time() * 16, 8.0);
+        float now = (float)fmod(get_time() * 25, 8.0);
 
         GL_CHECK(glUniform2f(line2_program->u_check_offset, now, now));
 

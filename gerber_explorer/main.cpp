@@ -21,21 +21,25 @@
 // X put shaders in separate source files
 // X thick arc shader (but turns out we can't use it)
 // X render-on-window-resize
+// X fix ImGui viewport thing
 //
-// configurable mouse buttons (/keys?)
+// settings
+// status bar
 // picking / selection
+// selected entity info
+// configurable mouse buttons (/keys?)
 // separate gl_vertex_array / gl_vertex_buffer
 // 3D view
 // reduce gpu usage - only draw frame when necessary
 // high DPI
 // grid
-// fix ImGui viewport thing
 // gerber spec compliance (regions, polygons, holes)
 // load zip file (how to store path in settings?)
 // detect gerber layer type/position from extension/name/x2 info
 // detect board outline
 // measure tool
 // export PNG
+// fork/mirror 3rd party repos
 // ? OpenCascade 3D nonsense ?
 // ? undo/redo ?
 //

@@ -130,7 +130,6 @@ rect gerber_explorer::window_rect_from_world_rect(rect const &r) const
 
 void gerber_explorer::fit_to_window()
 {
-    LOG_DEBUG("fit_to_window");
     if(selected_layer != nullptr && selected_layer->is_valid()) {
         zoom_to_rect(selected_layer->extent());
     } else {
@@ -144,10 +143,10 @@ void gerber_explorer::fit_to_window()
 
 void gerber_explorer::zoom_to_rect(rect const &zoom_rect, double border_ratio)
 {
-    if(window_rect.width() == 0 || window_rect.height() == 0) {
+    if(viewport_width == 0 || viewport_height == 0) {
         return;
     }
-    double aspect_ratio = (double)window_width / window_height;
+    double aspect_ratio = (double)viewport_width / viewport_height;
     rect new_rect = correct_aspect_ratio(aspect_ratio, zoom_rect, aspect_expand);
     vec2d mid = new_rect.mid_point();
     vec2d siz = new_rect.size().scale(border_ratio / 2);
@@ -321,7 +320,7 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
 
 void gerber_explorer::on_mouse_move(double xpos, double ypos)
 {
-    mouse_pos = { xpos, window_height - ypos };
+    mouse_pos = { xpos - viewport_xpos, viewport_height - (ypos - viewport_ypos) };
     mouse_did_move = true;
 }
 
@@ -910,7 +909,7 @@ void gerber_explorer::blend_layer(gl::colorf4 const &col_r, gl::colorf4 const &c
 {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    GL_CHECK(glViewport(0, 0, window_width, window_height));
+    GL_CHECK(glViewport(viewport_xpos, window_height - (viewport_height + viewport_ypos), viewport_width, viewport_height));
     GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
     textured_program.use();
@@ -963,33 +962,51 @@ void gerber_explorer::on_render()
     vec2d new_window_size;
     new_window_size.x = window_width;
     new_window_size.y = window_height;
-    if(new_window_size.x != window_size.x || new_window_size.y != window_size.y) {
 
-        if(central_node) {
-            ImGuiViewport *main_viewport = ImGui::GetMainViewport();
-            ImVec2 pos = ImVec2(central_node->Pos.x - main_viewport->Pos.x, central_node->Pos.y - main_viewport->Pos.y);
-            ImVec2 size = central_node->Size;
-            viewport_xpos = (int)pos.x;
-            viewport_ypos = (int)pos.y;
-            viewport_width = (int)size.x;
-            viewport_height = (int)size.y;
-        } else {
-            // this should never happen
-            viewport_xpos = 0;
-            viewport_ypos = 0;
-            viewport_width = window_width;
-            viewport_width = window_height;
-        }
-        viewport_rect = rect(vec2d(viewport_xpos, viewport_ypos), vec2d(viewport_xpos + viewport_width, viewport_ypos + viewport_height));
-        viewport_size = viewport_rect.size();
+    rect old_viewport_rect = viewport_rect;
 
-        vec2d scale_factor = new_window_size.divide(window_size);
-        window_size = new_window_size;
-        window_rect = { { 0, 0 }, window_size };
-        vec2d new_view_size = view_rect.size().multiply(scale_factor);
-        view_rect.max_pos = view_rect.min_pos.add(new_view_size);
+    if(central_node) {
+        ImGuiViewport *main_viewport = ImGui::GetMainViewport();
+        ImVec2 pos = ImVec2(central_node->Pos.x - main_viewport->Pos.x, central_node->Pos.y - main_viewport->Pos.y);
+        ImVec2 size = central_node->Size;
+        viewport_xpos = (int)pos.x;
+        viewport_ypos = (int)pos.y;
+        viewport_width = (int)size.x;
+        viewport_height = (int)size.y;
+    } else {
+        // this should never happen
+        viewport_xpos = 0;
+        viewport_ypos = 0;
+        viewport_width = window_width;
+        viewport_width = window_height;
+    }
+    viewport_rect = rect(vec2d(viewport_xpos, viewport_ypos), vec2d(viewport_xpos + viewport_width, viewport_ypos + viewport_height));
+    viewport_size = viewport_rect.size();
+
+    bool viewport_changed = viewport_rect.min_pos.x != old_viewport_rect.min_pos.x || viewport_rect.min_pos.y != old_viewport_rect.min_pos.y ||
+                            viewport_rect.max_pos.x != old_viewport_rect.max_pos.x || viewport_rect.max_pos.y != old_viewport_rect.max_pos.y;
+
+    vec2d new_viewport_size;
+    new_viewport_size.x = viewport_width;
+    new_viewport_size.y = viewport_height;
+
+    vec2d scale_factor = new_viewport_size.divide(viewport_size);
+
+    window_rect = { { 0, 0 }, window_size };
+
+    vec2d new_view_size = view_rect.size().multiply(scale_factor);
+    view_rect.max_pos = view_rect.min_pos.add(new_view_size);
+
+    if(viewport_changed) {
         if(should_fit_to_window) {
             fit_to_window();
+            view_rect = target_view_rect;
+            zoom_anim = false;
+        } else {
+            // viewport dimensions changed, updated view_rect accordingly
+            vec2d scale = old_viewport_rect.size().divide(viewport_rect.size());
+            view_rect.max_pos = view_rect.min_pos.add(view_rect.size().divide(scale));
+            zoom_anim = false;
         }
     }
 
@@ -1009,7 +1026,7 @@ void gerber_explorer::on_render()
         return;
     }
 
-    view_scale = window_size.divide(view_rect.size());
+    view_scale = viewport_size.divide(view_rect.size());
 
     // get center of bounding rect of all layers (for flip)
     update_board_extent();
@@ -1018,7 +1035,7 @@ void gerber_explorer::on_render()
 
     // float pixel_scale = (float)(window_rect.width() / view_rect.width());
 
-    ortho_screen_matrix = make_ortho(window_width, window_height);
+    ortho_screen_matrix = make_ortho(viewport_width, viewport_height);
 
     gl_matrix flip_m = make_identity();
     flip_m.m[0] = (float)flip_xy.x;
@@ -1045,9 +1062,9 @@ void gerber_explorer::on_render()
 
     // resize the offscreen render target if the window size changed
 
-    if(layer_render_target.width != window_width || layer_render_target.height != window_height || layer_render_target.num_samples != multisample_count) {
+    if(layer_render_target.width != viewport_width || layer_render_target.height != viewport_height || layer_render_target.num_samples != multisample_count) {
         layer_render_target.cleanup();
-        layer_render_target.init(window_width, window_height, multisample_count, 1);
+        layer_render_target.init(viewport_width, viewport_height, multisample_count, 1);
     }
 
     // draw the layers
@@ -1057,7 +1074,7 @@ void gerber_explorer::on_render()
 
         if(layer.visible) {
             layer_render_target.bind_framebuffer();
-            GL_CHECK(glViewport(0, 0, window_width, window_height));
+            GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
 
             if(settings.wireframe) {
                 glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -1083,7 +1100,7 @@ void gerber_explorer::on_render()
 
     if(selected_layer != nullptr) {
         layer_render_target.bind_framebuffer();
-        GL_CHECK(glViewport(0, 0, window_width, window_height));
+        GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
         GL_CHECK(glClearColor(0, 0, 0, 1));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         selected_layer->layer.fill(world_matrix, entity_flags_t::selected, entity_flags_t::hovered, entity_flags_t::none);
@@ -1091,7 +1108,7 @@ void gerber_explorer::on_render()
 
         // Draw outline for hovered/selected entities in the selected layer
         layer_render_target.bind_framebuffer();
-        GL_CHECK(glViewport(0, 0, window_width, window_height));
+        GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
         GL_CHECK(glClearColor(0, 0, 0, 0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         selected_layer->layer.outline(settings.outline_width + 1.0f, world_matrix, window_size);
@@ -1103,7 +1120,7 @@ void gerber_explorer::on_render()
     overlay.reset();
 
     if(mouse_mode == mouse_drag_zoom_select) {
-        rect drag_rect_corrected = correct_aspect_ratio(window_rect.aspect_ratio(), drag_rect, aspect_expand);
+        rect drag_rect_corrected = correct_aspect_ratio(view_rect.aspect_ratio(), drag_rect, aspect_expand);
         overlay.add_rect(drag_rect_corrected, 0x80ffff00);
         overlay.add_rect(drag_rect, 0x800000ff);
         overlay.add_outline_rect(drag_rect, 0xffffffff);
