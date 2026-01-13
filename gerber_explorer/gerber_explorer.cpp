@@ -1086,7 +1086,7 @@ void gerber_explorer::on_render()
             gl::colorf4 clear = layer.clear_color;
             gl::colorf4 f(gl::colors::black);
             if(layer.invert) {
-                f = gl::colorf4(fill);
+                f = gl::colorf4(gl::colors::green);
                 std::swap(fill, clear);
             }
             glClearColor(f.red(), f.green(), f.blue(), f.alpha());
