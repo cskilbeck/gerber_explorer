@@ -71,9 +71,10 @@ namespace gerber_3d
         void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &window_size);
 
         // picking/selection
-        void flag_entities_at_point(gerber_lib::vec2d point, int clear_flags, int set_flags);
-        void flag_touching_entities(gerber_lib::rect const &world_rect, int clear_flags, int set_flags);
-        void flag_enclosed_entities(gerber_lib::rect const &world_rect, int clear_flags, int set_flags);
+        int flag_entities_at_point(gerber_lib::vec2d point, int clear_flags, int set_flags);
+        int flag_touching_entities(gerber_lib::rect const &world_rect, int clear_flags, int set_flags);
+        int flag_enclosed_entities(gerber_lib::rect const &world_rect, int clear_flags, int set_flags);
+        void select_hovered_entities();
 
         gerber_lib::gerber *gerber_file{};
         int current_flag{ entity_flags_t::none };

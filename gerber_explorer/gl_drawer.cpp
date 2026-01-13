@@ -33,8 +33,9 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::flag_touching_entities(rect const &world_rect, int clear_flags, int set_flags)
+    int gl_drawer::flag_touching_entities(rect const &world_rect, int clear_flags, int set_flags)
     {
+        int n = 0;
         for(auto &e : entities) {
             e.flags &= ~clear_flags;
             bool hit = world_rect.contains_rect(e.bounds);
@@ -64,34 +65,53 @@ namespace gerber_3d
             }
             if(hit) {
                 e.flags |= set_flags;
+                n += 1;
             }
         }
+        return n;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::flag_enclosed_entities(rect const &world_rect, int clear_flags, int set_flags)
+    int gl_drawer::flag_enclosed_entities(rect const &world_rect, int clear_flags, int set_flags)
     {
+        int n = 0;
         for(auto &e : entities) {
             e.flags &= ~clear_flags;
             if(world_rect.contains_rect(e.bounds)) {
                 e.flags |= set_flags;
+                n += 1;
             }
         }
+        return n;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::flag_entities_at_point(vec2d point, int clear_flags, int set_flags)
+    int gl_drawer::flag_entities_at_point(vec2d point, int clear_flags, int set_flags)
     {
+        int n = 0;
+        vec2f pos = vec2f(point);
         for(auto &e : entities) {
             e.flags &= ~clear_flags;
-            if(e.bounds.contains(point)) {
-                auto p = outline_vertices.data() + e.outline_offset;
-                int s = e.outline_size;
-                if(point_in_poly(p, s, vec2f(point))) {
-                    e.flags |= set_flags;
+            if(e.bounds.contains(point) && point_in_poly(outline_vertices.data() + e.outline_offset, e.outline_size, pos)) {
+                e.flags |= set_flags;
+                n += 1;
+                if(set_flags & entity_flags_t::selected) {
+                    LOG_INFO("SELECT {}", e.entity_id);
                 }
+            }
+        }
+        return n;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    void gl_drawer::select_hovered_entities()
+    {
+        for(auto &e: entities) {
+            if((e.flags & entity_flags_t::hovered)) {
+                e.flags = (e.flags & ~entity_flags_t::hovered) | entity_flags_t::selected;
             }
         }
     }
@@ -126,13 +146,6 @@ namespace gerber_3d
 
     void gl_drawer::append_points(size_t offset)
     {
-        tesselator_entity &e = entities.back();
-        if(e.bounds.is_empty_rect()) {
-            e.bounds.min_pos = e.bounds.max_pos = vec2d(temp_points[offset]);
-        }
-        for(size_t i = offset; i < temp_points.size(); ++i) {
-            e.bounds.expand_to_contain(vec2d(temp_points[i]));
-        }
         tessAddContour(boundary_stesselator, 2, temp_points.data() + offset, sizeof(float) * 2, (int)(temp_points.size() - offset));
     }
 
@@ -174,6 +187,15 @@ namespace gerber_3d
 
             tesselator_entity &e = entities.back();
             e.outline_size = (int)(outline_vertices.size() - e.outline_offset);
+
+            vec2f min{FLT_MAX, FLT_MAX};
+            vec2f max{-FLT_MAX, -FLT_MAX};
+            for(int i=0; i<e.outline_size; ++i) {
+                vec2f const &v = outline_vertices[e.outline_offset + i];
+                min = {std::min(v.x, min.x), std::min(v.y, min.y)};
+                max = {std::max(v.x, max.x), std::max(v.y, max.y)};
+            }
+            e.bounds = rect(vec2d(min), vec2d(max));
 
             tessTesselate(interior_tesselator, TESS_WINDING_POSITIVE, TESS_POLYGONS, 3, 2, nullptr);
 
@@ -232,14 +254,18 @@ namespace gerber_3d
         current_entity_id = -1;
         clear();
         g->draw(*this);
-        new_entity(current_entity_id, current_flag);
+        finish_entity();
         finalize();
 
         // create the lines index buffer and flags buffer
 
-        entity_flags.resize(entities.size() + 1);
-        for(size_t i = 0; i < entities.size(); ++i) {
-            tesselator_entity &e = entities[i];
+        int max_entity_id = 0;
+        for(auto const &e : entities) {
+            max_entity_id = std::max(max_entity_id, e.entity_id);
+        }
+
+        entity_flags.resize(max_entity_id + 1);
+        for(auto &e : entities) {
             auto id = e.entity_id;
             if(id >= entity_flags.size()) {
                 LOG_ERROR("Entity ID out of range!?");
@@ -428,8 +454,8 @@ namespace gerber_3d
 
         glEnable(GL_BLEND);
 
-        gl::color outline_color = gl::colors::blue;
-        gl::color fill_color = gl::colors::red;
+        gl::colorf4 outline_color(gl::colors::blue);
+        gl::colorf4 fill_color(gl::colors::red);
 
         for(auto const &e : entities) {
             int id = e.entity_id;
@@ -463,8 +489,8 @@ namespace gerber_3d
         GL_CHECK(glUniform2f(line2_program->u_check_offset, now, now));
 
         GL_CHECK(glUniformMatrix4fv(line2_program->u_transform, 1, false, matrix.m));
-        GL_CHECK(glUniform4fv(line2_program->u_select_color, 1, gl::colorf4(outline_color).f));
-        GL_CHECK(glUniform4fv(line2_program->u_hover_color, 1, gl::colorf4(fill_color).f));
+        GL_CHECK(glUniform4fv(line2_program->u_select_color, 1, outline_color.f));
+        GL_CHECK(glUniform4fv(line2_program->u_hover_color, 1, fill_color.f));
         GL_CHECK(glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)outline_lines.size()));
     }
 

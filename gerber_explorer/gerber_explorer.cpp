@@ -84,6 +84,15 @@ vec2d gerber_explorer::world_pos_from_window_pos(vec2d const &p) const
 
 //////////////////////////////////////////////////////////////////////
 
+rect gerber_explorer::world_rect_from_window_rect(rect const &r) const
+{
+    vec2d min = world_pos_from_window_pos(r.min_pos);
+    vec2d max = world_pos_from_window_pos(r.max_pos);
+    return rect(min, max).normalize();
+}
+
+//////////////////////////////////////////////////////////////////////
+
 vec2d gerber_explorer::board_pos_from_window_pos(vec2d const &p) const
 {
     vec2d pos = world_pos_from_window_pos(p);
@@ -92,9 +101,29 @@ vec2d gerber_explorer::board_pos_from_window_pos(vec2d const &p) const
 
 //////////////////////////////////////////////////////////////////////
 
+rect gerber_explorer::board_rect_from_window_rect(rect const &r) const
+{
+    vec2d min = world_pos_from_window_pos(r.min_pos);
+    vec2d max = world_pos_from_window_pos(r.max_pos);
+    min = min.subtract(board_center).multiply(flip_xy).add(board_center);
+    max = max.subtract(board_center).multiply(flip_xy).add(board_center);
+    return rect(min, max).normalize();
+}
+
+//////////////////////////////////////////////////////////////////////
+
 vec2d gerber_explorer::window_pos_from_world_pos(vec2d const &p) const
 {
     return p.subtract(view_rect.min_pos).multiply(view_scale);
+}
+
+//////////////////////////////////////////////////////////////////////
+
+rect gerber_explorer::window_rect_from_world_rect(rect const &r) const
+{
+    vec2d min = window_pos_from_world_pos(r.min_pos);
+    vec2d max = window_pos_from_world_pos(r.max_pos);
+    return rect(min, max).normalize();
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -269,11 +298,11 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
                 vec2d mx = drag_rect_corrected.max_pos;
                 rect d = rect{ mn, mx }.normalize();
                 if(d.width() > 2 && d.height() > 2) {
-                    vec2d min(world_pos_from_window_pos(mn));
-                    vec2d max(world_pos_from_window_pos(mx));
-                    zoom_to_rect({ min, max });
+                    zoom_to_rect(world_rect_from_window_rect({ mn, mx }));
                     should_fit_to_window = false;
                 }
+            } else if(mouse_mode == mouse_drag_select && selected_layer != nullptr) {
+                selected_layer->layer.select_hovered_entities();
             }
             set_mouse_mode(mouse_drag_none);
             break;
@@ -293,70 +322,82 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
 void gerber_explorer::on_mouse_move(double xpos, double ypos)
 {
     mouse_pos = { xpos, window_height - ypos };
+    mouse_did_move = true;
+}
 
-    switch(mouse_mode) {
+//////////////////////////////////////////////////////////////////////
 
-    case mouse_drag_pan: {
-        vec2d new_mouse_pos = world_pos_from_window_pos(mouse_pos);
-        vec2d old_mouse_pos = world_pos_from_window_pos(drag_mouse_start_pos);
-        vec2d diff = new_mouse_pos.subtract(old_mouse_pos).negate();
-        view_rect = view_rect.offset(diff);
-        drag_mouse_start_pos = mouse_pos;
-        should_fit_to_window = false;
-    } break;
+void gerber_explorer::handle_mouse()
+{
+    if(mouse_did_move) {
 
-    case mouse_drag_zoom: {
-        if(ignore_mouse_moves <= 0) {
-            vec2d d = mouse_pos.subtract(drag_mouse_cur_pos);
-            d.y *= -1;
-            double factor = (d.x - d.y) * 0.01;
-            factor = std::max(-0.25, std::min(factor, 0.25));
-            zoom_at_point(mouse_world_pos, 1.0 - factor);
+        mouse_did_move = false;
+
+        switch(mouse_mode) {
+
+        case mouse_drag_pan: {
+            vec2d new_mouse_pos = world_pos_from_window_pos(mouse_pos);
+            vec2d old_mouse_pos = world_pos_from_window_pos(drag_mouse_start_pos);
+            vec2d diff = new_mouse_pos.subtract(old_mouse_pos).negate();
+            view_rect = view_rect.offset(diff);
+            drag_mouse_start_pos = mouse_pos;
             should_fit_to_window = false;
-        } else {
-            ignore_mouse_moves -= 1;
-        }
-        drag_mouse_cur_pos = mouse_pos;
-    } break;
+        } break;
 
-    case mouse_drag_zoom_select: {
-        drag_mouse_cur_pos = mouse_pos;
-        if(drag_mouse_cur_pos.subtract(drag_mouse_start_pos).length() > 4) {
-            drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos }.normalize();
-        }
-    } break;
-
-    case mouse_drag_maybe_select: {
-        if(mouse_pos.subtract(drag_mouse_start_pos).length() > drag_select_offset_start_distance) {
-            set_mouse_mode(mouse_drag_select);
-            mouse_world_pos = world_pos_from_window_pos(mouse_pos);
-        }
-    } break;
-
-    case mouse_drag_select: {
-        drag_mouse_cur_pos = mouse_pos;
-        drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
-        if(selected_layer != nullptr) {
-            rect f{ board_pos_from_window_pos(drag_rect.min_pos), board_pos_from_window_pos(drag_rect.max_pos) };
-            f = f.normalize();
-            if(drag_rect.min_pos.x > drag_rect.max_pos.x) {
-                selected_layer->layer.flag_touching_entities(f, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+        case mouse_drag_zoom: {
+            if(ignore_mouse_moves <= 0) {
+                vec2d d = mouse_pos.subtract(drag_mouse_cur_pos);
+                d.y *= -1;
+                double factor = (d.x - d.y) * 0.01;
+                factor = std::max(-0.25, std::min(factor, 0.25));
+                zoom_at_point(mouse_world_pos, 1.0 - factor);
+                should_fit_to_window = false;
             } else {
-                selected_layer->layer.flag_enclosed_entities(f, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+                ignore_mouse_moves -= 1;
             }
-        }
-    } break;
+            drag_mouse_cur_pos = mouse_pos;
+        } break;
 
-    default:
-    case mouse_drag_none: {
-        // Just hovering, highlight entities under the mouse if selected_layer != nullptr
-        if(selected_layer != nullptr) {
-            vec2d pos = board_pos_from_window_pos(mouse_pos);
-            selected_layer->layer.flag_entities_at_point(pos, entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+        case mouse_drag_zoom_select: {
+            drag_mouse_cur_pos = mouse_pos;
+            if(drag_mouse_cur_pos.subtract(drag_mouse_start_pos).length() > 4) {
+                drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos }.normalize();
+            }
+        } break;
+
+        case mouse_drag_maybe_select: {
+            if(mouse_pos.subtract(drag_mouse_start_pos).length() > drag_select_offset_start_distance) {
+                set_mouse_mode(mouse_drag_select);
+                mouse_world_pos = world_pos_from_window_pos(mouse_pos);
+            }
+        } break;
+
+        case mouse_drag_select: {
+            drag_mouse_cur_pos = mouse_pos;
+            drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
+            if(selected_layer != nullptr) {
+                if(drag_rect.min_pos.x > drag_rect.max_pos.x) {
+                    selected_layer->layer.flag_touching_entities(
+                        board_rect_from_window_rect(drag_rect), entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+                } else {
+                    selected_layer->layer.flag_enclosed_entities(
+                        board_rect_from_window_rect(drag_rect), entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+                }
+            }
+        } break;
+
+        default:
+        case mouse_drag_none: {
+            // Just hovering, highlight entities under the mouse if selected_layer != nullptr
+            if(selected_layer != nullptr) {
+                vec2d pos = board_pos_from_window_pos(mouse_pos);
+                selected_layer->layer.flag_entities_at_point(pos, entity_flags_t::hovered, entity_flags_t::hovered);
+            }
+        } break;
         }
-    } break;
     }
 }
+
 
 //////////////////////////////////////////////////////////////////////
 
@@ -477,6 +518,10 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
     case mouse_drag_maybe_select: {
         zoom_anim = false;
         drag_mouse_start_pos = mouse_pos;
+        if(selected_layer != nullptr) {
+            mouse_world_pos = board_pos_from_window_pos(mouse_pos);
+            selected_layer->layer.flag_entities_at_point(mouse_world_pos, entity_flags_t::selected | entity_flags_t::hovered, entity_flags_t::selected);
+        }
     } break;
 
     case mouse_drag_select:
@@ -927,6 +972,8 @@ void gerber_explorer::on_render()
         }
     }
 
+    handle_mouse();
+
     glLineWidth(1.0f);
 
     ui();
@@ -1017,19 +1064,19 @@ void gerber_explorer::on_render()
             glClearColor(f.red(), f.green(), f.blue(), f.alpha());
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             layer.layer.fill(world_matrix, entity_flags_t::none, entity_flags_t::clear, entity_flags_t::fill);
-            blend_layer(gl::colorf4(0,0,0,0), clear, fill, layer.alpha / 255.0f);
+            blend_layer(gl::colorf4(0, 0, 0, 0), clear, fill, layer.alpha / 255.0f);
         }
     }
 
-    // draw ouline of selected entities in selected layer on top of all other layers
+    // draw overlay/ouline of selected & hovered entities in selected layer on top of all other layers
 
     if(selected_layer != nullptr) {
         layer_render_target.bind_framebuffer();
         GL_CHECK(glViewport(0, 0, window_width, window_height));
         GL_CHECK(glClearColor(0, 0, 0, 1));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        selected_layer->layer.fill(world_matrix, entity_flags_t::hovered, entity_flags_t::clear, entity_flags_t::none);
-        blend_layer(gl::colorf4(gl::colors::magenta), gl::colorf4(0, 0, 0, 0), gl::colorf4(0, 0, 0, 0), 0.5f);
+        selected_layer->layer.fill(world_matrix, entity_flags_t::selected, entity_flags_t::hovered, entity_flags_t::none);
+        blend_layer(gl::colorf4(gl::colors::cyan), gl::colorf4(gl::colors::magenta), gl::colorf4(0, 0, 0, 0), 0.5f);
 
         // Draw outline for hovered/selected entities in the selected layer
         layer_render_target.bind_framebuffer();
@@ -1067,6 +1114,13 @@ void gerber_explorer::on_render()
         if(extent.width() != 0 && extent.height() != 0) {
             rect s{ window_pos_from_world_pos(extent.min_pos), window_pos_from_world_pos(extent.max_pos) };
             overlay.add_outline_rect(s, extent_color);
+        }
+        for(auto const &e : selected_layer->layer.entities) {
+            if(e.flags & entity_flags_t::selected) {
+                rect const &b = e.bounds;
+                rect w{ window_pos_from_world_pos(b.min_pos), window_pos_from_world_pos(b.max_pos) };
+                overlay.add_outline_rect(w, extent_color);
+            }
         }
     }
 

@@ -108,6 +108,7 @@ struct gerber_explorer : gl_window {
 
     gerber_3d::gl_drawer drawer{};
 
+    bool mouse_did_move{false};
     vec2d mouse_pos{};
 
     int debug_draw_call = 0;
@@ -144,6 +145,11 @@ struct gerber_explorer : gl_window {
     vec2d board_pos_from_window_pos(vec2d const &p) const;
     vec2d world_pos_from_window_pos(vec2d const &p) const;
     vec2d window_pos_from_world_pos(vec2d const &p) const;
+
+    rect world_rect_from_window_rect(rect const &r) const;
+    rect board_rect_from_window_rect(rect const &r) const;
+    rect window_rect_from_world_rect(rect const &r) const;
+
     void fit_to_window();
     void zoom_to_rect(rect const &zoom_rect, double border_ratio = 1.1);
     void zoom_at_point(vec2d const &zoom_pos, double zoom_scale);
@@ -187,6 +193,8 @@ struct gerber_explorer : gl_window {
     void on_mouse_button(int button, int action, int mods) override;
     void on_mouse_move(double xpos, double ypos) override;
     void on_drop(int count, const char **paths) override;
+
+    void handle_mouse();
 
     void ui();
 
