@@ -404,6 +404,7 @@ void gerber_explorer::handle_mouse()
 
         case mouse_drag_maybe_select: {
             if(mouse_pos.subtract(drag_mouse_start_pos).length() > drag_select_offset_start_distance) {
+                set_active_entity(nullptr);
                 set_mouse_mode(mouse_drag_select);
                 mouse_world_pos = world_pos_from_viewport_pos(mouse_pos);
             }
@@ -568,7 +569,6 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
             if(!active_entities.empty()) {
                 if(active_entity_index < active_entities.size()) {
                     tesselator_entity &e = selected_layer->layer.entities[active_entities[active_entity_index]];
-                    e.flags |= entity_flags_t::active;
                     set_active_entity(&e);
                 } else {
                     active_entity = nullptr;
@@ -776,19 +776,22 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer)
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::set_active_entity(tesselator_entity const *entity)
+void gerber_explorer::set_active_entity(tesselator_entity *entity)
 {
+    if(active_entity != nullptr) {
+        active_entity->flags &= ~entity_flags_t::active;
+    }
     active_entity = entity;
     if(active_entity == nullptr) {
         active_entity_description.clear();
         return;
     }
+    entity->flags |= entity_flags_t::active;
     using namespace gerber_lib;
     gerber_net *net = active_entity->net;
     gerber_level *level = net->level;
     gerber_polarity polarity = level->polarity;
     gerber_aperture_type aperture_type{ aperture_type_none };
-    auto apertures = selected_layer->layer.gerber_file->image.apertures;
     std::string state{ "" };
     std::string description{ "?" };
     std::string interpolation{ "" };
@@ -799,6 +802,7 @@ void gerber_explorer::set_active_entity(tesselator_entity const *entity)
         state = std::format("{}", net->aperture_state);
     }
     if(net->aperture != 0) {
+        auto apertures = selected_layer->layer.gerber_file->image.apertures;
         auto it = apertures.find(net->aperture);
         if(it != apertures.end()) {
             gerber_aperture *aperture = it->second;

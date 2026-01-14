@@ -180,7 +180,7 @@ struct gerber_explorer : gl_window {
     // active entity admin
     std::vector<int> active_entities;
     int active_entity_index;
-    gerber_3d::tesselator_entity const *active_entity{nullptr};
+    gerber_3d::tesselator_entity *active_entity{nullptr};
     std::string active_entity_description{};
 
     // how many gerbers queued up for loading?
@@ -195,7 +195,7 @@ struct gerber_explorer : gl_window {
     std::jthread gerber_load_thread;
     std::counting_semaphore<1024> loader_semaphore{0};
 
-    void set_active_entity(gerber_3d::tesselator_entity const *entity);
+    void set_active_entity(gerber_3d::tesselator_entity *entity);
 
     void update_board_extent();
 
