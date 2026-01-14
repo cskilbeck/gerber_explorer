@@ -485,6 +485,19 @@ void gerber_explorer::on_window_refresh()
 
 //////////////////////////////////////////////////////////////////////
 
+void gerber_explorer::close_all_layers()
+{
+    LOG_INFO("CLOSE ALL");
+    while(!layers.empty()) {
+        auto l = layers.front();
+        layers.pop_front();
+        delete l;
+    }
+    select_layer(nullptr);
+}
+
+//////////////////////////////////////////////////////////////////////
+
 void gerber_explorer::save_settings(std::filesystem::path const &path)
 {
     window_state = get_window_state();
@@ -499,7 +512,7 @@ void gerber_explorer::save_settings(std::filesystem::path const &path)
     for(auto it = layers.crbegin(); it != layers.crend(); ++it) {
         gerber_layer *layer = *it;
         if(layer->is_valid()) {
-            settings.files.emplace_back(layer->filename(), layer->fill_color.to_string(), layer->visible, layer->invert, layer->draw_mode, index);
+            settings.files.emplace_back(layer->filename(), gl::color_to_string(layer->fill_color), layer->visible, layer->invert, layer->draw_mode, index);
             index += 1;
         }
     }
@@ -586,7 +599,7 @@ bool gerber_explorer::on_init()
     glfwGetWindowSize(window, &window_width, &window_height);
     window_size.x = window_width;
     window_size.y = window_height;
-    view_rect = {{0,0}, {10,10}};
+    view_rect = { { 0, 0 }, { 10, 10 } };
 
     solid_program.init();
     color_program.init();
@@ -715,8 +728,8 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
                         layer->layer.line2_program = &line2_program;
                         layer->invert = loaded_layer.inverted;
                         layer->visible = loaded_layer.visible;
-                        layer->fill_color.from_string(loaded_layer.color);
-                        layer->clear_color = gl::colorf4(gl::colors::clear);
+                        layer->fill_color = gl::color_from_string(loaded_layer.color);
+                        layer->clear_color = gl::colors::clear;
                         layer->draw_mode = loaded_layer.draw_mode;
                         layer->name = std::format("{}", std::filesystem::path(g->filename).filename().string());
                         LOG_DEBUG("Finished loading {}, {}", layer->index, loaded_layer.filename);
@@ -774,11 +787,11 @@ void gerber_explorer::set_active_entity(tesselator_entity const *entity)
     gerber_net *net = active_entity->net;
     gerber_level *level = net->level;
     gerber_polarity polarity = level->polarity;
-    gerber_aperture_type aperture_type{aperture_type_none};
+    gerber_aperture_type aperture_type{ aperture_type_none };
     auto apertures = selected_layer->layer.gerber_file->image.apertures;
-    std::string state{""};
-    std::string description{"?"};
-    std::string interpolation{""};
+    std::string state{ "" };
+    std::string description{ "?" };
+    std::string interpolation{ "" };
     if(net->aperture_state == aperture_state_on && net->interpolation_method < interpolation_region_start) {
         interpolation = std::format(" {}", net->interpolation_method);
     }
@@ -794,7 +807,7 @@ void gerber_explorer::set_active_entity(tesselator_entity const *entity)
                 gerber_aperture_macro *macro = aperture->aperture_macro;
                 description = std::format("macro {}", macro->name);
             } else {
-                description = std::format("aperture {} ({})", net->aperture,  aperture_type);
+                description = std::format("aperture {} ({})", net->aperture, aperture_type);
             }
         } else {
             description = std::format("?unknown aperture {}?", net->aperture);
@@ -832,12 +845,7 @@ void gerber_explorer::ui()
             // ImGui::MenuItem("Options", nullptr, &show_options);
             ImGui::Separator();
             if(ImGui::MenuItem("Close all", nullptr, nullptr)) {
-                while(!layers.empty()) {
-                    auto l = layers.front();
-                    layers.pop_front();
-                    delete l;
-                }
-                select_layer(nullptr);
+                close_all_layers();
             }
             ImGui::Separator();
             if(ImGui::MenuItem("Exit", "Esc", nullptr)) {
@@ -865,7 +873,44 @@ void gerber_explorer::ui()
         }
         ImGui::EndMainMenuBar();
     }
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(1);
+
+    ImGui::Begin("Toolbar", nullptr, ImGuiWindowFlags_NoDecoration);
+    {
+        if(IconButton("##open", MATSYM_file_open)) {
+            file_open();
+        }
+        ImGui::SameLine();
+        if(IconButton("##close_all", MATSYM_cancel_presentation)) {
+            LOG_INFO("CLOSE ALL");
+            ImGui::OpenPopup("Close All");
+        }
+        ImGui::SameLine();
+        if(IconButton("##fit_to_viewport", MATSYM_fit_screen)) {
+            fit_to_viewport();
+        }
+        float pad = ImGui::GetFontSize() * 0.33333f;
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(pad * 4, pad * 2));
+        if(ImGui::BeginPopupModal("Close All", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Are you sure you want to close all the layers?");
+            ImGui::Dummy(ImVec2(0.0f, pad));
+            ImGui::Separator();
+            ImGui::Dummy(ImVec2(0.0f, pad));
+            RightAlignButtons({ "Yes", "No" });
+            if(ImGui::Button("Yes")) {
+                close_all_layers();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SetItemDefaultFocus();
+            ImGui::SameLine();
+            if(ImGui::Button("No")) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+        ImGui::PopStyleVar(1);
+    }
+    ImGui::End();
 
     gerber_layer *item_to_move = nullptr;
     gerber_layer *item_target = nullptr;
@@ -958,9 +1003,14 @@ void gerber_explorer::ui()
                     ImGui::SetItemTooltip("Solid/Mixed/Outline only");
                 }
                 ImGui::SameLine();
-                ImGui::ColorEdit4("##clr",
-                                  l->fill_color.f,
-                                  ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreview);
+                gl::colorf4 e(l->fill_color);
+                auto color_flags = ImGuiColorEditFlags_NoInputs |    //
+                                   ImGuiColorEditFlags_NoLabel |     //
+                                   ImGuiColorEditFlags_AlphaBar |    //
+                                   ImGuiColorEditFlags_AlphaPreview;
+                if(ImGui::ColorEdit4("##clr", e.f, color_flags)) {
+                    l->fill_color = (gl::color)e;
+                }
                 ImGui::SameLine();
                 if(IconButton("##del", MATSYM_close)) {
                     item_to_delete = l;
@@ -1025,7 +1075,7 @@ void gerber_explorer::update_board_extent()
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::blend_layer(gl::colorf4 const &col_r, gl::colorf4 const &col_g, gl::colorf4 const &col_b, float alpha)
+void gerber_explorer::blend_layer(gl::color col_r, gl::color col_g, gl::color col_b, float alpha)
 {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
@@ -1035,9 +1085,9 @@ void gerber_explorer::blend_layer(gl::colorf4 const &col_r, gl::colorf4 const &c
     textured_program.use();
     layer_render_target.bind_textures();
 
-    GL_CHECK(glUniform4fv(textured_program.u_red, 1, col_r.f));
-    GL_CHECK(glUniform4fv(textured_program.u_green, 1, col_g.f));
-    GL_CHECK(glUniform4fv(textured_program.u_blue, 1, col_b.f));
+    GL_CHECK(glUniform4fv(textured_program.u_red, 1, gl::colorf4(col_r).f));
+    GL_CHECK(glUniform4fv(textured_program.u_green, 1, gl::colorf4(col_g).f));
+    GL_CHECK(glUniform4fv(textured_program.u_blue, 1, gl::colorf4(col_b).f));
     GL_CHECK(glUniform1f(textured_program.u_alpha, alpha));
     GL_CHECK(glUniform1i(textured_program.u_num_samples, layer_render_target.num_samples));
     GL_CHECK(glUniform1i(textured_program.u_cover_sampler, 0));
@@ -1195,17 +1245,18 @@ void gerber_explorer::on_render()
                 glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             }
 
-            gl::colorf4 fill = layer.fill_color;
-            gl::colorf4 clear = layer.clear_color;
-            gl::colorf4 f(gl::colors::black);
+            gl::color fill = layer.fill_color;
+            gl::color clear = layer.clear_color;
+            gl::color bg_color(gl::colors::black);
             if(layer.invert) {
-                f = gl::colorf4(gl::colors::green);
+                bg_color = gl::colors::green;
                 std::swap(fill, clear);
             }
-            glClearColor(f.red(), f.green(), f.blue(), f.alpha());
+            gl::colorf4 bg(bg_color);
+            glClearColor(bg.red(), bg.green(), bg.blue(), bg.alpha());
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             layer.layer.fill(world_matrix, entity_flags_t::selected, entity_flags_t::clear, entity_flags_t::fill);
-            blend_layer(gl::colorf4(1, 1, 1, 1), clear, fill, layer.alpha / 255.0f);
+            blend_layer(gl::colors::white, clear, fill, layer.alpha / 255.0f);
         }
     }
 
@@ -1217,13 +1268,13 @@ void gerber_explorer::on_render()
         GL_CHECK(glClearColor(0, 0, 0, 1));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         gl::color red_fill = gl::colors::red;
-        gl::color green_fill = gl::colors::green & 0x80ffffff;
-        gl::color blue_fill = gl::colors::blue & 0x40ffffff;
+        gl::color green_fill = gl::colors::green & 0xc0ffffff;
+        gl::color blue_fill = gl::colors::blue & 0x80ffffff;
         selected_layer->layer.fill(world_matrix, entity_flags_t::active, entity_flags_t::selected, entity_flags_t::hovered, red_fill, green_fill, blue_fill);
-        gl::colorf4 active(gl::colors::white);
-        gl::colorf4 selected(gl::colors::silver);
-        gl::colorf4 hovered(gl::colors::gray);
-        blend_layer(active, selected, hovered, 0.6666f);
+        gl::color active(gl::colors::white);
+        gl::color selected(gl::colors::pale_turquoise);
+        gl::color hovered(gl::colors::powder_blue);
+        blend_layer(active, selected, hovered, 0.8f);
 
         // Draw outline for hovered/selected entities in the selected layer
         if(settings.outline_width > 0.0f) {
@@ -1232,7 +1283,7 @@ void gerber_explorer::on_render()
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             selected_layer->layer.outline(settings.outline_width, world_matrix, viewport_size);
-            blend_layer(gl::colorf4(gl::colors::white), gl::colorf4(gl::colors::clear), gl::colorf4(gl::colors::black), 1.0f);
+            blend_layer(gl::colors::white, gl::colors::clear, gl::colors::black, 1.0f);
         }
     }
 

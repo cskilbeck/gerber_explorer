@@ -11,7 +11,44 @@
 
 #include "settings.h"
 
+using layer_type_t = int;
+
+namespace layer_type
+{
+    enum
+    {
+        unknown = 0,
+
+        vcut = 1000,
+        mechanical = 1001,
+        info = 1002,
+        keepout = 1003,
+
+        drill = 2000,   // plated/unplated drill files (can target different layer pairs)
+
+        // question about tented vs untented vias...
+
+        // from here on, ordered:
+
+        overlay_top = 3000,
+        soldermask_top = 4000,
+
+        copper_first = 5000,
+        copper_last = 6000,
+
+        soldermask_bottom = 7000,
+        overlay_bottom = 8000,
+    };
+}
+
 struct gerber_explorer : gl_window {
+
+    struct gerber_layer;
+
+    // File extension
+    // Comments
+    // Filename
+    // layer_type_t get_layer_type(gerber_layer *layer);
 
     //////////////////////////////////////////////////////////////////////
 
@@ -35,8 +72,8 @@ struct gerber_explorer : gl_window {
             return {};
         }
 
-        gl::colorf4 fill_color;
-        gl::colorf4 clear_color;
+        gl::color fill_color;
+        gl::color clear_color;
 
         bool is_valid() const
         {
@@ -188,13 +225,15 @@ struct gerber_explorer : gl_window {
     void zoom_at_point(vec2d const &zoom_pos, double zoom_scale);
     void update_view_rect();
 
-    void blend_layer(gl::colorf4 const &col_r, gl::colorf4 const &col_g, gl::colorf4 const &col_b, float alpha);
+    void blend_layer(gl::color col_r, gl::color col_g, gl::color col_b, float alpha);
 
     void load_gerber(settings::layer_t const &layer);
 
     std::list<gerber_layer *> loaded_layers; // loaded in the other thread, waiting to be added to layers
 
     void file_open();
+
+    void close_all_layers();
 
     void load_gerbers(std::stop_token const &st);
 

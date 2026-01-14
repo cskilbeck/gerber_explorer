@@ -17,6 +17,7 @@ std::filesystem::path config_path(std::string const &application_name, std::stri
 bool IconCheckbox(const char *label, bool *v, const char *icon_on, const char *icon_off);
 bool IconCheckboxTristate(const char *label, int *v, const char *icon_on, const char *icon_off, const char *icon_mixed);
 bool IconButton(const char *label, const char *icon);
+void RightAlignButtons(const std::vector<const char *> &labels);
 
 static double get_time()
 {

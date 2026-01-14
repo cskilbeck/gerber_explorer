@@ -253,3 +253,15 @@ bool IconButton(const char *label, const char *icon)
 
     return pressed;
 }
+
+//////////////////////////////////////////////////////////////////////
+
+void RightAlignButtons(const std::vector<const char *> &labels) {
+    float totalWidth = 0.0f;
+    float spacing = ImGui::GetStyle().ItemSpacing.x;
+    for (auto label : labels) {
+        totalWidth += ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+    }
+    totalWidth += spacing * (labels.size() - 1);
+    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - totalWidth - ImGui::GetStyle().WindowPadding.x);
+}

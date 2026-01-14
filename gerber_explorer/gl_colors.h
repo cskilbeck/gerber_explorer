@@ -150,6 +150,35 @@ namespace gl
         };
     }
 
+    inline std::string color_to_string(color c)
+    {
+        int a = (c >> 24) & 0xff;
+        int b = (c >> 16) & 0xff;
+        int g = (c >> 8) & 0xff;
+        int r = (c >> 0) & 0xff;
+        return std::format("#{:02x}{:02x}{:02x}{:02x}", a, b, g, r);
+    }
+
+    inline color color_from_string(std::string const &v)
+    {
+        if(v[0] != '#' || v.size() != 9) {
+            return colors::black;
+        }
+        color abgr = 0;
+        for(int n = 1; n < 9; ++n) {
+            abgr <<= 4;
+            char c = static_cast<char>(std::toupper(v[n]));
+            if(c >= '0' && c <= '9') {
+                abgr |= c - '0';
+            } else if(c >= 'A' && c <= 'F') {
+                abgr |= c - 'A' + 10;
+            } else {
+                abgr |= 0xF;
+            }
+        }
+        return abgr;
+    }
+
     struct colorf4
     {
         static constexpr int ired = 0;
@@ -233,35 +262,6 @@ namespace gl
             return f;
         }
 
-        std::string to_string()
-        {
-            int a = (int)(alpha() * 255.0f);
-            int b = (int)(blue() * 255.0f);
-            int g = (int)(green() * 255.0f);
-            int r = (int)(red() * 255.0f);
-            return std::format("#{:02x}{:02x}{:02x}{:02x}", a, b, g, r);
-        }
-
-        void from_string(std::string const &v)
-        {
-            if(v[0] != '#' || v.size() != 9) {
-                return;
-            }
-            uint32_t abgr = 0;
-            for(int n = 1; n < 9; ++n) {
-                abgr <<= 4;
-                char c = static_cast<char>(std::toupper(v[n]));
-                if(c >= '0' && c <= '9') {
-                    abgr |= c - '0';
-                } else if(c >= 'A' && c <= 'F') {
-                    abgr |= c - 'A' + 10;
-                } else {
-                    abgr |= 0xF;
-                }
-            }
-            *this = colorf4(abgr);
-        }
-
         explicit operator color() const
         {
             uint32_t r = (int)(red() * 255.0f) << iredpos;
@@ -269,6 +269,18 @@ namespace gl
             uint32_t b = (int)(blue() * 255.0f) << ibluepos;
             uint32_t a = (int)(alpha() * 255.0f) << ialphapos;
             return a | b | g | r;
+        }
+
+        std::string to_string()
+        {
+            color c =(color)*this;
+            return color_to_string(c);
+        }
+
+        void from_string(std::string const &v)
+        {
+            color c = color_from_string(v);
+            *this = colorf4(c);
         }
 
         float const &operator[](int i) const

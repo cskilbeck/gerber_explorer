@@ -26,17 +26,16 @@
 //
 // selected entity info
 // status bar
+// detect gerber layer type/position from extension/name/x2 info
+// detect board outline
 // settings
 // configurable mouse buttons (/keys?)
-// separate gl_vertex_array / gl_vertex_buffer
 // 3D view
 // reduce gpu usage - only draw frame when necessary
 // high DPI
 // grid
-// gerber spec compliance (regions, polygons, holes)
-// load zip file (how to store path in settings?)
-// detect gerber layer type/position from extension/name/x2 info
-// detect board outline
+// gerber spec compliance tests (regions, polygons, holes)
+// load zip file? (how to store path in settings?)
 // measure tool
 // export PNG
 // fork/mirror 3rd party repos
