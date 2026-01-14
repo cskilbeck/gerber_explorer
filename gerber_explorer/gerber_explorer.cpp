@@ -103,10 +103,27 @@ vec2d gerber_explorer::viewport_pos_from_world_pos(vec2d const &p) const
 
 //////////////////////////////////////////////////////////////////////
 
+vec2d gerber_explorer::viewport_pos_from_board_pos(vec2d const &p) const
+{
+    vec2d b = board_pos_from_world_pos(p);
+    return b.subtract(view_rect.min_pos).multiply(view_scale);
+}
+
+//////////////////////////////////////////////////////////////////////
+
 rect gerber_explorer::viewport_rect_from_world_rect(rect const &r) const
 {
     vec2d min = viewport_pos_from_world_pos(r.min_pos);
     vec2d max = viewport_pos_from_world_pos(r.max_pos);
+    return rect(min, max).normalize();
+}
+
+//////////////////////////////////////////////////////////////////////
+
+rect gerber_explorer::viewport_rect_from_board_rect(rect const &r) const
+{
+    vec2d min = viewport_pos_from_board_pos(r.min_pos);
+    vec2d max = viewport_pos_from_board_pos(r.max_pos);
     return rect(min, max).normalize();
 }
 
@@ -1237,23 +1254,28 @@ void gerber_explorer::on_render()
 
     if(settings.show_axes) {
         overlay.lines();
-        overlay.add_line({ 0, origin.y }, { window_size.x, origin.y }, axes_color);
-        overlay.add_line({ origin.x, 0 }, { origin.x, window_size.y }, axes_color);
+        overlay.add_line({ 0, origin.y }, { viewport_size.x, origin.y }, axes_color);
+        overlay.add_line({ origin.x, 0 }, { origin.x, viewport_size.y }, axes_color);
     }
 
     if(settings.show_extent && selected_layer != nullptr && selected_layer->is_valid()) {
-        rect extent = selected_layer->extent();
-        if(extent.width() != 0 && extent.height() != 0) {
-            rect s{ viewport_pos_from_world_pos(extent.min_pos), viewport_pos_from_world_pos(extent.max_pos) };
+        if(active_entity != nullptr) {
+            rect s = viewport_rect_from_board_rect(active_entity->bounds);
             overlay.add_outline_rect(s, extent_color);
-        }
-        for(auto const &e : selected_layer->layer.entities) {
-            if(e.flags & entity_flags_t::selected) {
-                rect const &b = e.bounds;
-                rect w{ viewport_pos_from_world_pos(b.min_pos), viewport_pos_from_world_pos(b.max_pos) };
-                overlay.add_outline_rect(w, extent_color);
+        } else {
+            rect extent = selected_layer->extent();
+            if(extent.width() != 0 && extent.height() != 0) {
+                rect s{ viewport_pos_from_world_pos(extent.min_pos), viewport_pos_from_world_pos(extent.max_pos) };
+                overlay.add_outline_rect(s, extent_color);
             }
         }
+        // for(auto const &e : selected_layer->layer.entities) {
+        //     if(e.flags & entity_flags_t::selected) {
+        //         rect const &b = e.bounds;
+        //         rect w{ viewport_pos_from_board_pos(b.min_pos), viewport_pos_from_board_pos(b.max_pos) };
+        //         overlay.add_outline_rect(w, extent_color);
+        //     }
+        // }
     }
 
     if(mouse_mode == mouse_drag_select) {

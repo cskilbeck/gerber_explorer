@@ -146,6 +146,18 @@ struct gerber_explorer : gl_window {
     gerber_3d::tesselator_entity const *active_entity{nullptr};
     std::string active_entity_description{};
 
+    // how many gerbers queued up for loading?
+    // when this transitions to 0, zoom to fit
+    int gerbers_to_load{0};
+
+    settings_t settings;
+
+    std::mutex loader_mutex;
+    std::mutex loaded_mutex;
+    std::list<settings::layer_t> gerber_filenames_to_load;
+    std::jthread gerber_load_thread;
+    std::counting_semaphore<1024> loader_semaphore{0};
+
     void set_active_entity(gerber_3d::tesselator_entity const *entity);
 
     void update_board_extent();
@@ -161,6 +173,8 @@ struct gerber_explorer : gl_window {
 
     vec2d viewport_pos_from_world_pos(vec2d const &p) const;
     rect viewport_rect_from_world_rect(rect const &r) const;
+    rect viewport_rect_from_board_rect(rect const &r) const;
+    vec2d viewport_pos_from_board_pos(vec2d const &p) const;
 
     vec2d board_pos_from_world_pos(vec2d const &p) const;
     vec2d board_pos_from_viewport_pos(vec2d const &p) const;
@@ -180,20 +194,9 @@ struct gerber_explorer : gl_window {
 
     std::list<gerber_layer *> loaded_layers; // loaded in the other thread, waiting to be added to layers
 
-    // how many gerbers queued up for loading?
-    // when this transitions to 0, zoom to fit
-    int gerbers_to_load{0};
-
     void file_open();
 
-    settings_t settings;
-
-    std::mutex loader_mutex;
-    std::mutex loaded_mutex;
-    std::list<settings::layer_t> gerber_filenames_to_load;
     void load_gerbers(std::stop_token const &st);
-    std::jthread gerber_load_thread;
-    std::counting_semaphore<1024> loader_semaphore{0};
 
     std::optional<std::filesystem::path> save_file_dialog();
     std::optional<std::filesystem::path> load_file_dialog();
