@@ -80,34 +80,50 @@ std::string gerber_explorer::window_name() const
 
 //////////////////////////////////////////////////////////////////////
 
-vec2d gerber_explorer::world_pos_from_window_pos(vec2d const &p) const
+vec2d gerber_explorer::world_pos_from_viewport_pos(vec2d const &p) const
 {
     return vec2d{ p.x, p.y }.divide(view_scale).add(view_rect.min_pos);
 }
 
 //////////////////////////////////////////////////////////////////////
 
-rect gerber_explorer::world_rect_from_window_rect(rect const &r) const
+rect gerber_explorer::world_rect_from_viewport_rect(rect const &r) const
 {
-    vec2d min = world_pos_from_window_pos(r.min_pos);
-    vec2d max = world_pos_from_window_pos(r.max_pos);
+    vec2d min = world_pos_from_viewport_pos(r.min_pos);
+    vec2d max = world_pos_from_viewport_pos(r.max_pos);
     return rect(min, max).normalize();
 }
 
 //////////////////////////////////////////////////////////////////////
 
-vec2d gerber_explorer::board_pos_from_window_pos(vec2d const &p) const
+vec2d gerber_explorer::viewport_pos_from_world_pos(vec2d const &p) const
 {
-    vec2d pos = world_pos_from_window_pos(p);
+    return p.subtract(view_rect.min_pos).multiply(view_scale);
+}
+
+//////////////////////////////////////////////////////////////////////
+
+rect gerber_explorer::viewport_rect_from_world_rect(rect const &r) const
+{
+    vec2d min = viewport_pos_from_world_pos(r.min_pos);
+    vec2d max = viewport_pos_from_world_pos(r.max_pos);
+    return rect(min, max).normalize();
+}
+
+//////////////////////////////////////////////////////////////////////
+
+vec2d gerber_explorer::board_pos_from_viewport_pos(vec2d const &p) const
+{
+    vec2d pos = world_pos_from_viewport_pos(p);
     return pos.subtract(board_center).multiply(flip_xy).add(board_center);
 }
 
 //////////////////////////////////////////////////////////////////////
 
-rect gerber_explorer::board_rect_from_window_rect(rect const &r) const
+rect gerber_explorer::board_rect_from_viewport_rect(rect const &r) const
 {
-    vec2d min = world_pos_from_window_pos(r.min_pos);
-    vec2d max = world_pos_from_window_pos(r.max_pos);
+    vec2d min = world_pos_from_viewport_pos(r.min_pos);
+    vec2d max = world_pos_from_viewport_pos(r.max_pos);
     min = min.subtract(board_center).multiply(flip_xy).add(board_center);
     max = max.subtract(board_center).multiply(flip_xy).add(board_center);
     return rect(min, max).normalize();
@@ -115,39 +131,30 @@ rect gerber_explorer::board_rect_from_window_rect(rect const &r) const
 
 //////////////////////////////////////////////////////////////////////
 
-vec2d gerber_explorer::window_pos_from_world_pos(vec2d const &p) const
+vec2d gerber_explorer::board_pos_from_world_pos(vec2d const &p) const
 {
-    return p.subtract(view_rect.min_pos).multiply(view_scale);
-}
-
-//////////////////////////////////////////////////////////////////////
-
-rect gerber_explorer::window_rect_from_world_rect(rect const &r) const
-{
-    vec2d min = window_pos_from_world_pos(r.min_pos);
-    vec2d max = window_pos_from_world_pos(r.max_pos);
-    return rect(min, max).normalize();
+    return p.subtract(board_center).multiply(flip_xy).add(board_center);
 }
 
 //////////////////////////////////////////////////////////////////////
 
 rect gerber_explorer::board_rect_from_world_rect(rect const &r) const
 {
-    vec2d min = r.min_pos.subtract(board_center).multiply(flip_xy).add(board_center);
-    vec2d max = r.max_pos.subtract(board_center).multiply(flip_xy).add(board_center);
+    vec2d min = board_pos_from_world_pos(r.min_pos);
+    vec2d max = board_pos_from_world_pos(r.max_pos);
     return rect(min, max).normalize();
 }
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::fit_to_window()
+void gerber_explorer::fit_to_viewport()
 {
     if(active_entity != nullptr) {
         zoom_to_rect(board_rect_from_world_rect(active_entity->bounds));
     } else if(selected_layer != nullptr && selected_layer->is_valid()) {
         zoom_to_rect(selected_layer->extent());
     } else {
-        should_fit_to_window = true;
+        should_fit_to_viewport = true;
         update_board_extent();
         zoom_to_rect(board_extent);
     }
@@ -203,8 +210,8 @@ void gerber_explorer::update_view_rect()
         vec2d dmin = target_view_rect.min_pos.subtract(source_view_rect.min_pos).scale(d);
         vec2d dmax = target_view_rect.max_pos.subtract(source_view_rect.max_pos).scale(d);
         view_rect = { source_view_rect.min_pos.add(dmin), source_view_rect.max_pos.add(dmax) };
-        vec2d wv = window_pos_from_world_pos(view_rect.min_pos);
-        vec2d tv = window_pos_from_world_pos(target_view_rect.min_pos);
+        vec2d wv = viewport_pos_from_world_pos(view_rect.min_pos);
+        vec2d tv = viewport_pos_from_world_pos(target_view_rect.min_pos);
         if(wv.subtract(tv).length() <= 1) {
             view_rect = target_view_rect;
             zoom_anim = false;
@@ -232,7 +239,7 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
                 glfwSetWindowShouldClose(window, true);
                 break;
             case GLFW_KEY_F:
-                fit_to_window();
+                fit_to_viewport();
                 break;
             case GLFW_KEY_X:
                 settings.flip_x = !settings.flip_x;
@@ -277,7 +284,7 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
 void gerber_explorer::on_scroll(double xoffset, double yoffset)
 {
     double scale_factor = (yoffset > 0) ? 0.9 : 1.1;
-    zoom_at_point(world_pos_from_window_pos(mouse_pos), scale_factor);
+    zoom_at_point(world_pos_from_viewport_pos(mouse_pos), scale_factor);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -311,8 +318,8 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
                 vec2d mx = drag_rect_corrected.max_pos;
                 rect d = rect{ mn, mx }.normalize();
                 if(d.width() > 2 && d.height() > 2) {
-                    zoom_to_rect(world_rect_from_window_rect({ mn, mx }));
-                    should_fit_to_window = false;
+                    zoom_to_rect(world_rect_from_viewport_rect({ mn, mx }));
+                    should_fit_to_viewport = false;
                 }
             } else if(mouse_mode == mouse_drag_select && selected_layer != nullptr) {
                 selected_layer->layer.select_hovered_entities();
@@ -349,12 +356,12 @@ void gerber_explorer::handle_mouse()
         switch(mouse_mode) {
 
         case mouse_drag_pan: {
-            vec2d new_mouse_pos = world_pos_from_window_pos(mouse_pos);
-            vec2d old_mouse_pos = world_pos_from_window_pos(drag_mouse_start_pos);
+            vec2d new_mouse_pos = world_pos_from_viewport_pos(mouse_pos);
+            vec2d old_mouse_pos = world_pos_from_viewport_pos(drag_mouse_start_pos);
             vec2d diff = new_mouse_pos.subtract(old_mouse_pos).negate();
             view_rect = view_rect.offset(diff);
             drag_mouse_start_pos = mouse_pos;
-            should_fit_to_window = false;
+            should_fit_to_viewport = false;
         } break;
 
         case mouse_drag_zoom: {
@@ -364,7 +371,7 @@ void gerber_explorer::handle_mouse()
                 double factor = (d.x - d.y) * 0.01;
                 factor = std::max(-0.25, std::min(factor, 0.25));
                 zoom_at_point(mouse_world_pos, 1.0 - factor);
-                should_fit_to_window = false;
+                should_fit_to_viewport = false;
             } else {
                 ignore_mouse_moves -= 1;
             }
@@ -381,7 +388,7 @@ void gerber_explorer::handle_mouse()
         case mouse_drag_maybe_select: {
             if(mouse_pos.subtract(drag_mouse_start_pos).length() > drag_select_offset_start_distance) {
                 set_mouse_mode(mouse_drag_select);
-                mouse_world_pos = world_pos_from_window_pos(mouse_pos);
+                mouse_world_pos = world_pos_from_viewport_pos(mouse_pos);
             }
         } break;
 
@@ -391,10 +398,10 @@ void gerber_explorer::handle_mouse()
             if(selected_layer != nullptr) {
                 if(drag_rect.min_pos.x > drag_rect.max_pos.x) {
                     selected_layer->layer.flag_touching_entities(
-                        board_rect_from_window_rect(drag_rect), entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+                        board_rect_from_viewport_rect(drag_rect), entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
                 } else {
                     selected_layer->layer.flag_enclosed_entities(
-                        board_rect_from_window_rect(drag_rect), entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
+                        board_rect_from_viewport_rect(drag_rect), entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
                 }
             }
         } break;
@@ -403,7 +410,7 @@ void gerber_explorer::handle_mouse()
         case mouse_drag_none: {
             // Just hovering, highlight entities under the mouse if selected_layer != nullptr
             if(selected_layer != nullptr) {
-                vec2d pos = board_pos_from_window_pos(mouse_pos);
+                vec2d pos = board_pos_from_viewport_pos(mouse_pos);
                 selected_layer->layer.flag_entities_at_point(pos, entity_flags_t::hovered, entity_flags_t::hovered);
             }
         } break;
@@ -454,7 +461,7 @@ void gerber_explorer::on_window_refresh()
 {
     gl_window::on_window_refresh();
     on_frame();
-    if(should_fit_to_window) {
+    if(should_fit_to_viewport) {
         view_rect = target_view_rect;
     }
 }
@@ -501,7 +508,7 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
     case mouse_drag_zoom:
         zoom_anim = false;
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        mouse_world_pos = world_pos_from_window_pos(mouse_pos);
+        mouse_world_pos = world_pos_from_viewport_pos(mouse_pos);
         drag_mouse_cur_pos = mouse_pos;
         drag_mouse_start_pos = mouse_pos;
         // ignore the next 2 mouse moves because sometimes they are kind of
@@ -520,7 +527,7 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
         drag_mouse_start_pos = mouse_pos;
         if(selected_layer != nullptr) {
             std::vector<int> entity_indices;
-            mouse_world_pos = board_pos_from_window_pos(mouse_pos);
+            mouse_world_pos = board_pos_from_viewport_pos(mouse_pos);
             selected_layer->layer.find_entities_at_point(mouse_world_pos, entity_indices);
             if(entity_indices != active_entities) {
                 active_entity_index = 0;
@@ -778,15 +785,13 @@ void gerber_explorer::set_active_entity(tesselator_entity const *entity)
     } else if(net->num_region_points != 0) {
         description = std::format("region ({} points)", net->num_region_points);
     }
-    active_entity_description = std::format("Entity {:6d}:{}{} {} {}", net->entity_id, state, interpolation, polarity, description);
+    active_entity_description = std::format("Entity {}:{}{} {} {}", net->entity_id, state, interpolation, polarity, description);
 }
 
 //////////////////////////////////////////////////////////////////////
 
 void gerber_explorer::ui()
 {
-    // ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
-
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     if(ImGui::BeginMainMenuBar()) {
         if(ImGui::BeginMenu("File")) {
@@ -825,7 +830,7 @@ void gerber_explorer::ui()
         }
         if(ImGui::BeginMenu("View")) {
             if(ImGui::MenuItem("Fit to window", "F", nullptr, !layers.empty())) {
-                fit_to_window();
+                fit_to_viewport();
             }
             ImGui::MenuItem("Flip X", "X", &settings.flip_x);
             ImGui::MenuItem("Flip Y", "Y", &settings.flip_y);
@@ -974,15 +979,15 @@ void gerber_explorer::ui()
     }
     ImGui::End();
 
-    // This is messed up, fix it later
-
     ImGui::Begin("Info");
-    if(active_entity != nullptr) {
-        ImGui::Text("%s", active_entity_description.c_str());
-    } else if(selected_layer != nullptr) {
-        ImGui::Text("%s - %llu entities", selected_layer->name.c_str(), selected_layer->layer.entities.size());
-    } else {
-        ImGui::Text("Select a layer...");
+    {
+        if(active_entity != nullptr) {
+            ImGui::Text("%s", active_entity_description.c_str());
+        } else if(selected_layer != nullptr) {
+            ImGui::Text("%s - %llu entities", selected_layer->name.c_str(), selected_layer->layer.entities.size());
+        } else {
+            ImGui::Text("Select a layer...");
+        }
     }
     ImGui::End();
 }
@@ -1047,7 +1052,7 @@ void gerber_explorer::on_render()
                     gerbers_to_load -= 1;
                     if(gerbers_to_load == 0) {
                         select_layer(nullptr);
-                        fit_to_window();
+                        fit_to_viewport();
                     }
                 }
             }
@@ -1090,8 +1095,8 @@ void gerber_explorer::on_render()
     view_rect.max_pos = view_rect.min_pos.add(new_view_size);
 
     if(viewport_changed) {
-        if(should_fit_to_window) {
-            fit_to_window();
+        if(should_fit_to_viewport) {
+            fit_to_viewport();
             view_rect = target_view_rect;
             zoom_anim = false;
         } else {
@@ -1209,7 +1214,7 @@ void gerber_explorer::on_render()
             GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            selected_layer->layer.outline(settings.outline_width, world_matrix, window_size);
+            selected_layer->layer.outline(settings.outline_width, world_matrix, viewport_size);
             blend_layer(gl::colorf4(gl::colors::white), gl::colorf4(gl::colors::clear), gl::colorf4(gl::colors::black), 1.0f);
         }
     }
@@ -1225,7 +1230,7 @@ void gerber_explorer::on_render()
         overlay.add_outline_rect(drag_rect, 0xffffffff);
     }
 
-    vec2d origin = window_pos_from_world_pos({ 0, 0 });
+    vec2d origin = viewport_pos_from_world_pos({ 0, 0 });
 
     gl::color axes_color = gl::colors::cyan;
     gl::color extent_color = gl::colors::yellow;
@@ -1239,13 +1244,13 @@ void gerber_explorer::on_render()
     if(settings.show_extent && selected_layer != nullptr && selected_layer->is_valid()) {
         rect extent = selected_layer->extent();
         if(extent.width() != 0 && extent.height() != 0) {
-            rect s{ window_pos_from_world_pos(extent.min_pos), window_pos_from_world_pos(extent.max_pos) };
+            rect s{ viewport_pos_from_world_pos(extent.min_pos), viewport_pos_from_world_pos(extent.max_pos) };
             overlay.add_outline_rect(s, extent_color);
         }
         for(auto const &e : selected_layer->layer.entities) {
             if(e.flags & entity_flags_t::selected) {
                 rect const &b = e.bounds;
-                rect w{ window_pos_from_world_pos(b.min_pos), window_pos_from_world_pos(b.max_pos) };
+                rect w{ viewport_pos_from_world_pos(b.min_pos), viewport_pos_from_world_pos(b.max_pos) };
                 overlay.add_outline_rect(w, extent_color);
             }
         }
@@ -1261,7 +1266,7 @@ void gerber_explorer::on_render()
         overlay.add_outline_rect(f, 0xffffffff);
     }
 
-    rect ext{ window_pos_from_world_pos(arc_extent.min_pos), window_pos_from_world_pos(arc_extent.max_pos) };
+    rect ext{ viewport_pos_from_world_pos(arc_extent.min_pos), viewport_pos_from_world_pos(arc_extent.max_pos) };
     overlay.add_outline_rect(ext, gl::colors::green);
 
     color_program.use();

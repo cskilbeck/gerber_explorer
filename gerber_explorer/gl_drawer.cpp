@@ -469,7 +469,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::outline(float outline_thickness, gl_matrix const &matrix, vec2d const &window_size)
+    void gl_drawer::outline(float outline_thickness, gl_matrix const &matrix, vec2d const &viewport_size)
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -506,7 +506,7 @@ namespace gerber_3d
         GL_CHECK(glUniform1i(line2_program->u_vert_sampler, 1));     // vert_sampler     -> GL_TEXTURE1
         GL_CHECK(glUniform1i(line2_program->u_flags_sampler, 2));    // flags_sampler    -> GL_TEXTURE2
         GL_CHECK(glUniform1f(line2_program->u_thickness, outline_thickness));
-        GL_CHECK(glUniform2f(line2_program->u_viewport_size, (float)window_size.x, (float)window_size.y));
+        GL_CHECK(glUniform2f(line2_program->u_viewport_size, (float)viewport_size.x, (float)viewport_size.y));
         GL_CHECK(glUniform1f(line2_program->u_check_size, 4.0f));
 
         float now = (float)fmod(get_time() * 25, 8.0);

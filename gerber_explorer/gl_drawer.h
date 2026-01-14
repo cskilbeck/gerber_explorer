@@ -80,7 +80,7 @@ namespace gerber_3d
         void fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, gl::color red_fill = gl::colors::red,
                   gl::color green_fill = gl::colors::green, gl::color blue_fill = gl::colors::blue);
 
-        void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &window_size);
+        void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &viewport_size);
 
         // picking/selection
         void clear_entity_flags(int flags);

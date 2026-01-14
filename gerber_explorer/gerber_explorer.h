@@ -134,7 +134,7 @@ struct gerber_explorer : gl_window {
     int max_multisamples{ 1 };
 
     // when window size changes, zoom to fit (cleared if they pan/zoom etc manually)
-    bool should_fit_to_window{ false };
+    bool should_fit_to_viewport{ false };
 
     // bounding rect of all layers
     rect board_extent;
@@ -156,19 +156,20 @@ struct gerber_explorer : gl_window {
     // scale window to view rect
     vec2d view_scale;
 
-    vec2d board_pos_from_window_pos(vec2d const &p) const;
-    vec2d world_pos_from_window_pos(vec2d const &p) const;
-    vec2d window_pos_from_world_pos(vec2d const &p) const;
+    vec2d world_pos_from_viewport_pos(vec2d const &p) const;
+    rect world_rect_from_viewport_rect(rect const &r) const;
 
-    rect world_rect_from_window_rect(rect const &r) const;
-    rect board_rect_from_window_rect(rect const &r) const;
-    rect window_rect_from_world_rect(rect const &r) const;
+    vec2d viewport_pos_from_world_pos(vec2d const &p) const;
+    rect viewport_rect_from_world_rect(rect const &r) const;
 
+    vec2d board_pos_from_world_pos(vec2d const &p) const;
+    vec2d board_pos_from_viewport_pos(vec2d const &p) const;
+    rect board_rect_from_viewport_rect(rect const &r) const;
     rect board_rect_from_world_rect(rect const &r) const;
 
     void select_layer(gerber_layer *layer);
 
-    void fit_to_window();
+    void fit_to_viewport();
     void zoom_to_rect(rect const &zoom_rect, double border_ratio = 1.1);
     void zoom_at_point(vec2d const &zoom_pos, double zoom_scale);
     void update_view_rect();
