@@ -7,6 +7,8 @@
 #include "gerber_lib.h"
 #include "log_drawer.h"
 #include "gl_drawer.h"
+
+#include "gerber_net.h"
 #include "util.h"
 
 #include "gl_colors.h"
@@ -98,7 +100,7 @@ namespace gerber_3d
                 e.flags |= set_flags;
                 n += 1;
                 if(set_flags & entity_flags_t::selected) {
-                    LOG_INFO("SELECT {}", e.entity_id);
+                    LOG_INFO("SELECT {}", e.entity_id());
                 }
             }
         }
@@ -155,11 +157,11 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::new_entity(int entity_id, int flags)
+    void gl_drawer::new_entity(gerber_net *net, int flags)
     {
         finish_entity();
 
-        entities.emplace_back(entity_id, (int)fill_spans.size(), 0, (int)outline_vertices.size(), 0, flags);
+        entities.emplace_back(net, (int)fill_spans.size(), 0, (int)outline_vertices.size(), 0, flags);
         boundary_stesselator = tessNewTess(nullptr);
         tessSetOption(boundary_stesselator, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 1);
         tessSetOption(boundary_stesselator, TESS_REVERSE_CONTOURS, 1);
@@ -284,12 +286,12 @@ namespace gerber_3d
 
         int max_entity_id = 0;
         for(auto const &e : entities) {
-            max_entity_id = std::max(max_entity_id, e.entity_id);
+            max_entity_id = std::max(max_entity_id, e.entity_id());
         }
 
         entity_flags.resize(max_entity_id + 1);
         for(auto &e : entities) {
-            auto id = e.entity_id;
+            auto id = e.entity_id();
             if(id >= entity_flags.size()) {
                 LOG_ERROR("Entity ID out of range!?");
                 id = 0;
@@ -342,7 +344,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::fill_elements(gerber_draw_element const *elements, size_t num_elements, gerber_polarity polarity, int entity_id)
+    void gl_drawer::fill_elements(gerber_draw_element const *elements, size_t num_elements, gerber_polarity polarity, gerber_net *gnet)
     {
         using gerber_lib::gerber_draw_element;
 
@@ -351,12 +353,12 @@ namespace gerber_3d
 
         int flag = polarity == polarity_clear ? entity_flags_t::clear : entity_flags_t::fill;
 
-        if(entity_id != current_entity_id) {
-            new_entity(entity_id, flag);
+        if(gnet->entity_id != current_entity_id) {
+            new_entity(gnet, flag);
         }
 
         current_flag = flag;
-        current_entity_id = entity_id;
+        current_entity_id = gnet->entity_id;
 
         std::vector<vec2f> &points = temp_points;
         size_t offset = points.size();
@@ -409,7 +411,7 @@ namespace gerber_3d
         }
 
         if(points.size() < 3) {
-            LOG_WARNING("CULLED SECTION OF ENTITY {}", entity_id);
+            LOG_WARNING("CULLED SECTION OF ENTITY {}", gnet->entity_id);
             return;
         }
 
@@ -481,7 +483,7 @@ namespace gerber_3d
         gl::colorf4 fill_color(gl::colors::red);
 
         for(auto const &e : entities) {
-            int id = e.entity_id;
+            int id = e.entity_id();
             if((e.flags & entity_flags_t::hovered) != 0) {
                 entity_flags[id] = 1;
             } else {

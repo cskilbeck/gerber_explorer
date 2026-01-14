@@ -7,6 +7,9 @@
 #include <nfd.h>
 
 #include "gerber_explorer.h"
+
+#include "gerber_aperture.h"
+#include "gerber_net.h"
 #include "gl_matrix.h"
 #include "gl_colors.h"
 #include "util.h"
@@ -913,11 +916,48 @@ void gerber_explorer::ui()
     }
     ImGui::End();
 
+    // This is messed up, fix it later
+
     ImGui::Begin("Info");
     if(active_entity != nullptr) {
-        ImGui::Text("%d", active_entity->entity_id);
+        using namespace gerber_lib;
+        gerber_net *net = active_entity->net;
+        gerber_level *level = net->level;
+        gerber_polarity polarity = level->polarity;
+        gerber_aperture_type aperture_type{aperture_type_none};
+        auto apertures = selected_layer->layer.gerber_file->image.apertures;
+        std::string state{""};
+        std::string description{"?"};
+        std::string interpolation{""};
+        if(net->aperture_state == aperture_state_on && net->interpolation_method < interpolation_region_start) {
+            interpolation = std::format(" {}", net->interpolation_method);
+        }
+        if(net->aperture_state != aperture_state_on) {
+            state = std::format("{}", net->aperture_state);
+        }
+        if(net->aperture != 0) {
+            auto it = apertures.find(net->aperture);
+            if(it != apertures.end()) {
+                gerber_aperture *aperture = it->second;
+                aperture_type = aperture->aperture_type;
+                if(aperture_type >= aperture_type_macro) {
+                    gerber_aperture_macro *macro = aperture->aperture_macro;
+                    description = std::format("macro {}", macro->name);
+                } else {
+                    description = std::format("aperture {} ({})", net->aperture,  aperture_type);
+                }
+            } else {
+                description = std::format("?unknown aperture {}?", net->aperture);
+            }
+        } else if(net->num_region_points != 0) {
+            description = std::format("region ({} points)", net->num_region_points);
+        }
+        auto status = std::format("Entity {:6d}:{}{} {} {}", net->entity_id, state, interpolation, polarity, description);
+        ImGui::Text("%s", status.c_str());
+    } else if(selected_layer != nullptr) {
+        ImGui::Text("%s - %llu entities", selected_layer->name.c_str(), selected_layer->layer.entities.size());
     } else {
-        ImGui::Text("...");
+        ImGui::Text("Select a layer...");
     }
     ImGui::End();
 }

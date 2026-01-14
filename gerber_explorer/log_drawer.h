@@ -16,7 +16,7 @@ namespace gerber_3d
         log_drawer() = default;
 
         void set_gerber(gerber_lib::gerber *g) override;
-        void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, int entity_id) override;
+        void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, gerber_lib::gerber_net *gnet) override;
 
         void on_finished_loading() override
         {

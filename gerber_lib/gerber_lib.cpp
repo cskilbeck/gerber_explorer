@@ -2146,7 +2146,7 @@ namespace gerber_lib
     {
         std::vector<gerber_draw_element> elements;
 
-        int entity_id = image.nets[net_index]->entity_id;
+        gerber_net *gnet = image.nets[net_index];
 
         for(size_t last_index = net_index + 1; last_index < image.nets.size(); ++last_index) {
 
@@ -2181,7 +2181,7 @@ namespace gerber_lib
                 }
             }
         }
-        drawer.fill_elements(elements.data(), elements.size(), polarity, entity_id);
+        drawer.fill_elements(elements.data(), elements.size(), polarity, gnet);
         return ok;
     }
 
@@ -2223,7 +2223,7 @@ namespace gerber_lib
                 mat = matrix::multiply(mat, matrix::translate(net->end));
                 pos = transform_point(mat, pos);
                 gerber_draw_element e(pos, 0, 360, diameter / 2);
-                drawer.fill_elements(&e, 1, polarity, net->entity_id);
+                drawer.fill_elements(&e, 1, polarity, net);
             } break;
 
             case aperture_type_macro_moire: {
@@ -2244,7 +2244,7 @@ namespace gerber_lib
                 for(size_t i=0; i<points.size()-1; ++i) {
                     e.emplace_back(points[i], points[i+1]);
                 }
-                drawer.fill_elements(e.data(), e.size(), polarity_dark, net->entity_id);
+                drawer.fill_elements(e.data(), e.size(), polarity_dark, net);
             } break;
 
             case aperture_type_macro_polygon: {
@@ -2275,7 +2275,7 @@ namespace gerber_lib
                     e[1] = gerber_draw_element(points[3], points[2]);
                     e[2] = gerber_draw_element(points[2], points[1]);
                     e[3] = gerber_draw_element(points[1], points[0]);
-                    drawer.fill_elements(e, 4, polarity_dark, net->entity_id);
+                    drawer.fill_elements(e, 4, polarity_dark, net);
                 }
             } break;
 
@@ -2304,7 +2304,7 @@ namespace gerber_lib
                     e[1] = gerber_draw_element(points[3], points[2]);
                     e[2] = gerber_draw_element(points[2], points[1]);
                     e[3] = gerber_draw_element(points[1], points[0]);
-                    drawer.fill_elements(e, 4, polarity_dark, net->entity_id);
+                    drawer.fill_elements(e, 4, polarity_dark, net);
                 }
             } break;
 
@@ -2354,7 +2354,7 @@ namespace gerber_lib
                                      gerber_draw_element(p4, p3),                                     //
                                      gerber_draw_element(start, deg + 90, deg + 270, thickness) };    //
 
-        drawer.fill_elements(e, 4, net->level->polarity, net->entity_id);
+        drawer.fill_elements(e, 4, net->level->polarity, net);
         return ok;
     }
 
@@ -2375,7 +2375,7 @@ namespace gerber_lib
             el[1] = gerber_draw_element(el[0].line.end, top_right);
             el[2] = gerber_draw_element(el[1].line.end, { bottom_left.x, top_right.y });
             el[3] = gerber_draw_element(el[2].line.end, el[0].line.start);
-            drawer.fill_elements(el, 4, net->level->polarity, net->entity_id);
+            drawer.fill_elements(el, 4, net->level->polarity, net);
         };
 
         if(diff.length() < 1e-6) {
@@ -2417,7 +2417,7 @@ namespace gerber_lib
     gerber_error_code gerber::draw_circle(gerber_draw_interface &drawer, gerber_net *net, vec2d const &pos, double radius) const
     {
         gerber_draw_element e(pos, 0.0, 360.0, radius);
-        drawer.fill_elements(&e, 1, net->level->polarity, net->entity_id);
+        drawer.fill_elements(&e, 1, net->level->polarity, net);
         return ok;
     }
 
@@ -2523,7 +2523,7 @@ namespace gerber_lib
             }
         }
         if(n != 0) {
-            drawer.fill_elements(draw_elements, n, net->level->polarity, net->entity_id);
+            drawer.fill_elements(draw_elements, n, net->level->polarity, net);
         }
         return ok;
     }
@@ -2550,7 +2550,7 @@ namespace gerber_lib
             el[1] = gerber_draw_element(tl2, { br2.x, tl1.y });
             el[2] = gerber_draw_element({ br2.x, center.y }, 270, 450, h2);
             el[3] = gerber_draw_element(br2, { tl2.x, br1.y });
-            drawer.fill_elements(el, 4, net->level->polarity, net->entity_id);
+            drawer.fill_elements(el, 4, net->level->polarity, net);
         } else {
             vec2d tl2{ tl1.x, tl1.y + w2 };
             vec2d br2{ br1.x, br1.y - w2 };
@@ -2558,7 +2558,7 @@ namespace gerber_lib
             el[1] = gerber_draw_element({ br2.x, tl2.y }, br2);
             el[2] = gerber_draw_element({ center.x, br2.y }, 0, 180, w2);
             el[3] = gerber_draw_element({ tl2.x, br2.y }, tl2);
-            drawer.fill_elements(el, 4, net->level->polarity, net->entity_id);
+            drawer.fill_elements(el, 4, net->level->polarity, net);
         }
         return ok;
     }
@@ -2575,7 +2575,7 @@ namespace gerber_lib
         el[1] = gerber_draw_element(bottom_right, r.max_pos);
         el[2] = gerber_draw_element(r.max_pos, top_left);
         el[3] = gerber_draw_element(top_left, r.min_pos);
-        drawer.fill_elements(el, 4, net->level->polarity, net->entity_id);
+        drawer.fill_elements(el, 4, net->level->polarity, net);
         return ok;
     }
 

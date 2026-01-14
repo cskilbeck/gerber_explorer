@@ -5,6 +5,7 @@
 #include "gl_base.h"
 #include "gerber_lib.h"
 #include "gerber_draw.h"
+#include "gerber_net.h"
 #include "gl_matrix.h"
 
 struct TESStesselator;
@@ -29,13 +30,18 @@ namespace gerber_3d
 
     struct tesselator_entity
     {
-        int entity_id;                // references flags array for drawing outlines
+        gerber_lib::gerber_net *net{};
         int first_fill;               // offset into fills spans
         int num_fills{};              // # of fill draw calls
         int outline_offset;           // offset into outline lines
         int outline_size{};           // # of lines in the outline
         int flags;                    // see entity_flags_t
         gerber_lib::rect bounds{};    // for picking speedup
+
+        int entity_id() const
+        {
+            return net->entity_id;
+        }
     };
 
     struct tesselator_span
@@ -60,11 +66,12 @@ namespace gerber_3d
         void on_finished_loading() override;
 
         // callback to create draw calls from elements
-        void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, int entity_id) override;
+        void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity,
+                           gerber_lib::gerber_net *gnet) override;
 
         // admin for tesselation etc
         void clear();
-        void new_entity(int entity_id, int flags);
+        void new_entity(gerber_lib::gerber_net *net, int flags);
         void append_points(size_t offset);
         void finish_entity();
         void finalize();
