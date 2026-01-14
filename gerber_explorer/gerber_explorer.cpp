@@ -131,9 +131,20 @@ rect gerber_explorer::window_rect_from_world_rect(rect const &r) const
 
 //////////////////////////////////////////////////////////////////////
 
+rect gerber_explorer::board_rect_from_world_rect(rect const &r) const
+{
+    vec2d min = r.min_pos.subtract(board_center).multiply(flip_xy).add(board_center);
+    vec2d max = r.max_pos.subtract(board_center).multiply(flip_xy).add(board_center);
+    return rect(min, max).normalize();
+}
+
+//////////////////////////////////////////////////////////////////////
+
 void gerber_explorer::fit_to_window()
 {
-    if(selected_layer != nullptr && selected_layer->is_valid()) {
+    if(active_entity != nullptr) {
+        zoom_to_rect(board_rect_from_world_rect(active_entity->bounds));
+    } else if(selected_layer != nullptr && selected_layer->is_valid()) {
         zoom_to_rect(selected_layer->extent());
     } else {
         should_fit_to_window = true;
@@ -521,7 +532,7 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
                 if(active_entity_index < active_entities.size()) {
                     tesselator_entity &e = selected_layer->layer.entities[active_entities[active_entity_index]];
                     e.flags |= entity_flags_t::active;
-                    active_entity = &e;
+                    set_active_entity(&e);
                 } else {
                     active_entity = nullptr;
                 }
@@ -707,6 +718,9 @@ void gerber_explorer::select_layer(gerber_layer *layer)
     if(selected_layer != nullptr) {
         selected_layer->layer.clear_entity_flags(entity_flags_t::all_select);
     }
+    if(layer != selected_layer) {
+        active_entity = nullptr;
+    }
     selected_layer = layer;
 }
 
@@ -721,6 +735,50 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer)
     }
     loader_semaphore.release();
     std::this_thread::yield();
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::set_active_entity(tesselator_entity const *entity)
+{
+    active_entity = entity;
+    if(active_entity == nullptr) {
+        active_entity_description.clear();
+        return;
+    }
+    using namespace gerber_lib;
+    gerber_net *net = active_entity->net;
+    gerber_level *level = net->level;
+    gerber_polarity polarity = level->polarity;
+    gerber_aperture_type aperture_type{aperture_type_none};
+    auto apertures = selected_layer->layer.gerber_file->image.apertures;
+    std::string state{""};
+    std::string description{"?"};
+    std::string interpolation{""};
+    if(net->aperture_state == aperture_state_on && net->interpolation_method < interpolation_region_start) {
+        interpolation = std::format(" {}", net->interpolation_method);
+    }
+    if(net->aperture_state != aperture_state_on) {
+        state = std::format("{}", net->aperture_state);
+    }
+    if(net->aperture != 0) {
+        auto it = apertures.find(net->aperture);
+        if(it != apertures.end()) {
+            gerber_aperture *aperture = it->second;
+            aperture_type = aperture->aperture_type;
+            if(aperture_type >= aperture_type_macro) {
+                gerber_aperture_macro *macro = aperture->aperture_macro;
+                description = std::format("macro {}", macro->name);
+            } else {
+                description = std::format("aperture {} ({})", net->aperture,  aperture_type);
+            }
+        } else {
+            description = std::format("?unknown aperture {}?", net->aperture);
+        }
+    } else if(net->num_region_points != 0) {
+        description = std::format("region ({} points)", net->num_region_points);
+    }
+    active_entity_description = std::format("Entity {:6d}:{}{} {} {}", net->entity_id, state, interpolation, polarity, description);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -920,40 +978,7 @@ void gerber_explorer::ui()
 
     ImGui::Begin("Info");
     if(active_entity != nullptr) {
-        using namespace gerber_lib;
-        gerber_net *net = active_entity->net;
-        gerber_level *level = net->level;
-        gerber_polarity polarity = level->polarity;
-        gerber_aperture_type aperture_type{aperture_type_none};
-        auto apertures = selected_layer->layer.gerber_file->image.apertures;
-        std::string state{""};
-        std::string description{"?"};
-        std::string interpolation{""};
-        if(net->aperture_state == aperture_state_on && net->interpolation_method < interpolation_region_start) {
-            interpolation = std::format(" {}", net->interpolation_method);
-        }
-        if(net->aperture_state != aperture_state_on) {
-            state = std::format("{}", net->aperture_state);
-        }
-        if(net->aperture != 0) {
-            auto it = apertures.find(net->aperture);
-            if(it != apertures.end()) {
-                gerber_aperture *aperture = it->second;
-                aperture_type = aperture->aperture_type;
-                if(aperture_type >= aperture_type_macro) {
-                    gerber_aperture_macro *macro = aperture->aperture_macro;
-                    description = std::format("macro {}", macro->name);
-                } else {
-                    description = std::format("aperture {} ({})", net->aperture,  aperture_type);
-                }
-            } else {
-                description = std::format("?unknown aperture {}?", net->aperture);
-            }
-        } else if(net->num_region_points != 0) {
-            description = std::format("region ({} points)", net->num_region_points);
-        }
-        auto status = std::format("Entity {:6d}:{}{} {} {}", net->entity_id, state, interpolation, polarity, description);
-        ImGui::Text("%s", status.c_str());
+        ImGui::Text("%s", active_entity_description.c_str());
     } else if(selected_layer != nullptr) {
         ImGui::Text("%s - %llu entities", selected_layer->name.c_str(), selected_layer->layer.entities.size());
     } else {

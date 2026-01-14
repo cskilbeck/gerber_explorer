@@ -140,9 +140,13 @@ struct gerber_explorer : gl_window {
     rect board_extent;
     vec2d board_center;
 
+    // active entity admin
     std::vector<int> active_entities;
     int active_entity_index;
     gerber_3d::tesselator_entity const *active_entity{nullptr};
+    std::string active_entity_description{};
+
+    void set_active_entity(gerber_3d::tesselator_entity const *entity);
 
     void update_board_extent();
 
@@ -159,6 +163,8 @@ struct gerber_explorer : gl_window {
     rect world_rect_from_window_rect(rect const &r) const;
     rect board_rect_from_window_rect(rect const &r) const;
     rect window_rect_from_world_rect(rect const &r) const;
+
+    rect board_rect_from_world_rect(rect const &r) const;
 
     void select_layer(gerber_layer *layer);
 
