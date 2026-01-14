@@ -84,7 +84,6 @@ struct gerber_explorer : gl_window {
     rect view_rect{};
 
     // window screen coordinates
-    rect window_rect{};
     vec2d window_size{};
     int window_xpos{};
     int window_ypos{};
@@ -131,7 +130,7 @@ struct gerber_explorer : gl_window {
     // for drawing things offscreen and then blending them to the final composition
     gerber_3d::gl_render_target layer_render_target{};
 
-    int multisample_count{ 4 };
+    int multisample_count{ 16 };
     int max_multisamples{ 1 };
 
     // when window size changes, zoom to fit (cleared if they pan/zoom etc manually)
@@ -140,6 +139,10 @@ struct gerber_explorer : gl_window {
     // bounding rect of all layers
     rect board_extent;
     vec2d board_center;
+
+    std::vector<int> active_entities;
+    int active_entity_index;
+    gerber_3d::tesselator_entity const *active_entity{nullptr};
 
     void update_board_extent();
 
@@ -156,6 +159,8 @@ struct gerber_explorer : gl_window {
     rect world_rect_from_window_rect(rect const &r) const;
     rect board_rect_from_window_rect(rect const &r) const;
     rect window_rect_from_world_rect(rect const &r) const;
+
+    void select_layer(gerber_layer *layer);
 
     void fit_to_window();
     void zoom_to_rect(rect const &zoom_rect, double border_ratio = 1.1);

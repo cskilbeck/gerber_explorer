@@ -16,22 +16,25 @@ namespace gerber_3d
     namespace entity_flags_t
     {
         int constexpr none = 0;
-        int constexpr clear = (1 << 0);
-        int constexpr fill = (1 << 1);
-        int constexpr hovered = (1 << 2);
-        int constexpr selected = (1 << 3);
+        int constexpr clear = (1 << 0);       // remove material
+        int constexpr fill = (1 << 1);        // add material
+        int constexpr hovered = (1 << 2);     // mouse hovering over it
+        int constexpr selected = (1 << 3);    // it's selected
+        int constexpr active = (1 << 4);      // there can be only one active entity (click cycles through entities under the mouse position)
+
+        int constexpr all_select = hovered | selected | active;
     }    // namespace entity_flags_t
 
     //////////////////////////////////////////////////////////////////////
 
     struct tesselator_entity
     {
-        int entity_id;                           // redundant, strictly speaking, but handy
-        int first_fill;                          // offset into fills spans
-        int num_fills{};                         // # of fill draw calls
-        int outline_offset;                      // offset into outline_vertices_start/end
-        int outline_size{};                      // # of verts in the outline
-        int flags;                               // clear/fill/hover/select
+        int entity_id;                // references flags array for drawing outlines
+        int first_fill;               // offset into fills spans
+        int num_fills{};              // # of fill draw calls
+        int outline_offset;           // offset into outline lines
+        int outline_size{};           // # of lines in the outline
+        int flags;                    // see entity_flags_t
         gerber_lib::rect bounds{};    // for picking speedup
     };
 
@@ -67,13 +70,17 @@ namespace gerber_3d
         void finalize();
 
         // for actually drawing it
-        void fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags);
+        void fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, gl::color red_fill = gl::colors::red,
+                  gl::color green_fill = gl::colors::green, gl::color blue_fill = gl::colors::blue);
+
         void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &window_size);
 
         // picking/selection
+        void clear_entity_flags(int flags);
         int flag_entities_at_point(gerber_lib::vec2d point, int clear_flags, int set_flags);
         int flag_touching_entities(gerber_lib::rect const &world_rect, int clear_flags, int set_flags);
         int flag_enclosed_entities(gerber_lib::rect const &world_rect, int clear_flags, int set_flags);
+        void find_entities_at_point(gerber_lib::vec2d point, std::vector<int> &indices);
         void select_hovered_entities();
 
         gerber_lib::gerber *gerber_file{};
@@ -89,7 +96,7 @@ namespace gerber_3d
 
         std::vector<gl_line2_program::line> outline_lines;
         std::vector<vec2f> outline_vertices;
-        std::vector<uint8_t> entity_flags; // one byte per entity
+        std::vector<uint8_t> entity_flags;    // one byte per entity
 
         std::vector<vert> fill_vertices;
         std::vector<GLuint> fill_indices;
@@ -108,7 +115,6 @@ namespace gerber_3d
 
         GLuint line_buffers[3];
         GLuint textures[3];
-
     };
 
 }    // namespace gerber_3d

@@ -107,9 +107,32 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
+    void gl_drawer::clear_entity_flags(int flags)
+    {
+        for(auto &e : entities) {
+            e.flags &= ~flags;
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    void gl_drawer::find_entities_at_point(vec2d point, std::vector<int> &indices)
+    {
+        vec2f pos = vec2f(point);
+        int n = (int)entities.size();
+        for(int i = 0; i < n; ++i) {
+            tesselator_entity const &e = entities[i];
+            if(e.bounds.contains(point) && point_in_poly(outline_vertices.data() + e.outline_offset, e.outline_size, pos)) {
+                indices.push_back(i);
+            }
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
     void gl_drawer::select_hovered_entities()
     {
-        for(auto &e: entities) {
+        for(auto &e : entities) {
             if((e.flags & entity_flags_t::hovered)) {
                 e.flags = (e.flags & ~entity_flags_t::hovered) | entity_flags_t::selected;
             }
@@ -188,12 +211,12 @@ namespace gerber_3d
             tesselator_entity &e = entities.back();
             e.outline_size = (int)(outline_vertices.size() - e.outline_offset);
 
-            vec2f min{FLT_MAX, FLT_MAX};
-            vec2f max{-FLT_MAX, -FLT_MAX};
-            for(int i=0; i<e.outline_size; ++i) {
+            vec2f min{ FLT_MAX, FLT_MAX };
+            vec2f max{ -FLT_MAX, -FLT_MAX };
+            for(int i = 0; i < e.outline_size; ++i) {
                 vec2f const &v = outline_vertices[e.outline_offset + i];
-                min = {std::min(v.x, min.x), std::min(v.y, min.y)};
-                max = {std::max(v.x, max.x), std::max(v.y, max.y)};
+                min = { std::min(v.x, min.x), std::min(v.y, min.y) };
+                max = { std::max(v.x, max.x), std::max(v.y, max.y) };
             }
             e.bounds = rect(vec2d(min), vec2d(max));
 
@@ -227,7 +250,7 @@ namespace gerber_3d
             }
             fill_spans.emplace_back(index_base, static_cast<int>(fill_indices.size() - index_base));
 
-            e.num_fills = 1;//static_cast<int>(fill_spans.size() - fill_base);
+            e.num_fills = 1;    // static_cast<int>(fill_spans.size() - fill_base);
 
             tessDeleteTess(interior_tesselator);
 
@@ -406,7 +429,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags)
+    void gl_drawer::fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, gl::color red_fill, gl::color green_fill, gl::color blue_fill)
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -426,11 +449,11 @@ namespace gerber_3d
         for(auto const &e : entities) {
 
             if((e.flags & r_flags) != 0) {
-                layer_program->set_color(gl::colors::red);
+                layer_program->set_color(red_fill);
             } else if((e.flags & g_flags) != 0) {
-                layer_program->set_color(gl::colors::green);
+                layer_program->set_color(green_fill);
             } else if((e.flags & b_flags) != 0) {
-                layer_program->set_color(gl::colors::blue);
+                layer_program->set_color(blue_fill);
             } else {
                 continue;
             }

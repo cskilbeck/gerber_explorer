@@ -292,7 +292,7 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
         switch(button) {
         case GLFW_MOUSE_BUTTON_LEFT:
             if(mouse_mode == mouse_drag_zoom_select) {
-                rect drag_rect_corrected = correct_aspect_ratio(window_rect.aspect_ratio(), drag_rect, aspect_expand);
+                rect drag_rect_corrected = correct_aspect_ratio(viewport_rect.aspect_ratio(), drag_rect, aspect_expand);
                 vec2d mn = drag_rect_corrected.min_pos;
                 vec2d mx = drag_rect_corrected.max_pos;
                 rect d = rect{ mn, mx }.normalize();
@@ -505,8 +505,28 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
         zoom_anim = false;
         drag_mouse_start_pos = mouse_pos;
         if(selected_layer != nullptr) {
+            std::vector<int> entity_indices;
             mouse_world_pos = board_pos_from_window_pos(mouse_pos);
-            selected_layer->layer.flag_entities_at_point(mouse_world_pos, entity_flags_t::selected | entity_flags_t::hovered, entity_flags_t::selected);
+            selected_layer->layer.find_entities_at_point(mouse_world_pos, entity_indices);
+            if(entity_indices != active_entities) {
+                active_entity_index = 0;
+            }
+            active_entities = entity_indices;
+            active_entity = nullptr;
+            selected_layer->layer.clear_entity_flags(entity_flags_t::all_select);
+            if(!active_entities.empty()) {
+                if(active_entity_index < active_entities.size()) {
+                    tesselator_entity &e = selected_layer->layer.entities[active_entities[active_entity_index]];
+                    e.flags |= entity_flags_t::active;
+                    active_entity = &e;
+                } else {
+                    active_entity = nullptr;
+                }
+                active_entity_index = (active_entity_index + 1) % (active_entities.size() + 1);
+                for(int i : entity_indices) {
+                    selected_layer->layer.entities[i].flags |= entity_flags_t::hovered;
+                }
+            }
         }
     } break;
 
@@ -528,8 +548,7 @@ bool gerber_explorer::on_init()
     glfwGetWindowSize(window, &window_width, &window_height);
     window_size.x = window_width;
     window_size.y = window_height;
-    window_rect = { { 0, 0 }, window_size };
-    view_rect = window_rect.offset(window_size.scale(-0.5));
+    view_rect = {{0,0}, {10,10}};
 
     solid_program.init();
     color_program.init();
@@ -680,6 +699,16 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
 
 //////////////////////////////////////////////////////////////////////
 
+void gerber_explorer::select_layer(gerber_layer *layer)
+{
+    if(selected_layer != nullptr) {
+        selected_layer->layer.clear_entity_flags(entity_flags_t::all_select);
+    }
+    selected_layer = layer;
+}
+
+//////////////////////////////////////////////////////////////////////
+
 void gerber_explorer::load_gerber(settings::layer_t const &layer)
 {
     {
@@ -725,7 +754,7 @@ void gerber_explorer::ui()
                     layers.pop_front();
                     delete l;
                 }
-                selected_layer = nullptr;
+                select_layer(nullptr);
             }
             ImGui::Separator();
             if(ImGui::MenuItem("Exit", "Esc", nullptr)) {
@@ -743,7 +772,7 @@ void gerber_explorer::ui()
             ImGui::MenuItem("Show Axes", "A", &settings.show_axes);
             ImGui::MenuItem("Show Extent", "E", &settings.show_extent);
             if(ImGui::BeginMenu("Outline")) {
-                ImGui::SliderFloat("##val", &settings.outline_width, 1.0f, 8.0f, "%.1f");
+                ImGui::SliderFloat("##val", &settings.outline_width, 0.0f, 8.0f, "%.1f");
                 ImGui::ColorEdit4("Outline color",
                                   (float *)&settings.outline_color,
                                   ImGuiColorEditFlags_AlphaPreview | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
@@ -792,7 +821,7 @@ void gerber_explorer::ui()
                 ImGui::PushStyleColor(ImGuiCol_Text, color);
 
                 if(ImGui::Selectable(l->name.c_str(), is_selected, flags, ImVec2(0, row_height))) {
-                    selected_layer = l;
+                    select_layer(l);
                 }
 
                 ImGui::PopStyleColor();
@@ -866,7 +895,7 @@ void gerber_explorer::ui()
         if(item_to_delete) {
             layers.erase(std::remove(layers.begin(), layers.end(), item_to_delete), layers.end());
             delete item_to_delete;
-            selected_layer = nullptr;
+            select_layer(nullptr);
         } else if(item_to_move && item_target && item_to_move != item_target && item_to_move != item_target) {
             auto dragged_it = std::find(layers.begin(), layers.end(), item_to_move);
             auto target_it = std::find(layers.begin(), layers.end(), item_target);
@@ -879,13 +908,17 @@ void gerber_explorer::ui()
         }
 
         if(ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !any_item_hovered) {
-            selected_layer = nullptr;
+            select_layer(nullptr);
         }
     }
     ImGui::End();
 
     ImGui::Begin("Info");
-    ImGui::Text("%12.8f,%12.8f ... %12.8f,%12.8f", viewport_rect.min_pos.x, viewport_rect.min_pos.y, viewport_rect.max_pos.x, viewport_rect.max_pos.y);
+    if(active_entity != nullptr) {
+        ImGui::Text("%d", active_entity->entity_id);
+    } else {
+        ImGui::Text("...");
+    }
     ImGui::End();
 }
 
@@ -948,7 +981,7 @@ void gerber_explorer::on_render()
                 if(gerbers_to_load != 0) {
                     gerbers_to_load -= 1;
                     if(gerbers_to_load == 0) {
-                        selected_layer = nullptr;
+                        select_layer(nullptr);
                         fit_to_window();
                     }
                 }
@@ -958,10 +991,6 @@ void gerber_explorer::on_render()
 
     ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
     ImGuiDockNode *central_node = ImGui::DockBuilderGetCentralNode(dockspace_id);
-
-    vec2d new_window_size;
-    new_window_size.x = window_width;
-    new_window_size.y = window_height;
 
     rect old_viewport_rect = viewport_rect;
 
@@ -991,8 +1020,6 @@ void gerber_explorer::on_render()
     new_viewport_size.y = viewport_height;
 
     vec2d scale_factor = new_viewport_size.divide(viewport_size);
-
-    window_rect = { { 0, 0 }, window_size };
 
     vec2d new_view_size = view_rect.size().multiply(scale_factor);
     view_rect.max_pos = view_rect.min_pos.add(new_view_size);
@@ -1028,15 +1055,14 @@ void gerber_explorer::on_render()
 
     view_scale = viewport_size.divide(view_rect.size());
 
-    // get center of bounding rect of all layers (for flip)
+    // get bounding rect/center of all layers (for flip)
     update_board_extent();
 
     flip_xy = { settings.flip_x ? -1.0 : 1.0, settings.flip_y ? -1.0 : 1.0 };
 
-    // float pixel_scale = (float)(window_rect.width() / view_rect.width());
-
     ortho_screen_matrix = make_ortho(viewport_width, viewport_height);
 
+    // world matrix has optional x/y flip around board center
     gl_matrix flip_m = make_identity();
     flip_m.m[0] = (float)flip_xy.x;
     flip_m.m[5] = (float)flip_xy.y;
@@ -1091,8 +1117,8 @@ void gerber_explorer::on_render()
             }
             glClearColor(f.red(), f.green(), f.blue(), f.alpha());
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            layer.layer.fill(world_matrix, entity_flags_t::none, entity_flags_t::clear, entity_flags_t::fill);
-            blend_layer(gl::colorf4(0, 0, 0, 0), clear, fill, layer.alpha / 255.0f);
+            layer.layer.fill(world_matrix, entity_flags_t::selected, entity_flags_t::clear, entity_flags_t::fill);
+            blend_layer(gl::colorf4(1, 1, 1, 1), clear, fill, layer.alpha / 255.0f);
         }
     }
 
@@ -1103,16 +1129,24 @@ void gerber_explorer::on_render()
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
         GL_CHECK(glClearColor(0, 0, 0, 1));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        selected_layer->layer.fill(world_matrix, entity_flags_t::selected, entity_flags_t::hovered, entity_flags_t::none);
-        blend_layer(gl::colorf4(gl::colors::cyan), gl::colorf4(gl::colors::magenta), gl::colorf4(0, 0, 0, 0), 0.5f);
+        gl::color red_fill = gl::colors::red;
+        gl::color green_fill = gl::colors::green & 0x80ffffff;
+        gl::color blue_fill = gl::colors::blue & 0x40ffffff;
+        selected_layer->layer.fill(world_matrix, entity_flags_t::active, entity_flags_t::selected, entity_flags_t::hovered, red_fill, green_fill, blue_fill);
+        gl::colorf4 active(gl::colors::white);
+        gl::colorf4 selected(gl::colors::silver);
+        gl::colorf4 hovered(gl::colors::gray);
+        blend_layer(active, selected, hovered, 0.6666f);
 
         // Draw outline for hovered/selected entities in the selected layer
-        layer_render_target.bind_framebuffer();
-        GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
-        GL_CHECK(glClearColor(0, 0, 0, 0));
-        GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        selected_layer->layer.outline(settings.outline_width + 1.0f, world_matrix, window_size);
-        blend_layer(gl::colorf4(gl::colors::light_pink), gl::colorf4(gl::colors::magenta), gl::colorf4(gl::colors::red), 1.0f);
+        if(settings.outline_width > 0.0f) {
+            layer_render_target.bind_framebuffer();
+            GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
+            GL_CHECK(glClearColor(0, 0, 0, 0));
+            GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
+            selected_layer->layer.outline(settings.outline_width, world_matrix, window_size);
+            blend_layer(gl::colorf4(gl::colors::white), gl::colorf4(gl::colors::clear), gl::colorf4(gl::colors::black), 1.0f);
+        }
     }
 
     // draw the overlay graphics

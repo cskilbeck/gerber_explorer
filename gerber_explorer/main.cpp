@@ -22,11 +22,11 @@
 // X thick arc shader (but turns out we can't use it)
 // X render-on-window-resize
 // X fix ImGui viewport thing
+// X picking / selection
 //
-// settings
-// status bar
-// picking / selection
 // selected entity info
+// status bar
+// settings
 // configurable mouse buttons (/keys?)
 // separate gl_vertex_array / gl_vertex_buffer
 // 3D view
