@@ -1,15 +1,16 @@
 //////////////////////////////////////////////////////////////////////
 
-
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+#include <string>
 #include <memory>
 #include <span>
 #include <algorithm>
 #include <format>
 #include <array>
 #include <ranges>
+#include <filesystem>
 
 #include "gerber_error.h"
 #include "gerber_util.h"
@@ -21,6 +22,8 @@
 #include "gerber_reader.h"
 
 LOG_CONTEXT("gerber_lib", debug);
+
+//////////////////////////////////////////////////////////////////////
 
 namespace
 {
@@ -40,6 +43,48 @@ namespace
     | hide_element_macros
 #endif
         ;
+
+    //////////////////////////////////////////////////////////////////////
+
+    std::string to_lower(std::string_view s)
+    {
+        std::string r;
+        r.reserve(s.size());
+        for(char c : s) {
+            if(c >= 'A' && c <= 'Z') {
+                c |= 0x20;
+            }
+            r.push_back(c);
+        }
+        return r;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    bool is_positive_integer(std::string_view sv)
+    {
+        if(sv.empty() || (sv[0] == '-' || sv[0] == '+')) {
+            return false;
+        }
+        unsigned int value;
+        auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
+        return ec == std::errc{} && ptr == sv.data() + sv.size();
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    bool all_digits(std::string_view sv)
+    {
+        if(sv.empty()) {
+            return false;
+        }
+        for(auto const &c :sv) {
+            if(!isdigit(c)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     //////////////////////////////////////////////////////////////////////
 
@@ -117,10 +162,10 @@ namespace
 
     gerber_error_code calculate_arc_sq(gerber_net *net, bool is_clockwise, vec2d const &center)
     {
-        std::array<vec2d, 4> centers{ vec2d{ net->start.x + center.x, net->start.y + center.y },
-                                      vec2d{ net->start.x + center.x, net->start.y - center.y },
-                                      vec2d{ net->start.x - center.x, net->start.y + center.y },
-                                      vec2d{ net->start.x - center.x, net->start.y - center.y } };
+        std::array centers{ vec2d{ net->start.x + center.x, net->start.y + center.y },
+                            vec2d{ net->start.x + center.x, net->start.y - center.y },
+                            vec2d{ net->start.x - center.x, net->start.y + center.y },
+                            vec2d{ net->start.x - center.x, net->start.y - center.y } };
 
         double constexpr allowable_deviation = 0.0005;
         double best_deviation{ DBL_MAX };
@@ -242,9 +287,159 @@ namespace gerber_lib
 {
     //////////////////////////////////////////////////////////////////////
 
+    layer::type_t gerber::classify() const
+    {
+        using namespace layer;
+        std::string name(to_lower(std::filesystem::path(filename).filename().string()));
+
+        // X2 Attributes
+        for(auto const &pair : attributes) {
+            std::string k = to_lower(pair.first);
+            if(k == ".filefunction" || k == "filefunction") {
+                std::string v(to_lower(pair.second));
+                if(v.contains("copper")) {
+                    if(v.contains("top")) {
+                        return copper_top;
+                    }
+                    if(v.contains("bot")) {
+                        return copper_bottom;
+                    }
+                    return copper_inner;
+                }
+                if(v.contains("paste")) {
+                    if(v.contains("bot")) {
+                        return paste_bottom;
+                    }
+                    return paste_top;
+                }
+                if(v.contains("legend") || v.contains("silk")) {
+                    if(v.contains("bot")) {
+                        return overlay_bottom;
+                    }
+                    return overlay_top;
+                }
+                if(v.contains("soldermask")) {
+                    if(v.contains("bot")) {
+                        return soldermask_bottom;
+                    }
+                    return soldermask_top;
+                }
+                if(v.contains("drill")) {
+                    return drill;
+                }
+                if(v.contains("vcut")) {
+                    return vcut;
+                }
+                if(v.contains("keepout")) {
+                    return keepout;
+                }
+                if(v.contains("outline")) {
+                    return outline;
+                }
+                if(v.contains("profile")) {
+                    return outline;
+                }
+            }
+        }
+
+        // Filename Patterns
+        if(name.contains(".gtl") || name.contains("-f_cu")) {
+            return copper_top;
+        }
+        if(name.contains(".gbl") || name.contains("-b_cu")) {
+            return copper_bottom;
+        }
+        if(name.contains("-in") && name.contains("_cu")) {
+            return copper_inner;
+        }
+        if(name.contains(".gts") || name.contains("-f_mask")) {
+            return soldermask_top;
+        }
+        if(name.contains(".gbs") || name.contains("-b_mask")) {
+            return soldermask_bottom;
+        }
+        if(name.contains(".gtp") || name.contains("-f_paste")) {
+            return paste_top;
+        }
+        if(name.contains(".gbp") || name.contains("-b_paste")) {
+            return paste_bottom;
+        }
+        if(name.contains(".gko") || name.contains("-margin") || name.contains("-keepout")) {
+            return keepout;
+        }
+        if(name.contains(".gml") || name.contains("-edge_cuts") || name.contains("-outline")) {
+            return outline;
+        }
+        if(name.contains(".drl") || name.contains(".txt")) {
+            return drill;
+        }
+        // Protel inner layers are a hassle
+        size_t f = name.rfind(".g");
+        if(f != std::string::npos) {
+            std::string_view d = std::string_view(name).substr(f + 2);
+            if(is_positive_integer(d)) {
+                return copper_inner;
+            }
+        }
+
+        // JLCPCB production files
+        if(name == "tl") {
+            return copper_top;
+        }
+        if(name == "bl") {
+            return copper_bottom;
+        }
+        if(name == "to") {
+            return overlay_top;
+        }
+        if(name == "bo") {
+            return overlay_bottom;
+        }
+        if(name == "bs") {
+            return soldermask_bottom;
+        }
+        if(name == "ts") {
+            return soldermask_top;
+        }
+        if(name == "drl") {
+            return drill;
+        }
+        if(name == "ko") {
+            return keepout;
+        }
+        if(name == "vcut") {
+            return vcut;
+        }
+        // "l###" is inner layer
+        if(name[0] == 'l') {
+            if(all_digits(std::string_view(name).substr(1))) {
+                return copper_inner;
+            }
+        }
+
+        // Comments
+        for(const auto &comment : comments) {
+            std::string c(to_lower(comment));
+            if(c.contains("keepout") || c.contains("keep-out")) {
+                return keepout;
+            }
+            if(c.contains("paste")) {
+                if(c.contains("top")) {
+                    return paste_top;
+                }
+                if(c.contains("bot")) {
+                    return paste_bottom;
+                }
+            }
+        }
+        return unknown;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
     void gerber::cleanup()
     {
-        dictionary.clear();
+        attributes.clear();
         filename = std::string{};
         image.cleanup();
         stats.cleanup();
@@ -272,6 +467,9 @@ namespace gerber_lib
         image.gerber = this;
         CHECK(parse_gerber_segment(image.nets[0]));
         LOG_VERBOSE("Parsing complete after {} lines, found {} entities", reader.line_number, entities.size());
+
+        layer_type = classify();
+
         return ok;
     }
 
@@ -618,7 +816,7 @@ namespace gerber_lib
             } else {
                 std::string s = join(std::span(tokens).subspan(1), ",");
                 LOG_DEBUG("TOKEN ATTR[{}] = {}", tokens[0], s);
-                dictionary[tokens[0]] = s;
+                attributes[tokens[0]] = s;
             }
         } break;
 
@@ -627,14 +825,14 @@ namespace gerber_lib
             reader.read_until(&attribute_to_clear, '*');
             if(attribute_to_clear.empty()) {
                 LOG_DEBUG("Clear attribute dictionary");
-                dictionary.clear();
+                attributes.clear();
             } else {
                 LOG_DEBUG("Delete attribute: \"{}\"", attribute_to_clear);
-                auto f = dictionary.find(attribute_to_clear);
-                if(f == dictionary.end()) {
+                auto f = attributes.find(attribute_to_clear);
+                if(f == attributes.end()) {
                     stats.error(reader, error_missing_attribute, "Can't find {}", attribute_to_clear);
                 } else {
-                    dictionary.erase(attribute_to_clear);
+                    attributes.erase(attribute_to_clear);
                 }
             }
         } break;
@@ -1643,7 +1841,7 @@ namespace gerber_lib
     {
         entities.emplace_back(reader.line_number, reader.line_number, image.nets.size());
         gerber_entity &e = entities.back();
-        e.attributes = dictionary;
+        e.attributes = attributes;
         return e;
     }
 
@@ -2241,8 +2439,8 @@ namespace gerber_lib
                 std::vector<vec2d> points;
                 CHECK(get_aperture_points(*m, net, points));
                 std::vector<gerber_draw_element> e;
-                for(size_t i=0; i<points.size()-1; ++i) {
-                    e.emplace_back(points[i], points[i+1]);
+                for(size_t i = 0; i < points.size() - 1; ++i) {
+                    e.emplace_back(points[i], points[i + 1]);
                 }
                 drawer.fill_elements(e.data(), e.size(), polarity_dark, net);
             } break;

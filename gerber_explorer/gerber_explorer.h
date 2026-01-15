@@ -11,36 +11,6 @@
 
 #include "settings.h"
 
-using layer_type_t = int;
-
-namespace layer_type
-{
-    enum
-    {
-        unknown = 0,
-
-        vcut = 1000,
-        mechanical = 1001,
-        info = 1002,
-        keepout = 1003,
-
-        drill = 2000,   // plated/unplated drill files (can target different layer pairs)
-
-        // question about tented vs untented vias...
-
-        // from here on, ordered:
-
-        overlay_top = 3000,
-        soldermask_top = 4000,
-
-        copper_first = 5000,
-        copper_last = 6000,
-
-        soldermask_bottom = 7000,
-        overlay_bottom = 8000,
-    };
-}
-
 struct gerber_explorer : gl_window {
 
     struct gerber_layer;

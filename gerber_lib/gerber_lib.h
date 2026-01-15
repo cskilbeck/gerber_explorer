@@ -22,6 +22,31 @@
 
 namespace gerber_lib
 {
+    namespace layer
+    {
+        enum type_t
+        {
+            unknown = 0,
+            vcut = 1000,
+            board = 1001,
+            outline = 1002,
+            mechanical = 1003,
+            info = 1004,
+            keepout = 1005,
+
+            drill = 2000,
+            overlay_top = 3000,
+            paste_top = 4000,
+            soldermask_top = 5000,
+            copper_top = 6000,
+            copper_inner = 7000,
+            copper_bottom = 8000,
+            soldermask_bottom = 9000,
+            paste_bottom = 10000,
+            overlay_bottom = 11000,
+        };
+    }
+
     struct gerber_net;
     struct gerber_macro_parameters;
 
@@ -33,6 +58,7 @@ namespace gerber_lib
         static constexpr int max_num_apertures = 9999;
 
         std::string filename;
+        layer::type_t layer_type;
 
         double image_scale_a{ 1.0 };
         double image_scale_b{ 1.0 };
@@ -55,7 +81,8 @@ namespace gerber_lib
         gerber_state state{};
         gerber_reader reader{};
 
-        std::map<std::string, std::string> dictionary;
+        std::map<std::string, std::string> attributes;
+        std::vector<std::string> comments;
 
         std::vector<gerber_entity> entities;
 
@@ -98,6 +125,8 @@ namespace gerber_lib
         bool parse_m_code();
 
         gerber_error_code parse_rs274x(gerber_net *net);
+
+        layer::type_t classify() const;
 
         gerber_error_code parse_aperture_definition(gerber_aperture *aperture, gerber_image *cur_image, double unit_scale);
 

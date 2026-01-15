@@ -25,18 +25,21 @@
 // X picking / selection
 //
 // selected entity info
+// reduce gpu usage - only draw frame when necessary
 // status bar
+//
 // detect gerber layer type/position from extension/name/x2 info
+//
 // detect board outline
+// measure tool
+//
 // settings
 // configurable mouse buttons (/keys?)
 // 3D view
-// reduce gpu usage - only draw frame when necessary
 // high DPI
 // grid
 // gerber spec compliance tests (regions, polygons, holes)
 // load zip file? (how to store path in settings?)
-// measure tool
 // export PNG
 // fork/mirror 3rd party repos
 // ? OpenCascade 3D nonsense ?
