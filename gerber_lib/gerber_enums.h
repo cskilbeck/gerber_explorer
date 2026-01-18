@@ -67,6 +67,7 @@ namespace gerber_lib
 
     enum gerber_polarity
     {
+        polarity_unspecified,
         polarity_positive,    // draw "positive", using the current level's polarity.
         polarity_negative,    // draw "negative", reversing the current level's polarity.
         polarity_dark,        // add to the current rendering.

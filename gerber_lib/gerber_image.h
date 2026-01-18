@@ -25,7 +25,7 @@ namespace gerber_lib
     struct gerber_image_info
     {
         std::string image_name;
-        gerber_polarity polarity{ polarity_positive };
+        gerber_polarity polarity{ polarity_unspecified };
         rect extent{ DBL_MAX, DBL_MAX, -DBL_MAX, -DBL_MAX };
         double offset_a{};
         double offset_b{};

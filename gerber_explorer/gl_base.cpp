@@ -122,7 +122,7 @@ namespace gerber_3d
             LOG_ERROR("glValidateProgram error for {}", program_name);
             return rc;
         }
-        use();
+        activate();
         return 0;
     }
 
@@ -152,7 +152,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_program_base::use() const
+    void gl_program_base::activate() const
     {
         GL_CHECK(glUseProgram(program_id));
     }

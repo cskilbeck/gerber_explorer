@@ -35,15 +35,17 @@ namespace gerber_lib
             keepout = 1005,
 
             drill = 2000,
-            overlay_top = 3000,
-            paste_top = 4000,
+            paste_top = 3000,
+            overlay_top = 4000,
             soldermask_top = 5000,
+            drill_top = 5500,
             copper_top = 6000,
             copper_inner = 7000,
             copper_bottom = 8000,
             soldermask_bottom = 9000,
-            paste_bottom = 10000,
-            overlay_bottom = 11000,
+            drill_bottom = 9500,
+            overlay_bottom = 10000,
+            paste_bottom = 11000,
         };
     }
 

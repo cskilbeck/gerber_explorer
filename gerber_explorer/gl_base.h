@@ -4,7 +4,6 @@
 
 #include "gerber_log.h"
 #include "gerber_2d.h"
-#include "gl_base.h"
 #include "gl_colors.h"
 
 //////////////////////////////////////////////////////////////////////
@@ -84,7 +83,7 @@ namespace gerber_3d
 
         int compile_shader(GLuint shader_type, char const *source) const;
         int validate(GLuint param) const;
-        void use() const;
+        void activate() const;
         virtual int init();
         void cleanup();
     };

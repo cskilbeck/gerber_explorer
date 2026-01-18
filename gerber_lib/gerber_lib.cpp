@@ -1530,6 +1530,7 @@ namespace gerber_lib
         std::string attribute_value = join(std::span(tokens.data() + 1, tokens.size() - 1), ",");
 
         LOG_VERBOSE("Attribute:{}={}", attribute_name, attribute_value);
+        attributes[attribute_name] = attribute_value;
         return ok;
     }
 

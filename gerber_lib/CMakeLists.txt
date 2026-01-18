@@ -37,7 +37,9 @@ add_library(${PROJECT}
         gerber_state.h
         gerber_stats.cpp
         gerber_stats.h
-        gerber_util.cpp)
+        gerber_util.cpp
+        gerber_arena.cpp
+        gerber_arena.h)
 
 set_target_properties(${PROJECT} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})
 
@@ -65,6 +67,7 @@ else ()
             -Wno-multichar)
 endif ()
 
-target_compile_definitions(${PROJECT} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
+target_compile_definitions(${PROJECT} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS WIN32_LEAN_AND_MEAN NOMINMAX)
+
 
 target_compile_features(${PROJECT} PUBLIC cxx_std_20)

@@ -11,6 +11,20 @@
 
 #include "settings.h"
 
+enum class layer_order_t
+{
+    all,
+    drill,  // drill is special, should be between top_outer and top_copper OR bottom_outer and botttom_copper (see drill_top, drill_bottom)
+    top_outer,
+    drill_top,
+    top_copper,
+    inner_copper,
+    bottom_copper,
+    drill_bottom,
+    bottom_outer,
+    other
+};
+
 struct gerber_explorer : gl_window {
 
     struct gerber_layer;
@@ -28,11 +42,12 @@ struct gerber_explorer : gl_window {
         gerber_3d::gl_drawer layer{};
         bool visible{ true };
         bool invert{ false };
-        int draw_mode{0};
         bool expanded{ false };
         bool selected{ false };
         int alpha{ 255 };
         std::string name;
+        layer_order_t layer_order;
+        gerber_lib::layer::type_t layer_type;
 
         std::string filename() const
         {
@@ -137,7 +152,6 @@ struct gerber_explorer : gl_window {
     // for drawing things offscreen and then blending them to the final composition
     gerber_3d::gl_render_target layer_render_target{};
 
-    int multisample_count{ 16 };
     int max_multisamples{ 1 };
 
     // when window size changes, zoom to fit (cleared if they pan/zoom etc manually)
@@ -161,7 +175,7 @@ struct gerber_explorer : gl_window {
 
     std::mutex loader_mutex;
     std::mutex loaded_mutex;
-    std::list<settings::layer_t> gerber_filenames_to_load;
+    std::list<settings::layer_t> gerber_files_to_load;
     std::jthread gerber_load_thread;
     std::counting_semaphore<1024> loader_semaphore{0};
 
@@ -195,9 +209,13 @@ struct gerber_explorer : gl_window {
     void zoom_at_point(vec2d const &zoom_pos, double zoom_scale);
     void update_view_rect();
 
+    bool layer_is_visible(gerber_layer const *layer) const;
+
     void blend_layer(gl::color col_r, gl::color col_g, gl::color col_b, float alpha);
 
     void load_gerber(settings::layer_t const &layer);
+
+    bool window_focused{false};
 
     std::list<gerber_layer *> loaded_layers; // loaded in the other thread, waiting to be added to layers
 

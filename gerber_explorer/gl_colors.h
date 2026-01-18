@@ -304,4 +304,18 @@ namespace gl
         return colorf4(color);
     }
 
+    inline color set_alpha(color c, int alpha)
+    {
+        alpha = (alpha & 0xff) << 24;
+        c = (c & 0x00ffffff) | alpha;
+        return c;
+    }
+
+    inline color set_alpha(color c, float alpha)
+    {
+        int a = ((int)(alpha * 255.0f) & 0xff) << 24;
+        c = (c & 0x00ffffff) | a;
+        return c;
+    }
+
 }    // namespace gl

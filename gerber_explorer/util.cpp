@@ -240,16 +240,17 @@ bool IconButton(const char *label, const char *icon)
     const ImU32 col = ImGui::GetColorU32((held && hovered) ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
     ImGui::RenderFrame(pos, pos + ImVec2(square_sz, square_sz), col, true, style.FrameRounding);
 
+    // 3. Render Label
+    if(label_size.x > 0.0f) {
+        ImGui::RenderText(pos + ImVec2(square_sz + style.ItemInnerSpacing.x, style.FramePadding.y), label);
+    }
+
     // 2. Render the Icon
     ImVec2 icon_size = ImGui::CalcTextSize(icon);
     // Center the icon in the square
     ImVec2 icon_pos = pos + ImVec2((square_sz - icon_size.x) * 0.5f, (square_sz - icon_size.y) * 0.5f);
     window->DrawList->AddText(icon_pos, ImGui::GetColorU32(ImGuiCol_Text), icon);
 
-    // 3. Render Label
-    if(label_size.x > 0.0f) {
-        ImGui::RenderText(pos + ImVec2(square_sz + style.ItemInnerSpacing.x, style.FramePadding.y), label);
-    }
 
     return pressed;
 }
@@ -264,4 +265,38 @@ void RightAlignButtons(const std::vector<const char *> &labels) {
     }
     totalWidth += spacing * (labels.size() - 1);
     ImGui::SetCursorPosX(ImGui::GetWindowWidth() - totalWidth - ImGui::GetStyle().WindowPadding.x);
+}
+
+//////////////////////////////////////////////////////////////////////
+
+int MessageBox(char const *banner, char const *text, char const *yes_text = "Yes", char const *no_text = "No")
+{
+    int rc = 0;
+    ImVec2 text_size = ImGui::CalcTextSize(text, nullptr, false, ImGui::GetWindowWidth() / 3.0f);
+    float pad = ImGui::GetFontSize() * 0.33333f;
+    float w = std::max(ImGui::GetWindowWidth() / 6.0f, text_size.x + pad * 8 + 1);
+    ImVec2 min_size(w, -1.0f);
+    ImVec2 max_size(w, -1.0f);
+    ImGui::SetNextWindowSizeConstraints(min_size, max_size);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(pad * 4, pad * 2));
+    if(ImGui::BeginPopupModal(banner, nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar)) {
+        ImGui::TextWrapped("%s", text);
+        ImGui::Dummy(ImVec2(0.0f, pad));
+        ImGui::Separator();
+        ImGui::Dummy(ImVec2(0.0f, pad));
+        RightAlignButtons({yes_text, no_text});
+        if(ImGui::Button(yes_text)) {
+            rc = 1;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SetItemDefaultFocus();
+        ImGui::SameLine();
+        if(ImGui::Button(no_text)) {
+            rc = 2;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::PopStyleVar(1);
+    return rc;
 }

@@ -6,9 +6,10 @@
 #include "gerber_lib.h"
 #include "gerber_draw.h"
 #include "gerber_net.h"
+#include "gerber_arena.h"
 #include "gl_matrix.h"
 
-struct TESStesselator;
+#include "tesselator.h"
 
 namespace gerber_3d
 {
@@ -78,7 +79,7 @@ namespace gerber_3d
 
         // for actually drawing it
         void fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, gl::color red_fill = gl::colors::red,
-                  gl::color green_fill = gl::colors::green, gl::color blue_fill = gl::colors::blue);
+                  gl::color green_fill = gl::colors::green, gl::color blue_fill = gl::colors::blue) const;
 
         void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &viewport_size);
 
@@ -99,7 +100,16 @@ namespace gerber_3d
         TESStesselator *boundary_stesselator{};
         std::vector<tesselator_entity> entities;
 
+        TESSalloc tess_alloc{};
+        using tess_arena_t = gerber_lib::gerber_arena<1ULL<<24, 16>;
+
+        // gerber_lib::gerber_arena<1ULL<<30, sizeof(void *), 65536> boundary_arena;
+        tess_arena_t boundary_arena;
+
         std::vector<vec2f> temp_points;
+
+        // outline verts for all the entities (and the flags...)
+        gerber_lib::gerber_arena<1ULL<<30, 16> vertex_arena;
 
         std::vector<gl_line2_program::line> outline_lines;
         std::vector<vec2f> outline_vertices;
@@ -111,7 +121,6 @@ namespace gerber_3d
 
         // drawing
         gl_layer_program *layer_program{};
-        // gl_line_program *line_program{};
         gl_line2_program *line2_program{};
 
         // all the verts for interiors

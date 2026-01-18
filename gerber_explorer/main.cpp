@@ -23,15 +23,18 @@
 // X render-on-window-resize
 // X fix ImGui viewport thing
 // X picking / selection
+// X detect gerber layer type/position from extension/name/x2 info
 //
+// top/bottom views
 // selected entity info
 // reduce gpu usage - only draw frame when necessary
 // status bar
-//
-// detect gerber layer type/position from extension/name/x2 info
+// dynamic tesselation
 //
 // detect board outline
 // measure tool
+//
+// fix the memory allocation - especially for tesselator and gerber::draw
 //
 // settings
 // configurable mouse buttons (/keys?)
@@ -46,33 +49,6 @@
 // ? undo/redo ?
 //
 
-/*
- * file extension (Protel: GTO, GTL etc)
- * filename (from KiCad - XXXX_F_Cu.gbr etc)
- * X2 comment (%TF.FileFunction,Soldermask,Top*%)
- * filename (from the ok folder from jlcpcb)
- *
- * NPTH drills
- * board
- * profile
- * keepout
- * -----
- * top overlay
- * top soldermask (invert)
- * (PTH drills)
- * top paste
- * top pads
- *
- * copper 1..n
- *
- * bottom pads
- * bottom paste
- * (PTH drills)
- * bottom soldermask (invert)
- * bottom overlay
- * -----
- */
-
 #include <cstdio>
 #include <filesystem>
 
@@ -83,6 +59,7 @@
 #endif
 
 #include "gerber_explorer.h"
+#include "gerber_arena.h"
 #include "settings.h"
 
 LOG_CONTEXT("main", info);
@@ -120,6 +97,14 @@ int main(int, char **)
     gerber_lib::log_set_emitter_function(puts);
 #endif
 
+    // {
+    //     gerber_lib::gerber_arena arena;
+    //     for(int i=0; i<10; ++i) {
+    //         auto p = arena.alloc(32768);
+    //         LOG_INFO("{}", p);
+    //     }
+    // }
+    //
     gerber_explorer window;
     window.init();
 

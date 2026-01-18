@@ -29,10 +29,9 @@ namespace settings
         std::string color;
         bool visible{ false };
         bool inverted{ false };
-        int draw_mode{ 0 };
         int index{ 0 };
 
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(layer_t, filename, color, visible, inverted, draw_mode, index)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(layer_t, filename, color, visible, inverted, index)
     };
 }    // namespace settings
 
@@ -49,6 +48,8 @@ namespace settings
     X(int, window_height, 600)              \
     X(int, window_xpos, 100)                \
     X(int, window_ypos, 100)                \
+    X(int, multisamples, 1)                 \
+    X(bool, view_toolbar, true)             \
     X(std::vector<settings::layer_t>, files, {})
 
 struct settings_t

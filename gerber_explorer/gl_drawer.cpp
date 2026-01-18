@@ -17,6 +17,21 @@ LOG_CONTEXT("gl_drawer", debug);
 
 //////////////////////////////////////////////////////////////////////
 
+namespace
+{
+    void *tess_allocate(void *userData, unsigned int size)
+    {
+        auto arena = (gerber_3d::gl_drawer::tess_arena_t *)userData;
+        return arena->alloc(size);
+    }
+
+    void tess_free(void *userData, void *ptr)
+    {
+        (void)userData;
+        (void)ptr;
+    }
+}
+
 namespace gerber_3d
 {
     struct gl_matrix;
@@ -162,7 +177,22 @@ namespace gerber_3d
         finish_entity();
 
         entities.emplace_back(net, (int)fill_spans.size(), 0, (int)outline_vertices.size(), 0, flags);
-        boundary_stesselator = tessNewTess(nullptr);
+
+        memset(&tess_alloc, 0, sizeof(tess_alloc));
+        tess_alloc.memalloc = tess_allocate;
+        tess_alloc.memfree = tess_free;
+        tess_alloc.userData = (void*)&boundary_arena;
+
+        // tess_alloc.meshEdgeBucketSize = 10240;
+        // tess_alloc.meshVertexBucketSize = 10240;
+        // tess_alloc.meshFaceBucketSize = 10240;
+        // tess_alloc.dictNodeBucketSize = 10240;
+        // tess_alloc.regionBucketSize = 10240;
+        // tess_alloc.extraVertices = 20480;
+
+        boundary_stesselator = tessNewTess(&tess_alloc);
+        // boundary_stesselator = tessNewTess(nullptr);
+
         tessSetOption(boundary_stesselator, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 1);
         tessSetOption(boundary_stesselator, TESS_REVERSE_CONTOURS, 1);
     }
@@ -258,6 +288,7 @@ namespace gerber_3d
 
             tessDeleteTess(boundary_stesselator);
             boundary_stesselator = nullptr;
+            boundary_arena.reset();
         }
         temp_points.clear();
     }
@@ -310,6 +341,8 @@ namespace gerber_3d
 
     void gl_drawer::on_finished_loading()
     {
+        LOG_INFO("{}% used!", boundary_arena.percent_committed());
+
         if(fill_vertices.empty() || fill_indices.empty() || outline_vertices.empty()) {
             LOG_INFO("Layer {} is empty", this->gerber_file->filename);
             return;
@@ -360,12 +393,11 @@ namespace gerber_3d
         current_flag = flag;
         current_entity_id = gnet->entity_id;
 
-        std::vector<vec2f> &points = temp_points;
-        size_t offset = points.size();
+        size_t offset = temp_points.size();
 
-        auto add_point = [&](double x, double y) {
-            if(points.empty() || fabs(points.back().x - x) > THRESHOLD || fabs(points.back().y - y) > THRESHOLD) {
-                points.emplace_back(static_cast<float>(x), static_cast<float>(y));
+        auto add_point = [this](double x, double y) {
+            if(temp_points.empty() || fabs(temp_points.back().x - x) > THRESHOLD || fabs(temp_points.back().y - y) > THRESHOLD) {
+                temp_points.emplace_back(static_cast<float>(x), static_cast<float>(y));
             }
         };
 
@@ -410,28 +442,28 @@ namespace gerber_3d
             }
         }
 
-        if(points.size() < 3) {
+        if(temp_points.size() < 3) {
             LOG_WARNING("CULLED SECTION OF ENTITY {}", gnet->entity_id);
             return;
         }
 
         // if last point == first point, bin it
-        if(points.back().x == points.front().x && points.back().y == points.front().y) {
-            points.pop_back();
+        if(temp_points.back().x == temp_points.front().x && temp_points.back().y == temp_points.front().y) {
+            temp_points.pop_back();
         }
 
         // force counter clockwise ordering
 
-        if(is_clockwise(points, offset, points.size())) {
-            // LOG_DEBUG("REVERSING entity {} from {} to {}", entity_id, offset, points.size());
-            std::reverse(points.begin() + offset, points.end());
+        if(is_clockwise(temp_points, offset, temp_points.size())) {
+            // LOG_DEBUG("REVERSING entity {} from {} to {}", entity_id, offset, temp_points.size());
+            std::reverse(temp_points.begin() + offset, temp_points.end());
         }
         append_points(offset);
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, gl::color red_fill, gl::color green_fill, gl::color blue_fill)
+    void gl_drawer::fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, gl::color red_fill, gl::color green_fill, gl::color blue_fill) const
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -441,7 +473,7 @@ namespace gerber_3d
 
         glEnable(GL_BLEND);
 
-        layer_program->use();
+        layer_program->activate();
 
         GL_CHECK(glUniformMatrix4fv(layer_program->u_transform, 1, false, matrix.m));
 
@@ -493,7 +525,7 @@ namespace gerber_3d
         GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, line_buffers[2]));
         update_buffer<GL_TEXTURE_BUFFER>(entity_flags);
 
-        line2_program->use();
+        line2_program->activate();
         line2_program->quad_points_array.activate();
         GL_CHECK(glActiveTexture(GL_TEXTURE0));
         GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, textures[0]));    // The Lines TBO (RGBA32UI)
@@ -510,8 +542,8 @@ namespace gerber_3d
         GL_CHECK(glUniform1f(line2_program->u_check_size, 4.0f));
 
         float now = (float)fmod(get_time() * 25, 8.0);
-
-        GL_CHECK(glUniform2f(line2_program->u_check_offset, now, now));
+        float offset = (now > 4.0f) ? outline_thickness / 4 : 0;
+        GL_CHECK(glUniform2f(line2_program->u_check_offset, offset, offset));
 
         GL_CHECK(glUniformMatrix4fv(line2_program->u_transform, 1, false, matrix.m));
         GL_CHECK(glUniform4fv(line2_program->u_select_color, 1, outline_color.f));

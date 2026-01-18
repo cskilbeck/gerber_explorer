@@ -107,6 +107,12 @@ namespace
         glwindow->on_drop(count, paths);
     }
 
+    void on_glfw_focus(GLFWwindow *window, int focused)
+    {
+        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
+        glwindow->on_window_focus(focused);
+    }
+
 #ifdef _WIN32
     void restore_win32_window(GLFWwindow *window, const gl_window::window_state_t &state)
     {
@@ -214,6 +220,7 @@ void gl_window::init()
     glfwSetWindowPosCallback(window, on_glfw_pos);
     glfwSetDropCallback(window, on_glfw_drop);
     glfwSetWindowRefreshCallback(window, on_glfw_refresh);
+    glfwSetWindowFocusCallback(window, on_glfw_focus);
 
     glfwMakeContextCurrent(window);
 
@@ -337,7 +344,11 @@ void gl_window::on_frame()
 
 bool gl_window::update()
 {
-    glfwPollEvents();
+    if(window_focused) {
+        glfwPollEvents();
+    } else {
+        glfwWaitEvents();
+    }
     if(!glfwWindowShouldClose(window)) {
         on_frame();
         return true;

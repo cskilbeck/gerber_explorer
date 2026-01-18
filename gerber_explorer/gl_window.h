@@ -52,6 +52,11 @@ struct gl_window
     {
     }
 
+    virtual void on_window_focus(int focused)
+    {
+        window_focused = focused != 0;
+    }
+
     virtual std::string window_name() const
     {
         return "glfw";
@@ -61,6 +66,7 @@ struct gl_window
     virtual void on_window_pos(int x, int y);
     GLFWwindow *window{};
     window_state_t window_state;
+    bool window_focused{false};
 
     window_state_t get_window_state();
 };
