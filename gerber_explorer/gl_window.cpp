@@ -344,11 +344,7 @@ void gl_window::on_frame()
 
 bool gl_window::update()
 {
-    if(window_focused) {
-        glfwPollEvents();
-    } else {
-        glfwWaitEvents();
-    }
+    glfwWaitEvents();
     if(!glfwWindowShouldClose(window)) {
         on_frame();
         return true;

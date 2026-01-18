@@ -24,9 +24,9 @@
 // X fix ImGui viewport thing
 // X picking / selection
 // X detect gerber layer type/position from extension/name/x2 info
+// X top/bottom views
+// X selected entity info
 //
-// top/bottom views
-// selected entity info
 // reduce gpu usage - only draw frame when necessary
 // status bar
 // dynamic tesselation

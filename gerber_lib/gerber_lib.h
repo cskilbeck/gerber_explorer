@@ -42,8 +42,8 @@ namespace gerber_lib
             copper_top = 6000,
             copper_inner = 7000,
             copper_bottom = 8000,
+            drill_bottom = 8500,
             soldermask_bottom = 9000,
-            drill_bottom = 9500,
             overlay_bottom = 10000,
             paste_bottom = 11000,
         };

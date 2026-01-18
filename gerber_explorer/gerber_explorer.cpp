@@ -879,6 +879,7 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
                         {
                             std::lock_guard loaded_lock(loaded_mutex);
                             loaded_layers.push_back(layer);
+                            glfwPostEmptyEvent();
                         }
                     } else {
                         LOG_ERROR("Error loading {} ({})", loaded_layer.filename, gerber_lib::get_error_text(err));
@@ -1253,7 +1254,8 @@ void gerber_explorer::blend_layer(gl::color col_r, gl::color col_g, gl::color co
 
     GL_CHECK(glEnable(GL_BLEND));
     GL_CHECK(glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD));
-    GL_CHECK(glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    // wacky sort-of-additive-but-not-additive blending
+    GL_CHECK(glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_SRC_ALPHA));
 
     GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
 }
@@ -1524,6 +1526,16 @@ void gerber_explorer::on_render()
         overlay.add_rect(f, color);
         overlay.add_outline_rect(f, 0xffffffff);
     }
+
+#if defined(_DEBUG)
+    {
+        static int frames = 0;
+        frames += 1;
+        vec2d x{ sin(frames / 4.0) * 20.0 + 50.0, cos(frames / 4.0) * 20.0 + 50.0 };
+        rect p{ x.subtract({ 5, 5 }), x.add({ 5, 5 }) };
+        overlay.add_rect(p, gl::colors::white);
+    }
+#endif
 
     rect ext{ viewport_pos_from_world_pos(arc_extent.min_pos), viewport_pos_from_world_pos(arc_extent.max_pos) };
     overlay.add_outline_rect(ext, gl::colors::green);
