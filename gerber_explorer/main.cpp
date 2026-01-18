@@ -30,8 +30,8 @@
 // reduce gpu usage - only draw frame when necessary
 // status bar
 // dynamic tesselation
-//
 // detect board outline
+//
 // measure tool
 //
 // fix the memory allocation - especially for tesselator and gerber::draw

@@ -539,11 +539,6 @@ namespace gerber_3d
         GL_CHECK(glUniform1i(line2_program->u_flags_sampler, 2));    // flags_sampler    -> GL_TEXTURE2
         GL_CHECK(glUniform1f(line2_program->u_thickness, outline_thickness));
         GL_CHECK(glUniform2f(line2_program->u_viewport_size, (float)viewport_size.x, (float)viewport_size.y));
-        GL_CHECK(glUniform1f(line2_program->u_check_size, 4.0f));
-
-        float now = (float)fmod(get_time() * 25, 8.0);
-        float offset = (now > 4.0f) ? outline_thickness / 4 : 0;
-        GL_CHECK(glUniform2f(line2_program->u_check_offset, offset, offset));
 
         GL_CHECK(glUniformMatrix4fv(line2_program->u_transform, 1, false, matrix.m));
         GL_CHECK(glUniform4fv(line2_program->u_select_color, 1, outline_color.f));

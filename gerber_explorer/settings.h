@@ -50,6 +50,7 @@ namespace settings
     X(int, window_ypos, 100)                \
     X(int, multisamples, 1)                 \
     X(bool, view_toolbar, true)             \
+    X(int, board_view, 0)                   \
     X(std::vector<settings::layer_t>, files, {})
 
 struct settings_t

@@ -221,8 +221,6 @@ namespace gerber_3d
         u_viewport_size = get_uniform("viewport_size");
         u_hover_color = get_uniform("hover_color");
         u_select_color = get_uniform("select_color");
-        u_check_offset = get_uniform("check_offset");
-        u_check_size = get_uniform("check_size");
         u_lines_sampler = get_uniform("instance_sampler");
         u_vert_sampler = get_uniform("vert_sampler");
         u_flags_sampler = get_uniform("flags_sampler");

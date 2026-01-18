@@ -273,9 +273,6 @@ namespace gerber_3d
         GLuint u_vert_sampler;     // sampler for the vertices
         GLuint u_flags_sampler;    // sampler for flags (1 byte per entity_id)
 
-        GLuint u_check_size;
-        GLuint u_check_offset;
-
         static const float quad[8];
 
         gl_vertex_array_quad_points quad_points_array;

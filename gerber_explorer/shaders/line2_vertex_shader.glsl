@@ -14,8 +14,7 @@ uniform usamplerBuffer flags_sampler;// GL_TEXTURE2: sampler for TBO of flags [e
 
 out vec2 v_local_pos;
 out float v_length_px;
-out vec4 v_color_a;
-out vec4 v_color_b;
+out vec4 v_color;
 
 void main() {
 
@@ -40,9 +39,8 @@ void main() {
     if((flags & 2u) != 0) {
         select = 1;
     }
-    v_color_a = mix(vec4(0), hover_color, hover);
-    v_color_a = mix(v_color_a, select_color, select);
-    v_color_b = select_color;
+    v_color = mix(vec4(0), hover_color, hover);
+    v_color = mix(v_color, select_color, select);
 
     // get verts from vert_sampler via start/end index
     vec2 posA = texelFetch(vert_sampler, int(start_index)).rg;

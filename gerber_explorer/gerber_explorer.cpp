@@ -33,16 +33,6 @@ namespace
 
     char const *const board_view_names[board_view_num_views] = { "All", "Front", "Back" };
 
-    board_view_t board_view{ board_view_all };
-
-    void next_view()
-    {
-        board_view = (board_view_t)((int)board_view + 1);
-        if(board_view >= board_view_num_views) {
-            board_view = board_view_all;
-        }
-    }
-
     using gerber_lib::rect;
     using gerber_lib::vec2d;
     using gerber_lib::vec2f;
@@ -115,11 +105,11 @@ namespace
         { gerber_lib::layer::drill, not_inverted, layer_order_t::drill, gl::colors::black },
         { gerber_lib::layer::paste_top, not_inverted, layer_order_t::top_outer, gl::colors::silver },
         { gerber_lib::layer::overlay_top, not_inverted, layer_order_t::top_outer, gl::colors::white },
-        { gerber_lib::layer::soldermask_top, inverted, layer_order_t::top_outer, gl::set_alpha(gl::colors::dark_green, 0.65f) },
-        { gerber_lib::layer::copper_top, not_inverted, layer_order_t::top_copper, gl::colors::yellow },
-        { gerber_lib::layer::copper_inner, not_inverted, layer_order_t::inner_copper, gl::colors::yellow },
-        { gerber_lib::layer::copper_bottom, not_inverted, layer_order_t::bottom_copper, gl::colors::yellow },
-        { gerber_lib::layer::soldermask_bottom, inverted, layer_order_t::bottom_outer, gl::set_alpha(gl::colors::dark_green, 0.65f) },
+        { gerber_lib::layer::soldermask_top, inverted, layer_order_t::top_outer, gl::set_alpha(gl::colors::dark_green, 0.75f) },
+        { gerber_lib::layer::copper_top, not_inverted, layer_order_t::top_copper, 0xFF34AAAC },
+        { gerber_lib::layer::copper_inner, not_inverted, layer_order_t::inner_copper, 0xFF34AAAC },
+        { gerber_lib::layer::copper_bottom, not_inverted, layer_order_t::bottom_copper, 0xFF34AAAC },
+        { gerber_lib::layer::soldermask_bottom, inverted, layer_order_t::bottom_outer, gl::set_alpha(gl::colors::dark_green, 0.75f) },
         { gerber_lib::layer::overlay_bottom, not_inverted, layer_order_t::bottom_outer, gl::colors::white },
         { gerber_lib::layer::paste_bottom, not_inverted, layer_order_t::bottom_outer, gl::colors::silver },
     };
@@ -352,6 +342,16 @@ void gerber_explorer::on_drop(int count, const char **paths)
 {
     for(int i = 0; i < count; ++i) {
         load_gerber(settings::layer_t{ paths[i], "#ff00ff00", true, false, -1 });
+    }
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::next_view()
+{
+    settings.board_view += 1;
+    if(settings.board_view >= board_view_num_views) {
+        settings.board_view = board_view_all;
     }
 }
 
@@ -617,10 +617,10 @@ bool gerber_explorer::layer_is_visible(gerber_layer const *layer) const
     if(!layer->visible) {
         return false;
     }
-    if(board_view == board_view_bottom && !is_bottom_layer(layer->layer_order)) {
+    if(settings.board_view == board_view_bottom && !is_bottom_layer(layer->layer_order)) {
         return false;
     }
-    if(board_view == board_view_top && !is_top_layer(layer->layer_order)) {
+    if(settings.board_view == board_view_top && !is_top_layer(layer->layer_order)) {
         return false;
     }
     return true;
@@ -879,7 +879,15 @@ void gerber_explorer::load_gerbers(std::stop_token const &st)
                         {
                             std::lock_guard loaded_lock(loaded_mutex);
                             loaded_layers.push_back(layer);
-                            glfwPostEmptyEvent();
+                        }
+                        bool loaded = false;
+                        while(!loaded) {
+                            {
+                                std::lock_guard loaded_lock(loaded_mutex);
+                                loaded = loaded_layers.empty();
+                                glfwPostEmptyEvent();
+                            }
+                            std::this_thread::sleep_for(std::chrono::milliseconds(25));
                         }
                     } else {
                         LOG_ERROR("Error loading {} ({})", loaded_layer.filename, gerber_lib::get_error_text(err));
@@ -1052,11 +1060,11 @@ void gerber_explorer::ui()
             }
             float combo_width = max_width + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetFrameHeight();
             ImGui::SetNextItemWidth(combo_width);    // This is the key line
-            if(ImGui::BeginCombo("##view_combo", board_view_names[board_view], ImGuiComboFlags_PopupAlignLeft)) {
+            if(ImGui::BeginCombo("##view_combo", board_view_names[settings.board_view], ImGuiComboFlags_PopupAlignLeft)) {
                 for(int n = 0; n < board_view_num_views; ++n) {
-                    bool is_selected = board_view == n;
+                    bool is_selected = settings.board_view == n;
                     if(ImGui::Selectable(board_view_names[n], is_selected)) {
-                        board_view = (board_view_t)n;
+                        settings.board_view = n;
                     }
                     if(is_selected) {
                         ImGui::SetItemDefaultFocus();
@@ -1235,7 +1243,7 @@ void gerber_explorer::update_board_extent()
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::blend_layer(gl::color col_r, gl::color col_g, gl::color col_b, float alpha)
+void gerber_explorer::blend_layer(gl::color col_r, gl::color col_g, gl::color col_b, float alpha, int num_samples)
 {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
@@ -1245,11 +1253,15 @@ void gerber_explorer::blend_layer(gl::color col_r, gl::color col_g, gl::color co
     textured_program.activate();
     layer_render_target.bind_textures();
 
+    if(num_samples == 0) {
+        num_samples = layer_render_target.num_samples;
+    }
+
     GL_CHECK(glUniform4fv(textured_program.u_red, 1, gl::colorf4(col_r).f));
     GL_CHECK(glUniform4fv(textured_program.u_green, 1, gl::colorf4(col_g).f));
     GL_CHECK(glUniform4fv(textured_program.u_blue, 1, gl::colorf4(col_b).f));
     GL_CHECK(glUniform1f(textured_program.u_alpha, alpha));
-    GL_CHECK(glUniform1i(textured_program.u_num_samples, layer_render_target.num_samples));
+    GL_CHECK(glUniform1i(textured_program.u_num_samples, num_samples));
     GL_CHECK(glUniform1i(textured_program.u_cover_sampler, 0));
 
     GL_CHECK(glEnable(GL_BLEND));
@@ -1401,11 +1413,13 @@ void gerber_explorer::on_render()
     }
 
     // 2. sort them, based on current view mode
-    if(board_view != board_view_all) {
+    if(settings.board_view != board_view_all) {
         std::sort(ordered_layers.begin(), ordered_layers.end(), [this](gerber_layer const *a, gerber_layer const *b) {
+
             gerber_lib::layer::type_t x = gerber_lib::layer::type_t::drill_top;
-            if(board_view == board_view_bottom) {
+            if(settings.board_view == board_view_bottom) {
                 x = gerber_lib::layer::type_t::drill_bottom;
+                std::swap(a, b);
             }
             int ta = a->layer.gerber_file->layer_type;
             int tb = b->layer.gerber_file->layer_type;
@@ -1414,9 +1428,6 @@ void gerber_explorer::on_render()
             }
             if(tb == gerber_lib::layer::type_t::drill) {
                 tb = x;
-            }
-            if(board_view == board_view_bottom) {
-                return ta < tb;
             }
             return ta > tb;
         });
@@ -1455,14 +1466,14 @@ void gerber_explorer::on_render()
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
         GL_CHECK(glClearColor(0, 0, 0, 1));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        gl::color red_fill = gl::colors::red;
-        gl::color green_fill = gl::colors::green & 0xc0ffffff;
-        gl::color blue_fill = gl::colors::blue & 0x80ffffff;
+        gl::color red_fill = gl::set_alpha(gl::colors::red, 0xC0);
+        gl::color green_fill = gl::set_alpha(gl::colors::green, 0x80);
+        gl::color blue_fill = gl::set_alpha(gl::colors::blue, 0x80);
         selected_layer->layer.fill(world_matrix, entity_flags_t::active, entity_flags_t::selected, entity_flags_t::hovered, red_fill, green_fill, blue_fill);
         gl::color active(gl::colors::white);
-        gl::color selected(gl::colors::pale_turquoise);
-        gl::color hovered(gl::colors::powder_blue);
-        blend_layer(active, selected, hovered, 0.8f);
+        gl::color selected(gl::colors::cyan);
+        gl::color hovered(gl::colors::light_blue);
+        blend_layer(active, selected, hovered, 1.0f);
 
         // Draw outline for hovered/selected entities in the selected layer
         if(settings.outline_width > 0.0f) {
@@ -1471,7 +1482,7 @@ void gerber_explorer::on_render()
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             selected_layer->layer.outline(settings.outline_width, world_matrix, viewport_size);
-            blend_layer(gl::colors::white, gl::colors::clear, gl::colors::black, 1.0f);
+            blend_layer(gl::colors::white, gl::colors::clear, gl::colors::black, 1.0f, 1);
         }
     }
 
@@ -1545,4 +1556,8 @@ void gerber_explorer::on_render()
     GL_CHECK(glUniformMatrix4fv(color_program.u_transform, 1, false, ortho_screen_matrix.m));
 
     overlay.draw();
+
+    if(zoom_anim) {
+        glfwPostEmptyEvent();
+    }
 }
