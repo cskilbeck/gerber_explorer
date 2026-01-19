@@ -255,21 +255,7 @@ namespace
 
     void update_bounds(rect &bounds, matrix const &matrix, vec2d const &point)
     {
-        vec2d p = transform_point(matrix, point);
-
-        if(p.x < bounds.min_pos.x) {
-            bounds.min_pos.x = p.x;
-        }
-        if(p.x > bounds.max_pos.x) {
-            bounds.max_pos.x = p.x;
-        }
-
-        if(p.y < bounds.min_pos.y) {
-            bounds.min_pos.y = p.y;
-        }
-        if(p.y > bounds.max_pos.y) {
-            bounds.max_pos.y = p.y;
-        }
+        bounds.expand_to_contain(transform_point(matrix, point));
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -281,6 +267,19 @@ namespace
         }
     }
 
+    //////////////////////////////////////////////////////////////////////
+
+    std::optional<unsigned> get_uint(std::string_view sv) {
+        if (!sv.empty()) {
+            unsigned value = 0;
+            auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
+            if (ec == std::errc{} && ptr == sv.data() + sv.size()) {
+                return value;
+            }
+        }
+        return std::nullopt;
+    }
+
 }    // namespace
 
 namespace gerber_lib
@@ -290,7 +289,10 @@ namespace gerber_lib
     layer::type_t gerber::classify() const
     {
         using namespace layer;
-        std::string name(to_lower(std::filesystem::path(filename).filename().string()));
+        auto path = std::filesystem::path(filename);
+        std::string name(to_lower(path.filename().string()));
+        std::string stem(to_lower(path.stem().string()));
+        std::string extension(to_lower(path.extension().string()));
 
         // X2 Attributes
         for(auto const &pair : attributes) {
@@ -303,6 +305,17 @@ namespace gerber_lib
                     }
                     if(v.contains("bot")) {
                         return copper_bottom;
+                    }
+                    // Find the L## bit
+                    std::vector<std::string_view> tokens;
+                    tokenize(v, tokens, ",", tokenize_remove_empty);
+                    for(auto token: tokens) {
+                        if(tolower(token[0]) == 'l') {
+                            auto n = get_uint(token.substr(1));
+                            if(n.has_value()) {
+                                return (type_t)((int)copper_inner + n.value());
+                            }
+                        }
                     }
                     return copper_inner;
                 }
@@ -343,42 +356,41 @@ namespace gerber_lib
         }
 
         // Filename Patterns
-        if(name.contains(".gtl") || name.contains("-f_cu")) {
+        if(extension == ".gtl" || stem.ends_with("-f_cu")) {
             return copper_top;
         }
-        if(name.contains(".gbl") || name.contains("-b_cu")) {
+        if(extension == ".gbl" || stem.ends_with("-b_cu")) {
             return copper_bottom;
         }
-        if(name.contains("-in") && name.contains("_cu")) {
+        if(stem.ends_with("-in") && stem.ends_with("_cu")) {
             return copper_inner;
         }
-        if(name.contains(".gts") || name.contains("-f_mask")) {
+        if(extension == ".gts" || stem.ends_with("-f_mask")) {
             return soldermask_top;
         }
-        if(name.contains(".gbs") || name.contains("-b_mask")) {
+        if(extension == ".gbs" || stem.ends_with("-b_mask")) {
             return soldermask_bottom;
         }
-        if(name.contains(".gtp") || name.contains("-f_paste")) {
+        if(extension == ".gtp" || stem.ends_with("-f_paste")) {
             return paste_top;
         }
-        if(name.contains(".gbp") || name.contains("-b_paste")) {
+        if(extension == ".gbp" || stem.ends_with("-b_paste")) {
             return paste_bottom;
         }
-        if(name.contains(".gko") || name.contains("-margin") || name.contains("-keepout")) {
+        if(extension == ".gko" || stem.ends_with("-margin") || stem.ends_with("-keepout")) {
             return keepout;
         }
-        if(name.contains(".gml") || name.contains("-edge_cuts") || name.contains("-outline")) {
+        if(extension == ".gml" || stem.ends_with("-edge_cuts") || stem.ends_with("-outline")) {
             return outline;
         }
-        if(name.contains(".drl") || name.contains(".txt")) {
+        if(extension == ".drl" || extension == ".txt") {
             return drill;
         }
-        // Protel inner layers are a hassle
-        size_t f = name.rfind(".g");
-        if(f != std::string::npos) {
-            std::string_view d = std::string_view(name).substr(f + 2);
-            if(is_positive_integer(d)) {
-                return copper_inner;
+        // Protel inner layers are a hassle (.g2, .g3, .g12 etc)
+        if(extension.size() > 2 && extension[1] == 'g') {
+            auto n = get_uint(std::string_view(extension).substr(2));
+            if(n.has_value()) {
+                return (type_t)((int)copper_inner + n.value());
             }
         }
 
@@ -412,8 +424,9 @@ namespace gerber_lib
         }
         // "l###" is inner layer
         if(name[0] == 'l') {
-            if(all_digits(std::string_view(name).substr(1))) {
-                return copper_inner;
+            auto n = get_uint(std::string_view(name).substr(1));
+            if(n.has_value()) {
+                return (type_t)((int)copper_inner + n.value());
             }
         }
 
@@ -2775,6 +2788,109 @@ namespace gerber_lib
         el[2] = gerber_draw_element(r.max_pos, top_left);
         el[3] = gerber_draw_element(top_left, r.min_pos);
         drawer.fill_elements(el, 4, net->level->polarity, net);
+        return ok;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    gerber_error_code gerber::lines(gerber_draw_interface &drawer) const
+    {
+        // to skip a region block
+
+        auto next_net_index = [this](size_t cur_index) {
+            gerber_net *n = image.nets[cur_index];
+            if(n->interpolation_method == interpolation_region_start) {
+                while(cur_index < image.nets.size()) {
+                    if(image.nets[cur_index]->interpolation_method == interpolation_region_end) {
+                        break;
+                    }
+                    cur_index += 1;
+                }
+            }
+            return cur_index + 1;
+        };
+
+        for(size_t net_index = 0; net_index < image.nets.size(); net_index = next_net_index(net_index)) {
+
+            gerber_net *net = image.nets[net_index];
+
+            if(net->level == nullptr) {
+                continue;
+            }
+
+            if(net->hidden) {
+                continue;
+            }
+
+            if(net->aperture_state == aperture_state_off) {
+                continue;
+            }
+
+            gerber_aperture *aperture{ nullptr };
+            map_get_if_found(image.apertures, net->aperture, &aperture);
+
+            // LOG_DEBUG("Interpolation: {}", n->interpolation_method);
+
+            switch(net->interpolation_method) {
+
+            // draw the region
+            case interpolation_region_start: {
+
+                CHECK(fill_region_path(drawer, net_index, net->level->polarity));
+
+            } break;
+
+            default:
+
+                if(aperture != nullptr) {
+
+                    // LOG_DEBUG("Aperture type: {}, aperture state: {}", aperture->aperture_type, n->aperture_state);
+
+                    switch(net->aperture_state) {
+
+                    case aperture_state_off:
+                        break;
+
+                    case aperture_state_flash:
+                        break;
+
+                    // interpolate the aperture
+                    case aperture_state_on:
+
+                        switch(net->interpolation_method) {
+
+                        // straight line
+                        case interpolation_linear:
+                            if(aperture->parameters.size() < 1) {
+                                LOG_ERROR("Missing parameters for linear interpolation!?");
+                            } else {
+                                if(aperture->aperture_type != aperture_type_circle) {
+                                    // LOG_DEBUG("{}", aperture->aperture_type);
+                                }
+                                CHECK(draw_linear_interpolation(drawer, net, aperture));
+                            }
+                            break;
+
+                            // arc
+
+                        case interpolation_clockwise_circular:
+                        case interpolation_counterclockwise_circular:
+                            if(aperture->parameters.size() < 1) {
+                                LOG_ERROR("Missing parameters for arc!?");
+                            } else {
+                                CHECK(draw_arc(drawer, net, aperture->parameters[0]));
+                            }
+                            break;
+
+                        default:
+                            break;
+                        }
+                        break;
+                    }
+                    break;
+                }
+            }
+        }
         return ok;
     }
 

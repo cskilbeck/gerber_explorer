@@ -55,14 +55,13 @@ namespace gerber_lib
         tokenize_keep_empty,
     };
 
-    template <typename T> void tokenize(std::string const &str, T &tokens, std::string const &delimiter, tokenize_option option)
+    template <typename T> void tokenize(std::string_view const str, T &tokens, std::string_view const delimiter, tokenize_option option)
     {
         size_t start = str.find_first_not_of(delimiter);
-
         while(start != std::string::npos) {
             size_t end = str.find_first_of(delimiter, start);
             if(end != start || option == tokenize_keep_empty) {
-                tokens.push_back(str.substr(start, end - start));
+                tokens.push_back(typename T::value_type(str.substr(start, end - start)));
             }
             start = str.find_first_not_of(delimiter, end);
         }
@@ -71,7 +70,7 @@ namespace gerber_lib
     //////////////////////////////////////////////////////////////////////
     // YOINK: this is what giving zero fucks about performance looks like
 
-    template <typename T> std::string join(T const &values, std::string const &join_with)
+    template <typename T> std::string join(T const &values, std::string_view const join_with)
     {
         std::string result;
         std::string joiner;

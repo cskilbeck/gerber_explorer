@@ -30,14 +30,14 @@ namespace
         (void)userData;
         (void)ptr;
     }
-}
+}    // namespace
 
 namespace gerber_3d
 {
     struct gl_matrix;
     using namespace gerber_lib;
 
-    bool is_clockwise(std::vector<vec2f> const &points, size_t start, size_t end)
+    template<typename T> bool is_clockwise(T const &points, size_t start, size_t end)
     {
         double sum = 0;
         for(size_t i = start, n = end - 1; i != end; n = i++) {
@@ -178,11 +178,6 @@ namespace gerber_3d
 
         entities.emplace_back(net, (int)fill_spans.size(), 0, (int)outline_vertices.size(), 0, flags);
 
-        memset(&tess_alloc, 0, sizeof(tess_alloc));
-        tess_alloc.memalloc = tess_allocate;
-        tess_alloc.memfree = tess_free;
-        tess_alloc.userData = (void*)&boundary_arena;
-
         // tess_alloc.meshEdgeBucketSize = 10240;
         // tess_alloc.meshVertexBucketSize = 10240;
         // tess_alloc.meshFaceBucketSize = 10240;
@@ -190,7 +185,7 @@ namespace gerber_3d
         // tess_alloc.regionBucketSize = 10240;
         // tess_alloc.extraVertices = 20480;
 
-        boundary_stesselator = tessNewTess(&tess_alloc);
+        boundary_stesselator = tessNewTess(&boundary_tess_alloc);
         // boundary_stesselator = tessNewTess(nullptr);
 
         tessSetOption(boundary_stesselator, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 1);
@@ -216,8 +211,10 @@ namespace gerber_3d
             const int *elems = tessGetElements(boundary_stesselator);
             const int nelems = tessGetElementCount(boundary_stesselator);
 
-            // New tesselator for the interior
-            TESStesselator *interior_tesselator = tessNewTess(nullptr);
+            interior_arena.reset();
+
+            TESStesselator *interior_tesselator = tessNewTess(&interior_tess_alloc);
+
             tessSetOption(interior_tesselator, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 1);
             tessSetOption(interior_tesselator, TESS_REVERSE_CONTOURS, 1);
 
@@ -306,6 +303,16 @@ namespace gerber_3d
 
     void gl_drawer::set_gerber(gerber *g)
     {
+        memset(&boundary_tess_alloc, 0, sizeof(boundary_tess_alloc));
+        boundary_tess_alloc.memalloc = tess_allocate;
+        boundary_tess_alloc.memfree = tess_free;
+        boundary_tess_alloc.userData = (void *)&boundary_arena;
+
+        memset(&interior_tess_alloc, 0, sizeof(interior_tess_alloc));
+        interior_tess_alloc.memalloc = tess_allocate;
+        interior_tess_alloc.memfree = tess_free;
+        interior_tess_alloc.userData = (void *)&interior_arena;
+
         gerber_file = g;
         current_entity_id = -1;
         clear();
@@ -320,7 +327,7 @@ namespace gerber_3d
             max_entity_id = std::max(max_entity_id, e.entity_id());
         }
 
-        entity_flags.resize(max_entity_id + 1);
+        entity_flags.increase_size_to(max_entity_id + 1);
         for(auto &e : entities) {
             auto id = e.entity_id();
             if(id >= entity_flags.size()) {
@@ -463,7 +470,8 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, gl::color red_fill, gl::color green_fill, gl::color blue_fill) const
+    void gl_drawer::fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, gl::color red_fill, gl::color green_fill,
+                         gl::color blue_fill) const
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -511,16 +519,18 @@ namespace gerber_3d
 
         glEnable(GL_BLEND);
 
-        gl::colorf4 outline_color(gl::colors::blue);
-        gl::colorf4 fill_color(gl::colors::red);
+        gl::colorf4 select_color(gl::colors::blue);
+        gl::colorf4 hover_color(gl::colors::red);
 
         for(auto const &e : entities) {
             int id = e.entity_id();
-            if((e.flags & entity_flags_t::hovered) != 0) {
-                entity_flags[id] = 1;
-            } else {
-                entity_flags[id] = 0;
+            uint8_t f = 0;
+            if((e.flags & entity_flags_t::active) != 0) {
+                f = 2;
+            } else if((e.flags & entity_flags_t::hovered) != 0) {
+                f = 1;
             }
+            entity_flags[id] = f;
         }
         GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, line_buffers[2]));
         update_buffer<GL_TEXTURE_BUFFER>(entity_flags);
@@ -541,8 +551,8 @@ namespace gerber_3d
         GL_CHECK(glUniform2f(line2_program->u_viewport_size, (float)viewport_size.x, (float)viewport_size.y));
 
         GL_CHECK(glUniformMatrix4fv(line2_program->u_transform, 1, false, matrix.m));
-        GL_CHECK(glUniform4fv(line2_program->u_select_color, 1, outline_color.f));
-        GL_CHECK(glUniform4fv(line2_program->u_hover_color, 1, fill_color.f));
+        GL_CHECK(glUniform4fv(line2_program->u_select_color, 1, select_color.f));
+        GL_CHECK(glUniform4fv(line2_program->u_hover_color, 1, hover_color.f));
         GL_CHECK(glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)outline_lines.size()));
     }
 

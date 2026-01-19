@@ -1482,7 +1482,7 @@ void gerber_explorer::on_render()
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             selected_layer->layer.outline(settings.outline_width, world_matrix, viewport_size);
-            blend_layer(gl::colors::white, gl::colors::clear, gl::colors::black, 1.0f, 1);
+            blend_layer(gl::colors::white, gl::colors::white, gl::colors::black, 1.0f);
         }
     }
 

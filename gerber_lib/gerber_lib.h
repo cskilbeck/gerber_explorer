@@ -106,6 +106,7 @@ namespace gerber_lib
         gerber_error_code do_parse();
 
         gerber_error_code draw(gerber_draw_interface &drawer) const;
+        gerber_error_code lines(gerber_draw_interface &drawer) const;
         gerber_error_code fill_region_path(gerber_draw_interface &drawer, size_t net_index, gerber_polarity polarity) const;
 
         gerber_error_code draw_linear_interpolation(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *aperture) const;

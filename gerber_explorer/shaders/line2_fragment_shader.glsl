@@ -18,7 +18,7 @@ void main() {
 
     float alpha = 1.0 - smoothstep(radius - 1.0, radius + 1, dist);
 
-    if (alpha <= 0.0) discard;
+    if (alpha <= 0) discard;
 
-    fragColor = v_color * alpha;
+    fragColor = vec4(v_color.rgb, alpha);
 }

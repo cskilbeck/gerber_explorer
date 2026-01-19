@@ -52,11 +52,34 @@ namespace gerber_3d
     };
 
     //////////////////////////////////////////////////////////////////////
+    // for board outline
+    // ignores anything except lines and arcs and ignores aperture
+
+    struct gl_outliner : gerber_lib::gerber_draw_interface
+    {
+        using vec2f = gerber_lib::vec2f;
+        using vert = vec2f;
+
+        gl_outliner() = default;
+
+        // setup from a parsed gerber file
+        void set_gerber(gerber_lib::gerber *g) override;
+
+        // setup anything that has to be done in the main thread
+        void on_finished_loading() override;
+
+        // callback to create draw calls from elements
+        void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity,
+                           gerber_lib::gerber_net *gnet) override;
+    };
+
+    //////////////////////////////////////////////////////////////////////
 
     struct gl_drawer : gerber_lib::gerber_draw_interface
     {
         using vec2f = gerber_lib::vec2f;
         using vert = vec2f;
+        template<typename T> using typed_arena = gerber_lib::typed_arena<T>;
 
         gl_drawer() = default;
 
@@ -100,24 +123,20 @@ namespace gerber_3d
         TESStesselator *boundary_stesselator{};
         std::vector<tesselator_entity> entities;
 
-        TESSalloc tess_alloc{};
+        TESSalloc boundary_tess_alloc{};
+        TESSalloc interior_tess_alloc{};
         using tess_arena_t = gerber_lib::gerber_arena<1ULL<<24, 16>;
 
-        // gerber_lib::gerber_arena<1ULL<<30, sizeof(void *), 65536> boundary_arena;
         tess_arena_t boundary_arena;
+        tess_arena_t interior_arena;
 
-        std::vector<vec2f> temp_points;
-
-        // outline verts for all the entities (and the flags...)
-        gerber_lib::gerber_arena<1ULL<<30, 16> vertex_arena;
-
-        std::vector<gl_line2_program::line> outline_lines;
-        std::vector<vec2f> outline_vertices;
-        std::vector<uint8_t> entity_flags;    // one byte per entity
-
-        std::vector<vert> fill_vertices;
-        std::vector<GLuint> fill_indices;
-        std::vector<tesselator_span> fill_spans;
+        typed_arena<vec2f> temp_points{};
+        typed_arena<gl_line2_program::line> outline_lines{};
+        typed_arena<vec2f> outline_vertices{};
+        typed_arena<uint8_t> entity_flags;    // one byte per entity
+        typed_arena<vert> fill_vertices;
+        typed_arena<GLuint> fill_indices;
+        typed_arena<tesselator_span> fill_spans;
 
         // drawing
         gl_layer_program *layer_program{};

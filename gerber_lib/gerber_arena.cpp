@@ -10,7 +10,7 @@
 #include "gerber_log.h"
 #include "gerber_arena.h"
 
-LOG_CONTEXT("arena", debug);
+LOG_CONTEXT("arena", info);
 
 namespace gerber_lib
 {
@@ -29,14 +29,21 @@ namespace gerber_lib
 
     bool commit_address_space(void *addr, size_t size)
     {
-        return VirtualAlloc(addr, size, MEM_COMMIT, PAGE_READWRITE) != nullptr;
+        void *p = VirtualAlloc(addr, size, MEM_COMMIT, PAGE_READWRITE);
+        LOG_DEBUG("commit_address_space({},{}) -> {}", addr, size, p);
+        if(p == nullptr) {
+            LOG_ERROR("Failed to commit {} bytes at {} : GetLastError = {}", size, addr, GetLastError());
+        }
+        return p != nullptr;
     }
 
     //////////////////////////////////////////////////////////////////////
 
     std::byte *allocate_address_space(size_t size)
     {
-        return (std::byte *)VirtualAlloc(nullptr, size, MEM_RESERVE, PAGE_NOACCESS);
+        void* p = VirtualAlloc(nullptr, size, MEM_RESERVE, PAGE_NOACCESS);
+        LOG_INFO("VirtualAlloc({}), got {}", size, p);
+        return (std::byte *)p;
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -44,6 +51,7 @@ namespace gerber_lib
     void deallocate_address_space(void *p)
     {
         if(p != nullptr) {
+            LOG_INFO("VirtualFree({})", p);
             VirtualFree(p, 0, MEM_RELEASE);
         }
     }
