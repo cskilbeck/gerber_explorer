@@ -606,6 +606,7 @@ void gerber_explorer::on_window_refresh()
 void gerber_explorer::close_all_layers()
 {
     LOG_INFO("CLOSE ALL");
+    select_layer(nullptr);
     while(!layers.empty()) {
         auto l = layers.front();
         layers.pop_front();
@@ -620,6 +621,9 @@ bool gerber_explorer::layer_is_visible(gerber_layer const *layer) const
 {
     if(!layer->visible) {
         return false;
+    }
+    if(selected_layer != nullptr && isolate_selected_layer) {
+        return layer == selected_layer;
     }
     if(settings.board_view == board_view_bottom && !is_bottom_layer(layer->layer_order)) {
         return false;
@@ -875,6 +879,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
         LOG_DEBUG("Finished loading {}, \"{}\"", layer->index, layer_to_load.filename);
 
         pool.add_job(job_type_tesselate, [layer, g, this](std::stop_token st) {
+            layer->drawer->tesselation_quality = settings.tesselation_quality;
             layer->drawer->set_gerber(g);    // <----- TESSELATION HAPPENS HERE !!!!!
 
             // inform main thread that there's a new layer available and wait for it to pick it up
@@ -1111,6 +1116,15 @@ void gerber_explorer::ui()
                 if(ImGui::Selectable(l->name.c_str(), is_selected, flags, ImVec2(0, row_height))) {
                     select_layer(l);
                 }
+                if(ImGui::BeginPopupContextItem("##popup")) {
+                    if(ImGui::Selectable(isolate_selected_layer ? "UnIsolate" : "Isolate")) {
+                        isolate_selected_layer = !isolate_selected_layer;
+                    }
+                    if(isolate_selected_layer) {
+                        select_layer(l);
+                    }
+                    ImGui::EndPopup();
+                }
 
                 ImGui::PopStyleColor();
 
@@ -1187,8 +1201,8 @@ void gerber_explorer::ui()
 
         if(item_to_delete) {
             layers.erase(std::remove(layers.begin(), layers.end(), item_to_delete), layers.end());
-            delete item_to_delete;
             select_layer(nullptr);
+            delete item_to_delete;
         } else if(item_to_move && item_target && item_to_move != item_target) {
             auto dragged_it = std::find(layers.begin(), layers.end(), item_to_move);
             auto target_it = std::find(layers.begin(), layers.end(), item_target);
@@ -1356,6 +1370,13 @@ void gerber_explorer::on_render()
 
     if(retesselate) {
         retesselate = false;
+        pool.abort_jobs(job_type_tesselate);
+        while(true) {
+            job_pool::pool_info info = pool.get_info();
+            if(info.active == 0) {
+                break;
+            }
+        }
         for(auto l : layers) {
             tesselate_layer(l);
         }

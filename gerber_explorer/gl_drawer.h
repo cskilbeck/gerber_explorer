@@ -114,7 +114,7 @@ namespace gerber_3d
         void set_gerber(gerber_lib::gerber *g) override;
 
         // setup anything that has to be done in the main thread
-        void on_finished_loading();
+        void create_gl_resources();
 
         // callback to create draw calls from elements
         void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity,

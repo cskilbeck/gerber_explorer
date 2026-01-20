@@ -294,11 +294,12 @@ namespace gerber_3d
     void gl_drawer::finalize()
     {
         finish_entity();
+        LOG_INFO("{}%,{}% for {}", boundary_arena.percent_committed(), interior_arena.percent_committed(), gerber_file->filename);
     }
 
     //////////////////////////////////////////////////////////////////////
-    // This may run in a thread, so vertex/index buffers cannot be
-    // initialized here - do that in on_finished_loading()
+    // gl resources cannot be initialized here - that must happen on the
+    // main thread so do that in create_gl_resources()
 
     void gl_drawer::set_gerber(gerber *g)
     {
@@ -336,29 +337,33 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::on_finished_loading()
+    void gl_drawer::create_gl_resources()
     {
         if(ready_to_draw) {
             return;
         }
-
-        LOG_INFO("Boundary for {}, {}% used!", gerber_file->filename, boundary_arena.percent_committed());
 
         if(fill_vertices.empty() || fill_indices.empty() || outline_vertices.empty()) {
             LOG_INFO("Layer {} is empty", this->gerber_file->filename);
             ready_to_draw = true;
             return;
         }
+
+        // ditch existing gl resources before creating new ones
+
         vertex_array.cleanup();
         index_array.cleanup();
-        if(textures[0] != 0) {
-            glDeleteTextures(3, textures);
-        }
-        if(line_buffers[0] != 0) {
-            glDeleteBuffers(3, line_buffers);
+        for(int i=0; i<3; ++i) {
+            if(textures[i] != 0) {
+                glDeleteTextures(1, textures + i);
+            }
+            if(line_buffers[i] != 0) {
+                glDeleteBuffers(1, line_buffers + i);
+            }
         }
 
-        // ditch existing gl resources, they'll be recreated from the new stuff when it needs to draw it
+        // set up new gl resources
+
         GL_CHECK(glGenBuffers(3, line_buffers));
         GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, line_buffers[0]));
         GL_CHECK(glBufferData(GL_TEXTURE_BUFFER, outline_lines.size() * sizeof(gl_line2_program::line), outline_lines.data(), GL_STATIC_DRAW));
@@ -374,8 +379,6 @@ namespace gerber_3d
         glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, line_buffers[1]);
         glBindTexture(GL_TEXTURE_BUFFER, textures[2]);
         glTexBuffer(GL_TEXTURE_BUFFER, GL_R8UI, line_buffers[2]);
-
-        //////////
 
         vertex_array.init(static_cast<GLsizei>(fill_vertices.size()));
         vertex_array.activate();
@@ -395,7 +398,7 @@ namespace gerber_3d
         using gerber_lib::gerber_draw_element;
 
         double constexpr THRESHOLD = 1e-38;
-        double constexpr ARC_DEGREES_F[tesselation_quality::num_qualities] = { 15, 6, 2 };
+        double constexpr ARC_DEGREES_F[tesselation_quality::num_qualities] = { 10, 5, 2 };
 
         double ARC_DEGREES = ARC_DEGREES_F[tesselation_quality];
 
@@ -482,7 +485,7 @@ namespace gerber_3d
     void gl_drawer::fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, gl::color red_fill, gl::color green_fill,
                          gl::color blue_fill)
     {
-        on_finished_loading();
+        create_gl_resources();
 
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -520,7 +523,7 @@ namespace gerber_3d
 
     void gl_drawer::outline(float outline_thickness, gl_matrix const &matrix, vec2d const &viewport_size)
     {
-        on_finished_loading();
+        create_gl_resources();
 
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;

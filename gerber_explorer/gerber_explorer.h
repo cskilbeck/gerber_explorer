@@ -141,6 +141,7 @@ struct gerber_explorer : gl_window
     // gerber layers
     std::list<gerber_layer *> layers;    // active
     gerber_layer *selected_layer{ nullptr };
+    bool isolate_selected_layer{false};
 
     // zoom to rect admin
     rect target_view_rect{};
