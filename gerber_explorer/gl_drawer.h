@@ -29,6 +29,33 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
+    struct tess_arena_t : gerber_lib::gerber_arena<1ULL<<24, 16>
+    {
+        tess_arena_t() : gerber_arena()
+        {
+            memset(&tess_alloc, 0, sizeof(tess_alloc));
+            tess_alloc.memalloc = tess_allocate;
+            tess_alloc.memfree = tess_free;
+            tess_alloc.userData = (void *)this;
+        }
+
+        static void *tess_allocate(void *userData, unsigned int size)
+        {
+            auto arena = (tess_arena_t *)userData;
+            return arena->alloc(size);
+        }
+
+        static void tess_free(void *userData, void *ptr)
+        {
+            (void)userData;
+            (void)ptr;
+        }
+
+        TESSalloc tess_alloc{};
+    };
+
+    //////////////////////////////////////////////////////////////////////
+
     struct tesselator_entity
     {
         gerber_lib::gerber_net *net{};
@@ -49,28 +76,6 @@ namespace gerber_3d
     {
         int start;    // glDrawElements(start, length) (for interior triangles)
         int length;
-    };
-
-    //////////////////////////////////////////////////////////////////////
-    // for board outline
-    // ignores anything except lines and arcs and ignores aperture
-
-    struct gl_outliner : gerber_lib::gerber_draw_interface
-    {
-        using vec2f = gerber_lib::vec2f;
-        using vert = vec2f;
-
-        gl_outliner() = default;
-
-        // setup from a parsed gerber file
-        void set_gerber(gerber_lib::gerber *g) override;
-
-        // setup anything that has to be done in the main thread
-        void on_finished_loading() override;
-
-        // callback to create draw calls from elements
-        void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity,
-                           gerber_lib::gerber_net *gnet) override;
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -121,15 +126,11 @@ namespace gerber_3d
 
         // tesselation
         TESStesselator *boundary_stesselator{};
-        std::vector<tesselator_entity> entities;
-
-        TESSalloc boundary_tess_alloc{};
-        TESSalloc interior_tess_alloc{};
-        using tess_arena_t = gerber_lib::gerber_arena<1ULL<<24, 16>;
 
         tess_arena_t boundary_arena;
         tess_arena_t interior_arena;
 
+        typed_arena<tesselator_entity> entities;
         typed_arena<vec2f> temp_points{};
         typed_arena<gl_line2_program::line> outline_lines{};
         typed_arena<vec2f> outline_vertices{};
@@ -137,10 +138,6 @@ namespace gerber_3d
         typed_arena<vert> fill_vertices;
         typed_arena<GLuint> fill_indices;
         typed_arena<tesselator_span> fill_spans;
-
-        // drawing
-        gl_layer_program *layer_program{};
-        gl_line2_program *line2_program{};
 
         // all the verts for interiors
         gl_vertex_array_solid vertex_array;

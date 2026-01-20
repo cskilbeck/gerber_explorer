@@ -7,30 +7,16 @@
 #include "gerber_lib.h"
 #include "log_drawer.h"
 #include "gl_drawer.h"
+#include "gerber_explorer.h"
 
 #include "gerber_net.h"
 #include "util.h"
 
 #include "gl_colors.h"
 
-LOG_CONTEXT("gl_drawer", debug);
+LOG_CONTEXT("gl_drawer", info);
 
 //////////////////////////////////////////////////////////////////////
-
-namespace
-{
-    void *tess_allocate(void *userData, unsigned int size)
-    {
-        auto arena = (gerber_3d::gl_drawer::tess_arena_t *)userData;
-        return arena->alloc(size);
-    }
-
-    void tess_free(void *userData, void *ptr)
-    {
-        (void)userData;
-        (void)ptr;
-    }
-}    // namespace
 
 namespace gerber_3d
 {
@@ -185,7 +171,7 @@ namespace gerber_3d
         // tess_alloc.regionBucketSize = 10240;
         // tess_alloc.extraVertices = 20480;
 
-        boundary_stesselator = tessNewTess(&boundary_tess_alloc);
+        boundary_stesselator = tessNewTess(&boundary_arena.tess_alloc);
         // boundary_stesselator = tessNewTess(nullptr);
 
         tessSetOption(boundary_stesselator, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 1);
@@ -213,23 +199,15 @@ namespace gerber_3d
 
             interior_arena.reset();
 
-            TESStesselator *interior_tesselator = tessNewTess(&interior_tess_alloc);
+            TESStesselator *interior_tesselator = tessNewTess(&interior_arena.tess_alloc);
 
             tessSetOption(interior_tesselator, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 1);
             tessSetOption(interior_tesselator, TESS_REVERSE_CONTOURS, 1);
 
-            // now, we need start, end vertices so the lines are all independent
-            // so we can draw them all with one draw call
-            // so, if it's the first point, add to start
-            // else add to start and end
-            // then, after, add the first point of start to end to make a loop
-
             for(int i = 0; i < nelems; ++i) {
-                // int outline_base = static_cast<int>(outline_vertices_start.size());
                 int b = elems[i * 2];
                 int n = elems[i * 2 + 1];
                 float const *f = &verts[b * 2];
-                // float const *s = f;
                 tessAddContour(interior_tesselator, 2, f, sizeof(float) * 2, n);
                 for(int p = 0; p < n; ++p) {
                     outline_vertices.emplace_back(f[0], f[1]);
@@ -281,6 +259,8 @@ namespace gerber_3d
 
             e.num_fills = 1;    // static_cast<int>(fill_spans.size() - fill_base);
 
+            LOG_INFO("Interior: {}% used!", interior_arena.percent_committed());
+
             tessDeleteTess(interior_tesselator);
 
             tessDeleteTess(boundary_stesselator);
@@ -303,16 +283,6 @@ namespace gerber_3d
 
     void gl_drawer::set_gerber(gerber *g)
     {
-        memset(&boundary_tess_alloc, 0, sizeof(boundary_tess_alloc));
-        boundary_tess_alloc.memalloc = tess_allocate;
-        boundary_tess_alloc.memfree = tess_free;
-        boundary_tess_alloc.userData = (void *)&boundary_arena;
-
-        memset(&interior_tess_alloc, 0, sizeof(interior_tess_alloc));
-        interior_tess_alloc.memalloc = tess_allocate;
-        interior_tess_alloc.memfree = tess_free;
-        interior_tess_alloc.userData = (void *)&interior_arena;
-
         gerber_file = g;
         current_entity_id = -1;
         clear();
@@ -348,7 +318,7 @@ namespace gerber_3d
 
     void gl_drawer::on_finished_loading()
     {
-        LOG_INFO("{}% used!", boundary_arena.percent_committed());
+        LOG_INFO("Boundary: {}% used!", boundary_arena.percent_committed());
 
         if(fill_vertices.empty() || fill_indices.empty() || outline_vertices.empty()) {
             LOG_INFO("Layer {} is empty", this->gerber_file->filename);
@@ -481,9 +451,9 @@ namespace gerber_3d
 
         glEnable(GL_BLEND);
 
-        layer_program->activate();
+        gerber_explorer::layer_program.activate();
 
-        GL_CHECK(glUniformMatrix4fv(layer_program->u_transform, 1, false, matrix.m));
+        GL_CHECK(glUniformMatrix4fv(gerber_explorer::layer_program.u_transform, 1, false, matrix.m));
 
         vertex_array.activate();
         index_array.activate();
@@ -491,11 +461,11 @@ namespace gerber_3d
         for(auto const &e : entities) {
 
             if((e.flags & r_flags) != 0) {
-                layer_program->set_color(red_fill);
+                gerber_explorer::layer_program.set_color(red_fill);
             } else if((e.flags & g_flags) != 0) {
-                layer_program->set_color(green_fill);
+                gerber_explorer::layer_program.set_color(green_fill);
             } else if((e.flags & b_flags) != 0) {
-                layer_program->set_color(blue_fill);
+                gerber_explorer::layer_program.set_color(blue_fill);
             } else {
                 continue;
             }
@@ -535,8 +505,8 @@ namespace gerber_3d
         GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, line_buffers[2]));
         update_buffer<GL_TEXTURE_BUFFER>(entity_flags);
 
-        line2_program->activate();
-        line2_program->quad_points_array.activate();
+        gerber_explorer::line2_program.activate();
+        gerber_explorer::line2_program.quad_points_array.activate();
         GL_CHECK(glActiveTexture(GL_TEXTURE0));
         GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, textures[0]));    // The Lines TBO (RGBA32UI)
         GL_CHECK(glActiveTexture(GL_TEXTURE1));
@@ -544,15 +514,15 @@ namespace gerber_3d
         GL_CHECK(glActiveTexture(GL_TEXTURE2));
         GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, textures[2]));    // The Flags TBO (R8UI)
 
-        GL_CHECK(glUniform1i(line2_program->u_lines_sampler, 0));    // lines_sampler -> GL_TEXTURE0
-        GL_CHECK(glUniform1i(line2_program->u_vert_sampler, 1));     // vert_sampler     -> GL_TEXTURE1
-        GL_CHECK(glUniform1i(line2_program->u_flags_sampler, 2));    // flags_sampler    -> GL_TEXTURE2
-        GL_CHECK(glUniform1f(line2_program->u_thickness, outline_thickness));
-        GL_CHECK(glUniform2f(line2_program->u_viewport_size, (float)viewport_size.x, (float)viewport_size.y));
+        GL_CHECK(glUniform1i(gerber_explorer::line2_program.u_lines_sampler, 0));    // lines_sampler -> GL_TEXTURE0
+        GL_CHECK(glUniform1i(gerber_explorer::line2_program.u_vert_sampler, 1));     // vert_sampler     -> GL_TEXTURE1
+        GL_CHECK(glUniform1i(gerber_explorer::line2_program.u_flags_sampler, 2));    // flags_sampler    -> GL_TEXTURE2
+        GL_CHECK(glUniform1f(gerber_explorer::line2_program.u_thickness, outline_thickness));
+        GL_CHECK(glUniform2f(gerber_explorer::line2_program.u_viewport_size, (float)viewport_size.x, (float)viewport_size.y));
 
-        GL_CHECK(glUniformMatrix4fv(line2_program->u_transform, 1, false, matrix.m));
-        GL_CHECK(glUniform4fv(line2_program->u_select_color, 1, select_color.f));
-        GL_CHECK(glUniform4fv(line2_program->u_hover_color, 1, hover_color.f));
+        GL_CHECK(glUniformMatrix4fv(gerber_explorer::line2_program.u_transform, 1, false, matrix.m));
+        GL_CHECK(glUniform4fv(gerber_explorer::line2_program.u_select_color, 1, select_color.f));
+        GL_CHECK(glUniform4fv(gerber_explorer::line2_program.u_hover_color, 1, hover_color.f));
         GL_CHECK(glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)outline_lines.size()));
     }
 

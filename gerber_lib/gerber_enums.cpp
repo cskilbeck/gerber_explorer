@@ -69,6 +69,7 @@ namespace gerber_lib::gerber_enum_names
     //////////////////////////////////////////////////////////////////////
 
     ENUM_NAMES_MAP(gerber_polarity) = {
+        { polarity_unspecified, "unspecified" },
         { polarity_positive, "positive" },
         { polarity_negative, "negative" },
         { polarity_dark, "dark" },

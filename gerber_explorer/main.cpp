@@ -27,10 +27,12 @@
 // X top/bottom views
 // X selected entity info
 //
+// share arenas where possible in gl_drawer
 // reduce gpu usage - only draw frame when necessary
 // status bar
 // dynamic tesselation
 // detect board outline
+// isolate / unisolate layer
 //
 // measure tool
 //

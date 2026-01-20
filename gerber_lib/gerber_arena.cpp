@@ -42,7 +42,7 @@ namespace gerber_lib
     std::byte *allocate_address_space(size_t size)
     {
         void* p = VirtualAlloc(nullptr, size, MEM_RESERVE, PAGE_NOACCESS);
-        LOG_INFO("VirtualAlloc({}), got {}", size, p);
+        LOG_DEBUG("VirtualAlloc({}), got {}", size, p);
         return (std::byte *)p;
     }
 
@@ -51,7 +51,7 @@ namespace gerber_lib
     void deallocate_address_space(void *p)
     {
         if(p != nullptr) {
-            LOG_INFO("VirtualFree({})", p);
+            LOG_DEBUG("VirtualFree({})", p);
             VirtualFree(p, 0, MEM_RELEASE);
         }
     }

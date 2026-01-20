@@ -71,7 +71,9 @@ add_executable(${PROJECT}
         util.h
         util.cpp
         settings.cpp
-        settings.h)
+        settings.h
+        job_pool.h
+        job_pool.cpp)
 
 if (MSVC)
     string(REPLACE "/W3" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")

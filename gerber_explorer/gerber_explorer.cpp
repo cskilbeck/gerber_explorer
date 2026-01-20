@@ -83,7 +83,7 @@ namespace
 
     struct layer_defaults_t
     {
-        gerber_lib::layer::type_t base_type;
+        gerber_lib::layer::type_t layer_type;
         bool inverted;
         layer_order_t layer_order;
         gl::color color;
@@ -114,30 +114,14 @@ namespace
         { gerber_lib::layer::paste_bottom, not_inverted, layer_order_t::bottom_outer, gl::colors::silver },
     };
 
-    std::map<gerber_lib::layer::type_t, layer_order_t> layer_type_map = {
-        { gerber_lib::layer::unknown, layer_order_t::other },
-        { gerber_lib::layer::vcut, layer_order_t::other },
-        { gerber_lib::layer::board, layer_order_t::other },
-        { gerber_lib::layer::outline, layer_order_t::other },
-        { gerber_lib::layer::mechanical, layer_order_t::other },
-        { gerber_lib::layer::info, layer_order_t::other },
-        { gerber_lib::layer::keepout, layer_order_t::other },
-        { gerber_lib::layer::drill, layer_order_t::drill },
-        { gerber_lib::layer::paste_top, layer_order_t::top_outer },
-        { gerber_lib::layer::overlay_top, layer_order_t::top_outer },
-        { gerber_lib::layer::soldermask_top, layer_order_t::top_outer },
-        { gerber_lib::layer::copper_top, layer_order_t::top_copper },
-        { gerber_lib::layer::copper_inner, layer_order_t::inner_copper },
-        { gerber_lib::layer::copper_bottom, layer_order_t::bottom_copper },
-        { gerber_lib::layer::soldermask_bottom, layer_order_t::bottom_outer },
-        { gerber_lib::layer::overlay_bottom, layer_order_t::bottom_outer },
-        { gerber_lib::layer::paste_bottom, layer_order_t::bottom_outer },
-    };
+    //////////////////////////////////////////////////////////////////////
 
     bool is_bottom_layer(layer_order_t o)
     {
         return o == layer_order_t::bottom_outer || o == layer_order_t::bottom_copper || o == layer_order_t::drill;
     }
+
+    //////////////////////////////////////////////////////////////////////
 
     bool is_top_layer(layer_order_t o)
     {
@@ -150,7 +134,7 @@ namespace
     {
         layer_defaults_t const *p = nullptr;
         for(auto const &d : layer_defaults) {
-            if(layer_type >= d.base_type) {
+            if(layer_type >= d.layer_type) {
                 p = &d;
             }
         }
@@ -158,6 +142,13 @@ namespace
     }
 
 }    // namespace
+
+gl_solid_program gerber_explorer::solid_program{};
+gl_color_program gerber_explorer::color_program{};
+gl_layer_program gerber_explorer::layer_program{};
+gl_textured_program gerber_explorer::textured_program{};
+gl_arc_program gerber_explorer::arc_program{};
+gl_line2_program gerber_explorer::line2_program{};
 
 //////////////////////////////////////////////////////////////////////
 
@@ -260,7 +251,7 @@ void gerber_explorer::fit_to_viewport()
         // zoom to selected entities or the whole layer
         rect extent{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
         int num_selected = 0;
-        for(auto const &e : selected_layer->layer.entities) {
+        for(auto const &e : selected_layer->drawer.entities) {
             if((e.flags & entity_flags_t::selected) != 0) {
                 extent = extent.union_with(e.bounds);
                 num_selected += 1;
@@ -341,7 +332,7 @@ void gerber_explorer::update_view_rect()
 void gerber_explorer::on_drop(int count, const char **paths)
 {
     for(int i = 0; i < count; ++i) {
-        load_gerber(settings::layer_t{ paths[i], "#ff00ff00", true, false, -1 });
+        add_gerber(settings::layer_t{ paths[i], "#ff00ff00", true, false, -1 });
     }
 }
 
@@ -452,7 +443,7 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
                     should_fit_to_viewport = false;
                 }
             } else if(mouse_mode == mouse_drag_select && selected_layer != nullptr) {
-                selected_layer->layer.select_hovered_entities();
+                selected_layer->drawer.select_hovered_entities();
             }
             set_mouse_mode(mouse_drag_none);
             break;
@@ -472,16 +463,15 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
 void gerber_explorer::on_mouse_move(double xpos, double ypos)
 {
     mouse_pos = { xpos - viewport_xpos, viewport_height - (ypos - viewport_ypos) };
-    mouse_did_move = true;
 }
 
 //////////////////////////////////////////////////////////////////////
 
 void gerber_explorer::handle_mouse()
 {
-    if(mouse_did_move) {
+    if(!prev_mouse_pos.equal(mouse_pos)) {
 
-        mouse_did_move = false;
+        prev_mouse_pos = mouse_pos;
 
         switch(mouse_mode) {
 
@@ -497,8 +487,7 @@ void gerber_explorer::handle_mouse()
         case mouse_drag_zoom: {
             if(ignore_mouse_moves <= 0) {
                 vec2d d = mouse_pos.subtract(drag_mouse_cur_pos);
-                d.y *= -1;
-                double factor = (d.x - d.y) * 0.01;
+                double factor = (d.x + d.y) * 0.01;
                 factor = std::max(-0.25, std::min(factor, 0.25));
                 zoom_at_point(mouse_world_pos, 1.0 - factor);
                 should_fit_to_viewport = false;
@@ -528,10 +517,10 @@ void gerber_explorer::handle_mouse()
             drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
             if(selected_layer != nullptr) {
                 if(drag_rect.min_pos.x > drag_rect.max_pos.x) {
-                    selected_layer->layer.flag_touching_entities(
+                    selected_layer->drawer.flag_touching_entities(
                         board_rect_from_viewport_rect(drag_rect), entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
                 } else {
-                    selected_layer->layer.flag_enclosed_entities(
+                    selected_layer->drawer.flag_enclosed_entities(
                         board_rect_from_viewport_rect(drag_rect), entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
                 }
             }
@@ -542,7 +531,7 @@ void gerber_explorer::handle_mouse()
             // Just hovering, highlight entities under the mouse if selected_layer != nullptr
             if(selected_layer != nullptr) {
                 vec2d pos = board_pos_from_viewport_pos(mouse_pos);
-                selected_layer->layer.flag_entities_at_point(pos, entity_flags_t::hovered, entity_flags_t::hovered);
+                selected_layer->drawer.flag_entities_at_point(pos, entity_flags_t::hovered, entity_flags_t::hovered);
             }
         } break;
         }
@@ -554,9 +543,8 @@ void gerber_explorer::handle_mouse()
 
 void gerber_explorer::on_closed()
 {
+    pool.shut_down();
     NFD_Quit();
-    gerber_load_thread.request_stop();
-    loader_semaphore.release();
     save_settings(config_path(app_name, settings_filename));
     gl_window::on_closed();
 }
@@ -573,7 +561,7 @@ void gerber_explorer::load_settings(std::filesystem::path const &path)
     window_state.y = settings.window_ypos;
     window_state.isMaximized = settings.window_maximized;
     for(auto const &layer : settings.files) {
-        load_gerber(layer);
+        add_gerber(layer);
     }
 }
 
@@ -688,23 +676,23 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
         if(selected_layer != nullptr) {
             std::vector<int> entity_indices;
             mouse_world_pos = board_pos_from_viewport_pos(mouse_pos);
-            selected_layer->layer.find_entities_at_point(mouse_world_pos, entity_indices);
+            selected_layer->drawer.find_entities_at_point(mouse_world_pos, entity_indices);
             if(entity_indices != active_entities) {
                 active_entity_index = 0;
             }
             active_entities = entity_indices;
             active_entity = nullptr;
-            selected_layer->layer.clear_entity_flags(entity_flags_t::all_select);
+            selected_layer->drawer.clear_entity_flags(entity_flags_t::all_select);
             if(!active_entities.empty()) {
                 if(active_entity_index < active_entities.size()) {
-                    tesselator_entity &e = selected_layer->layer.entities[active_entities[active_entity_index]];
+                    tesselator_entity &e = selected_layer->drawer.entities[active_entities[active_entity_index]];
                     set_active_entity(&e);
                 } else {
                     active_entity = nullptr;
                 }
                 active_entity_index = (active_entity_index + 1) % (active_entities.size() + 1);
                 for(int i : entity_indices) {
-                    selected_layer->layer.entities[i].flags |= entity_flags_t::hovered;
+                    selected_layer->drawer.entities[i].flags |= entity_flags_t::hovered;
                 }
             }
         }
@@ -723,6 +711,8 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
 
 bool gerber_explorer::on_init()
 {
+    pool.start_workers();
+
     NFD_Init();
 
     glfwGetWindowSize(window, &window_width, &window_height);
@@ -743,14 +733,11 @@ bool gerber_explorer::on_init()
 
     LOG_INFO("MAX GL Multisamples: {}", max_multisamples);
 
-    gerber_load_thread = std::jthread([this](std::stop_token const &st) { load_gerbers(st); });
-
     load_settings(config_path(app_name, settings_filename));
 
     if(settings.multisamples > max_multisamples) {
         settings.multisamples = max_multisamples;
     }
-
     return true;
 }
 
@@ -771,7 +758,7 @@ void gerber_explorer::file_open()
                     next_layer_color += 1;
                     next_layer_color %= std::size(layer_colors);
                     // index -1 means try to determine from layer classification
-                    load_gerber(settings::layer_t{ outPath, gl::colorf4(layer_colors[next_layer_color]).to_string(), true, false, -1 });
+                    add_gerber(settings::layer_t{ outPath, gl::colorf4(layer_colors[next_layer_color]).to_string(), true, false, -1 });
                     NFD_FreePathU8(outPath);
                 }
             }
@@ -827,85 +814,10 @@ std::optional<std::filesystem::path> gerber_explorer::load_file_dialog()
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::load_gerbers(std::stop_token const &st)
-{
-    LOG_CONTEXT("loader", info);
-    LOG_DEBUG("Waiting for filenames...");
-    while(!st.stop_requested()) {
-        loader_semaphore.acquire();
-        if(!st.stop_requested()) {
-            settings::layer_t layer_to_load;
-            {
-                std::lock_guard loader_lock(loader_mutex);
-                if(gerber_files_to_load.empty()) {
-                    LOG_WARNING("Huh? Where's the filename?");
-                    continue;
-                }
-                layer_to_load = gerber_files_to_load.front();
-            }
-            gerber_files_to_load.pop_front();
-            LOG_DEBUG("Loading {}", layer_to_load.filename);
-            std::thread(
-                [this](settings::layer_t loaded_layer) {    // copy it again!
-                    gerber_lib::gerber *g = new gerber_lib::gerber();
-                    gerber_lib::gerber_error_code err = g->parse_file(loaded_layer.filename.c_str());
-                    if(err == gerber_lib::ok) {
-                        gerber_layer *layer = new gerber_layer();
-                        layer->index = loaded_layer.index;
-                        layer->name = std::format("{}", std::filesystem::path(g->filename).filename().string());
-                        layer_defaults_t d = get_defaults_for_layer_type(g->layer_type);
-                        if(layer->index == -1) {
-                            layer->index = g->layer_type;
-                            LOG_INFO("{}:{} ({})", layer->name, g->image.info.polarity, d.inverted);
-                            if(g->image.info.polarity == gerber_lib::polarity_unspecified) {
-                                layer->invert = d.inverted;
-                            } else {
-                                layer->invert = g->image.info.polarity == gerber_lib::polarity_negative;
-                            }
-                            layer->fill_color = d.color;
-                            // layer->fill_color = default_color_for_layer_type(g->layer_type);
-                        } else {
-                            layer->invert = loaded_layer.inverted;
-                            layer->fill_color = gl::color_from_string(loaded_layer.color);
-                        }
-                        next_index = std::max(layer->index + 1, next_index);
-                        layer->layer_order = d.layer_order;
-                        layer->layer.set_gerber(g);
-                        layer->layer.layer_program = &layer_program;
-                        layer->layer.line2_program = &line2_program;
-                        layer->visible = loaded_layer.visible;
-                        layer->clear_color = gl::colors::clear;
-                        LOG_DEBUG("Finished loading {}, {}", layer->index, loaded_layer.filename);
-                        {
-                            std::lock_guard loaded_lock(loaded_mutex);
-                            loaded_layers.push_back(layer);
-                        }
-                        bool loaded = false;
-                        while(!loaded) {
-                            {
-                                std::lock_guard loaded_lock(loaded_mutex);
-                                loaded = loaded_layers.empty();
-                                glfwPostEmptyEvent();
-                            }
-                            std::this_thread::sleep_for(std::chrono::milliseconds(25));
-                        }
-                    } else {
-                        LOG_ERROR("Error loading {} ({})", loaded_layer.filename, gerber_lib::get_error_text(err));
-                    }
-                },
-                layer_to_load)
-                .detach();
-        }
-    }
-    LOG_DEBUG("Loader is exiting...");
-}
-
-//////////////////////////////////////////////////////////////////////
-
 void gerber_explorer::select_layer(gerber_layer *layer)
 {
     if(selected_layer != nullptr) {
-        selected_layer->layer.clear_entity_flags(entity_flags_t::all_select);
+        selected_layer->drawer.clear_entity_flags(entity_flags_t::all_select);
     }
     if(layer != selected_layer) {
         active_entity = nullptr;
@@ -915,15 +827,65 @@ void gerber_explorer::select_layer(gerber_layer *layer)
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::load_gerber(settings::layer_t const &layer)
+void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
 {
-    {
-        std::lock_guard lock(loader_mutex);
-        gerbers_to_load += 1;
-        gerber_files_to_load.push_back(layer);    // copy it!
+    gerber_lib::gerber *g = new gerber_lib::gerber();
+    gerber_lib::gerber_error_code err = g->parse_file(layer_to_load.filename.c_str());
+    if(err == gerber_lib::ok) {
+        gerber_layer *layer = new gerber_layer();
+        layer->index = layer_to_load.index;
+        layer->name = std::format("{}", std::filesystem::path(g->filename).filename().string());
+        layer->visible = layer_to_load.visible;
+        layer->clear_color = gl::colors::clear;
+
+        layer_defaults_t d = get_defaults_for_layer_type(g->layer_type);
+        if(layer->index == -1) {
+            layer->index = g->layer_type;
+            LOG_DEBUG("{}:{} ({})", layer->name, g->image.info.polarity, d.inverted);
+            if(g->image.info.polarity == gerber_lib::polarity_unspecified) {
+                layer->invert = d.inverted;
+            } else {
+                layer->invert = g->image.info.polarity == gerber_lib::polarity_negative;
+            }
+            layer->fill_color = d.color;
+        } else {
+            layer->invert = layer_to_load.inverted;
+            layer->fill_color = gl::color_from_string(layer_to_load.color);
+        }
+        next_index = std::max(layer->index + 1, next_index);
+        layer->layer_order = d.layer_order;
+
+        layer->drawer.set_gerber(g);    // <----- TESSELATION HAPPENS HERE !!!!!
+
+        LOG_DEBUG("Finished loading {}, {}", layer->index, layer_to_load.filename);
+
+        // inform main thread that there's a new layer available and wait for it to pick it up
+        {
+            std::lock_guard loaded_lock(loaded_mutex);
+            loaded_layers.push_back(layer);
+        }
+        bool loaded = false;
+        while(!loaded) {
+            {
+                std::lock_guard loaded_lock(loaded_mutex);
+                loaded = loaded_layers.empty();
+                glfwPostEmptyEvent();
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        }
+    } else {
+        LOG_ERROR("Error loading {} ({})", layer_to_load.filename, gerber_lib::get_error_text(err));
     }
-    loader_semaphore.release();
-    std::this_thread::yield();
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::add_gerber(settings::layer_t const &layer)
+{
+    settings::layer_t l = layer;
+    pool.add_job([l, this](std::stop_token st) {
+        load_gerber(l);
+    });
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -954,7 +916,7 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
         state = std::format("{}", net->aperture_state);
     }
     if(net->aperture != 0) {
-        auto apertures = selected_layer->layer.gerber_file->image.apertures;
+        auto apertures = selected_layer->drawer.gerber_file->image.apertures;
         auto it = apertures.find(net->aperture);
         if(it != apertures.end()) {
             gerber_aperture *aperture = it->second;
@@ -1219,12 +1181,24 @@ void gerber_explorer::ui()
         if(active_entity != nullptr) {
             ImGui::Text("%s", active_entity_description.c_str());
         } else if(selected_layer != nullptr) {
-            ImGui::Text("%s - %llu entities", selected_layer->name.c_str(), selected_layer->layer.entities.size());
+            ImGui::Text("%s - %llu entities", selected_layer->name.c_str(), selected_layer->drawer.entities.size());
         } else {
             ImGui::Text("Select a layer...");
         }
     }
     ImGui::End();
+
+#ifdef _DEBUG
+
+    job_pool::pool_info info = pool.get_info();
+
+    ImGui::Begin("Job Pool");
+    {
+        ImGui::Text("Active: %5d, Queued: %5d", info.active, info.queued);
+    }
+    ImGui::End();
+
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1282,19 +1256,13 @@ void gerber_explorer::on_render()
         if(!loaded_layers.empty()) {
             gerber_layer *loaded_layer = loaded_layers.front();
             loaded_layers.pop_front();
-            loaded_layer->layer.on_finished_loading();
+            loaded_layer->drawer.on_finished_loading();
             layers.push_front(loaded_layer);
             layers.sort([](gerber_layer const *a, gerber_layer const *b) { return a->index > b->index; });
-            {
-                LOG_INFO("Loaded layer \"{}\"", loaded_layer->filename());
-                std::lock_guard lock(loader_mutex);
-                if(gerbers_to_load != 0) {
-                    gerbers_to_load -= 1;
-                    if(gerbers_to_load == 0) {
-                        select_layer(nullptr);
-                        fit_to_viewport();
-                    }
-                }
+            LOG_INFO("Loaded layer \"{}\"", loaded_layer->filename());
+            if(loaded_layers.empty()) {
+                select_layer(nullptr);
+                fit_to_viewport();
             }
         }
     }
@@ -1415,18 +1383,17 @@ void gerber_explorer::on_render()
     // 2. sort them, based on current view mode
     if(settings.board_view != board_view_all) {
         std::sort(ordered_layers.begin(), ordered_layers.end(), [this](gerber_layer const *a, gerber_layer const *b) {
-
             gerber_lib::layer::type_t x = gerber_lib::layer::type_t::drill_top;
             if(settings.board_view == board_view_bottom) {
                 x = gerber_lib::layer::type_t::drill_bottom;
                 std::swap(a, b);
             }
-            int ta = a->layer.gerber_file->layer_type;
-            int tb = b->layer.gerber_file->layer_type;
-            if(ta == gerber_lib::layer::type_t::drill) {
+            int ta = a->drawer.gerber_file->layer_type;
+            int tb = b->drawer.gerber_file->layer_type;
+            if(gerber_lib::is_drill_layer(ta)) {
                 ta = x;
             }
-            if(tb == gerber_lib::layer::type_t::drill) {
+            if(gerber_lib::is_drill_layer(tb)) {
                 tb = x;
             }
             return ta > tb;
@@ -1455,7 +1422,7 @@ void gerber_explorer::on_render()
         gl::colorf4 bg(bg_color);
         glClearColor(bg.red(), bg.green(), bg.blue(), bg.alpha());
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        layer.layer.fill(world_matrix, entity_flags_t::selected, entity_flags_t::clear, entity_flags_t::fill);
+        layer.drawer.fill(world_matrix, entity_flags_t::selected, entity_flags_t::clear, entity_flags_t::fill);
         blend_layer(gl::colors::white, clear, fill, layer.alpha / 255.0f);
     }
 
@@ -1469,7 +1436,7 @@ void gerber_explorer::on_render()
         gl::color red_fill = gl::set_alpha(gl::colors::red, 0xC0);
         gl::color green_fill = gl::set_alpha(gl::colors::green, 0x80);
         gl::color blue_fill = gl::set_alpha(gl::colors::blue, 0x80);
-        selected_layer->layer.fill(world_matrix, entity_flags_t::active, entity_flags_t::selected, entity_flags_t::hovered, red_fill, green_fill, blue_fill);
+        selected_layer->drawer.fill(world_matrix, entity_flags_t::active, entity_flags_t::selected, entity_flags_t::hovered, red_fill, green_fill, blue_fill);
         gl::color active(gl::colors::white);
         gl::color selected(gl::colors::cyan);
         gl::color hovered(gl::colors::light_blue);
@@ -1481,7 +1448,7 @@ void gerber_explorer::on_render()
             GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            selected_layer->layer.outline(settings.outline_width, world_matrix, viewport_size);
+            selected_layer->drawer.outline(settings.outline_width, world_matrix, viewport_size);
             blend_layer(gl::colors::white, gl::colors::white, gl::colors::black, 1.0f);
         }
     }
@@ -1541,10 +1508,14 @@ void gerber_explorer::on_render()
 #if defined(_DEBUG)
     {
         static int frames = 0;
+        double constexpr wibble = 0.473487324;
         frames += 1;
-        vec2d x{ sin(frames / 4.0) * 20.0 + 50.0, cos(frames / 4.0) * 20.0 + 50.0 };
+        vec2d q{ 50, 50 };
+        vec2d x = vec2d{ sin(frames * wibble) * 20.0, cos(frames * wibble) * 20.0 }.add(q);
         rect p{ x.subtract({ 5, 5 }), x.add({ 5, 5 }) };
         overlay.add_rect(p, gl::colors::white);
+        overlay.lines();
+        overlay.add_line(x, q, gl::colors::white);
     }
 #endif
 

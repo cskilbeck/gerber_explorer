@@ -21,7 +21,7 @@
 #include "gerber_image.h"
 #include "gerber_reader.h"
 
-LOG_CONTEXT("gerber_lib", debug);
+LOG_CONTEXT("gerber_lib", info);
 
 //////////////////////////////////////////////////////////////////////
 
@@ -633,7 +633,7 @@ namespace gerber_lib
 
     gerber_error_code gerber::parse_d_code()
     {
-        LOG_CONTEXT("parse_d_code", debug);
+        LOG_CONTEXT("parse_d_code", info);
 
         int code;
         CHECK(reader.get_int(&code));
@@ -718,7 +718,7 @@ namespace gerber_lib
 
     gerber_error_code gerber::parse_rs274x(gerber_net *net)
     {
-        LOG_CONTEXT("RS274X", debug);
+        LOG_CONTEXT("RS274X", info);
 
         double unit_scale{ 1.0 };
 
@@ -1863,7 +1863,7 @@ namespace gerber_lib
 
     gerber_error_code gerber::parse_gerber_segment(gerber_net *net)
     {
-        LOG_CONTEXT("parse_segment", debug);
+        LOG_CONTEXT("parse_segment", info);
 
         rect whole_box{ DBL_MAX, DBL_MAX, -DBL_MAX, -DBL_MAX };
 

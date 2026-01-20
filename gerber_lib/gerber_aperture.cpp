@@ -350,7 +350,7 @@ namespace gerber_lib
 
     gerber_error_code gerber_aperture::execute_aperture_macro(double scale)
     {
-        LOG_CONTEXT("execute_aperture_macro", verbose);
+        LOG_CONTEXT("execute_aperture_macro", info);
 
         LOG_DEBUG("Execute aperture macro \"{}\"", aperture_macro->name);
 

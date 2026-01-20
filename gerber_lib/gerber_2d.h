@@ -126,6 +126,13 @@ namespace gerber_lib
 
         //////////////////////////////////////////////////////////////////////
 
+        bool equal(vec2d const &o)
+        {
+            return x == o.x && y == o.y;
+        }
+
+        //////////////////////////////////////////////////////////////////////
+
         std::string to_string() const
         {
             return std::format("(X:{:g},Y:{:g})", x, y);

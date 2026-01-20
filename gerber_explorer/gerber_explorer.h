@@ -2,12 +2,13 @@
 
 #include <thread>
 #include <mutex>
-#include <semaphore>
 
 #include "gl_window.h"
 #include "gl_base.h"
 #include "gl_colors.h"
 #include "gl_matrix.h"
+
+#include "job_pool.h"
 
 #include "settings.h"
 
@@ -27,19 +28,12 @@ enum class layer_order_t
 
 struct gerber_explorer : gl_window {
 
-    struct gerber_layer;
-
-    // File extension
-    // Comments
-    // Filename
-    // layer_type_t get_layer_type(gerber_layer *layer);
-
     //////////////////////////////////////////////////////////////////////
 
     struct gerber_layer
     {
         int index;
-        gerber_3d::gl_drawer layer{};
+        gerber_3d::gl_drawer drawer{};
         bool visible{ true };
         bool invert{ false };
         bool expanded{ false };
@@ -52,7 +46,7 @@ struct gerber_explorer : gl_window {
         std::string filename() const
         {
             if(is_valid()) {
-                return layer.gerber_file->filename;
+                return drawer.gerber_file->filename;
             }
             return {};
         }
@@ -62,7 +56,7 @@ struct gerber_explorer : gl_window {
 
         bool is_valid() const
         {
-            return layer.gerber_file != nullptr;
+            return drawer.gerber_file != nullptr;
         }
 
         gerber_lib::rect extent() const
@@ -70,7 +64,7 @@ struct gerber_explorer : gl_window {
             if(!is_valid()) {
                 return rect{};
             }
-            return layer.gerber_file->image.info.extent;
+            return drawer.gerber_file->image.info.extent;
         }
 
         bool operator<(gerber_layer const &other)
@@ -140,14 +134,15 @@ struct gerber_explorer : gl_window {
     // mouse moves are handled in the render function
     bool mouse_did_move{false};
     vec2d mouse_pos{};
+    vec2d prev_mouse_pos{};
 
     // glsl programs
-    gerber_3d::gl_solid_program solid_program{};
-    gerber_3d::gl_color_program color_program{};
-    gerber_3d::gl_layer_program layer_program{};
-    gerber_3d::gl_textured_program textured_program{};
-    gerber_3d::gl_arc_program arc_program{};
-    gerber_3d::gl_line2_program line2_program{};
+    static gerber_3d::gl_solid_program solid_program;
+    static gerber_3d::gl_color_program color_program;
+    static gerber_3d::gl_layer_program layer_program;
+    static gerber_3d::gl_textured_program textured_program;
+    static gerber_3d::gl_arc_program arc_program;
+    static gerber_3d::gl_line2_program line2_program;
 
     // for drawing things offscreen and then blending them to the final composition
     gerber_3d::gl_render_target layer_render_target{};
@@ -167,17 +162,12 @@ struct gerber_explorer : gl_window {
     gerber_3d::tesselator_entity *active_entity{nullptr};
     std::string active_entity_description{};
 
-    // how many gerbers queued up for loading?
-    // when this transitions to 0, zoom to fit
-    int gerbers_to_load{0};
+    job_pool pool;
+
+    std::list<gerber_layer *> loaded_layers;
+    std::mutex loaded_mutex;
 
     settings_t settings;
-
-    std::mutex loader_mutex;
-    std::mutex loaded_mutex;
-    std::list<settings::layer_t> gerber_files_to_load;
-    std::jthread gerber_load_thread;
-    std::counting_semaphore<1024> loader_semaphore{0};
 
     void set_active_entity(gerber_3d::tesselator_entity *entity);
 
@@ -214,17 +204,13 @@ struct gerber_explorer : gl_window {
 
     void blend_layer(gl::color col_r, gl::color col_g, gl::color col_b, float alpha, int num_samples = 0);
 
-    void load_gerber(settings::layer_t const &layer);
+    void add_gerber(settings::layer_t const &layer);
 
-    bool window_focused{false};
-
-    std::list<gerber_layer *> loaded_layers; // loaded in the other thread, waiting to be added to layers
+    void load_gerber(settings::layer_t const &layer_to_load);
 
     void file_open();
 
     void close_all_layers();
-
-    void load_gerbers(std::stop_token const &st);
 
     std::optional<std::filesystem::path> save_file_dialog();
     std::optional<std::filesystem::path> load_file_dialog();

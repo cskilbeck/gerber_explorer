@@ -27,26 +27,33 @@ namespace gerber_lib
         enum type_t
         {
             unknown = 0,
-            vcut = 1000,
-            board = 1001,
-            outline = 1002,
-            mechanical = 1003,
-            info = 1004,
-            keepout = 1005,
+
+            other = 1000,
+            vcut = 1001,
+            board = 1002,
+            outline = 1003,
+            mechanical = 1004,
+            info = 1005,
+            keepout = 1006,
 
             drill = 2000,
             paste_top = 3000,
             overlay_top = 4000,
             soldermask_top = 5000,
-            drill_top = 5500,
-            copper_top = 6000,
-            copper_inner = 7000,
-            copper_bottom = 8000,
-            drill_bottom = 8500,
-            soldermask_bottom = 9000,
-            overlay_bottom = 10000,
-            paste_bottom = 11000,
+            drill_top = 6000,
+            copper_top = 7000,
+            copper_inner = 8000,
+            copper_bottom = 9000,
+            drill_bottom = 10000,
+            soldermask_bottom = 11000,
+            overlay_bottom = 12000,
+            paste_bottom = 13000,
         };
+    }
+
+    inline bool is_drill_layer(int l)
+    {
+        return l >= layer::type_t::drill && l < layer::type_t::paste_top;
     }
 
     struct gerber_net;
