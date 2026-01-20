@@ -33,6 +33,16 @@ set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(glfw)
 
 ######################################################################
+# cpptrace
+
+FetchContent_Declare(
+        cpptrace
+        GIT_REPOSITORY https://github.com/jeremy-rifkin/cpptrace.git
+        GIT_TAG v1.0.4)
+
+FetchContent_MakeAvailable(cpptrace)
+
+######################################################################
 # DirectXMath
 
 FetchContent_Declare(
@@ -120,4 +130,4 @@ add_subdirectory(nativefiledialog-extended-1.2.1)
 
 add_library(third_party INTERFACE)
 
-target_link_libraries(third_party INTERFACE libtess2 nlohmann_json::nlohmann_json nfd gerber_gl)
+target_link_libraries(third_party INTERFACE libtess2 nlohmann_json::nlohmann_json nfd gerber_gl cpptrace::cpptrace)

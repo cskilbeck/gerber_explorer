@@ -391,12 +391,14 @@ namespace gerber_3d
 
     void gl_index_buffer::cleanup()
     {
-        GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+        if(ibo_id != 0) {
+            GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
 
-        GLuint buffers[] = { ibo_id };
-        GL_CHECK(glDeleteBuffers(static_cast<GLsizei>(gerber_util::array_length(buffers)), buffers));
+            GLuint buffers[] = { ibo_id };
+            GL_CHECK(glDeleteBuffers(static_cast<GLsizei>(gerber_util::array_length(buffers)), buffers));
 
-        ibo_id = 0;
+            ibo_id = 0;
+        }
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -508,12 +510,14 @@ namespace gerber_3d
 
     void gl_vertex_array::cleanup()
     {
-        GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
+        if(vbo_id != 0) {
+            GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
 
-        GLuint buffers[] = { vbo_id };
-        GL_CHECK(glDeleteBuffers(static_cast<GLsizei>(gerber_util::array_length(buffers)), buffers));
+            GLuint buffers[] = { vbo_id };
+            GL_CHECK(glDeleteBuffers(static_cast<GLsizei>(gerber_util::array_length(buffers)), buffers));
 
-        vbo_id = 0;
+            vbo_id = 0;
+        }
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -553,9 +557,12 @@ namespace gerber_3d
 
     void gl_texture::cleanup()
     {
-        GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
-        GLuint t[] = { texture_id };
-        GL_CHECK(glDeleteTextures(1, t));
+        if(texture_id != 0) {
+            GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
+            GLuint t[] = { texture_id };
+            GL_CHECK(glDeleteTextures(1, t));
+            texture_id = 0;
+        }
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -633,6 +640,10 @@ namespace gerber_3d
 
     void gl_render_target::cleanup()
     {
+        if(num_slots == 0) {
+            return;
+        }
+
         GL_CHECK(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0));
         GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
@@ -642,10 +653,11 @@ namespace gerber_3d
             texture_ids.clear();
         }
 
-        GLuint f[] = { fbo };
-        GL_CHECK(glDeleteFramebuffers(1, f));
-        fbo = 0;
-
+        if(fbo != 0) {
+            GLuint f[] = { fbo };
+            GL_CHECK(glDeleteFramebuffers(1, f));
+            fbo = 0;
+        }
         num_slots = 0;
     }
 

@@ -23,7 +23,7 @@ namespace gerber_3d
     struct gl_matrix;
     using namespace gerber_lib;
 
-    template<typename T> bool is_clockwise(T const &points, size_t start, size_t end)
+    template <typename T> bool is_clockwise(T const &points, size_t start, size_t end)
     {
         double sum = 0;
         for(size_t i = start, n = end - 1; i != end; n = i++) {
@@ -32,6 +32,51 @@ namespace gerber_3d
             sum += (p2.x - p1.x) * (p2.y + p1.y);
         }
         return sum < 0;    // Negative sum indicates clockwise orientation
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    void gl_drawer::clear()
+    {
+        // reset everything to prepare for new tesselation
+
+        if(boundary_stesselator != nullptr) {
+            tessDeleteTess(boundary_stesselator);
+            boundary_stesselator = nullptr;
+        }
+        boundary_arena.reset();
+        interior_arena.reset();
+        entities.clear();
+        temp_points.clear();
+        outline_vertices.clear();
+        outline_lines.clear();
+        fill_vertices.clear();    // the verts (for outlines and fills)
+        fill_indices.clear();     // the indices (for fills)
+        fill_spans.clear();       // spans for drawing fills (GL_LINE_LOOP)
+        entity_flags.clear();
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    void gl_drawer::release()
+    {
+        // bin everything (including gl resources) for good and sure
+        tessDeleteTess(boundary_stesselator);
+        boundary_arena.release();
+        interior_arena.release();
+        entities.release();
+        temp_points.release();
+        outline_vertices.release();
+        outline_lines.release();
+        fill_vertices.release();
+        fill_indices.release();
+        fill_spans.release();
+        entity_flags.release();
+
+        vertex_array.cleanup();
+        index_array.cleanup();
+        glDeleteTextures(3, textures);
+        glDeleteBuffers(3, line_buffers);
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -144,35 +189,13 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::clear()
-    {
-        LOG_DEBUG("BOUNDARY TESSELATOR: Clear");
-        entities.clear();         // the entities (each may consist of multiple draw calls (if a macro has disconnected primitives))
-        fill_vertices.clear();    // the verts (for outlines and fills)
-        fill_indices.clear();     // the indices (for fills)
-        fill_spans.clear();       // spans for drawing fills (GL_LINE_LOOP)
-        outline_vertices.clear();
-        outline_lines.clear();
-        entity_flags.clear();
-    }
-
-    //////////////////////////////////////////////////////////////////////
-
     void gl_drawer::new_entity(gerber_net *net, int flags)
     {
         finish_entity();
 
-        entities.emplace_back(net, (int)fill_spans.size(), 0, (int)outline_vertices.size(), 0, flags);
-
-        // tess_alloc.meshEdgeBucketSize = 10240;
-        // tess_alloc.meshVertexBucketSize = 10240;
-        // tess_alloc.meshFaceBucketSize = 10240;
-        // tess_alloc.dictNodeBucketSize = 10240;
-        // tess_alloc.regionBucketSize = 10240;
-        // tess_alloc.extraVertices = 20480;
+        entities.emplace_back(net, (int)fill_spans.size(), (int)outline_vertices.size(), 0, flags);
 
         boundary_stesselator = tessNewTess(&boundary_arena.tess_alloc);
-        // boundary_stesselator = tessNewTess(nullptr);
 
         tessSetOption(boundary_stesselator, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 1);
         tessSetOption(boundary_stesselator, TESS_REVERSE_CONTOURS, 1);
@@ -242,8 +265,6 @@ namespace gerber_3d
 
             uint32_t index_base = static_cast<uint32_t>(fill_indices.size());
 
-            // uint32_t fill_base = static_cast<uint32_t>(fill_spans.size());
-
             for(int x = 0; x < tri_nelems; ++x) {
                 int const *p = &tri_elems[x * 3];
                 int const p0 = p[0];
@@ -257,9 +278,7 @@ namespace gerber_3d
             }
             fill_spans.emplace_back(index_base, static_cast<int>(fill_indices.size() - index_base));
 
-            e.num_fills = 1;    // static_cast<int>(fill_spans.size() - fill_base);
-
-            LOG_INFO("Interior: {}% used!", interior_arena.percent_committed());
+            LOG_DEBUG("Interior: {}% used!", interior_arena.percent_committed());
 
             tessDeleteTess(interior_tesselator);
 
@@ -283,6 +302,7 @@ namespace gerber_3d
 
     void gl_drawer::set_gerber(gerber *g)
     {
+        ready_to_draw = false;
         gerber_file = g;
         current_entity_id = -1;
         clear();
@@ -318,13 +338,27 @@ namespace gerber_3d
 
     void gl_drawer::on_finished_loading()
     {
-        LOG_INFO("Boundary: {}% used!", boundary_arena.percent_committed());
-
-        if(fill_vertices.empty() || fill_indices.empty() || outline_vertices.empty()) {
-            LOG_INFO("Layer {} is empty", this->gerber_file->filename);
+        if(ready_to_draw) {
             return;
         }
 
+        LOG_INFO("Boundary for {}, {}% used!", gerber_file->filename, boundary_arena.percent_committed());
+
+        if(fill_vertices.empty() || fill_indices.empty() || outline_vertices.empty()) {
+            LOG_INFO("Layer {} is empty", this->gerber_file->filename);
+            ready_to_draw = true;
+            return;
+        }
+        vertex_array.cleanup();
+        index_array.cleanup();
+        if(textures[0] != 0) {
+            glDeleteTextures(3, textures);
+        }
+        if(line_buffers[0] != 0) {
+            glDeleteBuffers(3, line_buffers);
+        }
+
+        // ditch existing gl resources, they'll be recreated from the new stuff when it needs to draw it
         GL_CHECK(glGenBuffers(3, line_buffers));
         GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, line_buffers[0]));
         GL_CHECK(glBufferData(GL_TEXTURE_BUFFER, outline_lines.size() * sizeof(gl_line2_program::line), outline_lines.data(), GL_STATIC_DRAW));
@@ -350,6 +384,8 @@ namespace gerber_3d
         index_array.init(static_cast<GLsizei>(fill_indices.size()));
         index_array.activate();
         update_buffer<GL_ELEMENT_ARRAY_BUFFER>(fill_indices);
+
+        ready_to_draw = true;
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -359,7 +395,9 @@ namespace gerber_3d
         using gerber_lib::gerber_draw_element;
 
         double constexpr THRESHOLD = 1e-38;
-        double constexpr ARC_DEGREES = 3.6;
+        double constexpr ARC_DEGREES_F[tesselation_quality::num_qualities] = { 15, 6, 2 };
+
+        double ARC_DEGREES = ARC_DEGREES_F[tesselation_quality];
 
         int flag = polarity == polarity_clear ? entity_flags_t::clear : entity_flags_t::fill;
 
@@ -384,6 +422,7 @@ namespace gerber_3d
             double y = sin(radians) * element.arc.radius + element.arc.center.y;
             add_point(x, y);
         };
+
         for(size_t n = 0; n < num_elements; ++n) {
 
             gerber_draw_element const &element = elements[n];
@@ -441,11 +480,14 @@ namespace gerber_3d
     //////////////////////////////////////////////////////////////////////
 
     void gl_drawer::fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, gl::color red_fill, gl::color green_fill,
-                         gl::color blue_fill) const
+                         gl::color blue_fill)
     {
+        on_finished_loading();
+
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
         }
+
         glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -469,11 +511,8 @@ namespace gerber_3d
             } else {
                 continue;
             }
-            int end = e.num_fills + e.first_fill;
-            for(int i = e.first_fill; i < end; ++i) {
-                tesselator_span const &s = fill_spans[i];
-                glDrawElements(GL_TRIANGLES, s.length, GL_UNSIGNED_INT, (void *)(s.start * sizeof(GLuint)));
-            }
+            tesselator_span const &s = fill_spans[e.fill_index];
+            glDrawElements(GL_TRIANGLES, s.length, GL_UNSIGNED_INT, (void *)(s.start * sizeof(GLuint)));
         }
     }
 
@@ -481,9 +520,12 @@ namespace gerber_3d
 
     void gl_drawer::outline(float outline_thickness, gl_matrix const &matrix, vec2d const &viewport_size)
     {
+        on_finished_loading();
+
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
         }
+
         glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 

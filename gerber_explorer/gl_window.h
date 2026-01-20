@@ -52,6 +52,11 @@ struct gl_window
     {
     }
 
+    virtual bool is_idle()
+    {
+        return true;
+    }
+
     virtual void on_window_focus(int focused)
     {
         window_focused = focused != 0;

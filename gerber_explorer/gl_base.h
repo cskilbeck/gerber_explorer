@@ -6,21 +6,24 @@
 #include "gerber_2d.h"
 #include "gl_colors.h"
 
+#include "cpptrace/cpptrace.hpp"
+
 //////////////////////////////////////////////////////////////////////
 
 extern int gl_log;
 
 #if defined(_DEBUG) || 1
-#define GL_CHECK(x)                                                                        \
-    do {                                                                                   \
-        if(gl_log != 0) {                                                                  \
-            LOG_INFO("{}", #x);                                                            \
-        }                                                                                  \
-        x;                                                                                 \
-        GLenum __err = glGetError();                                                       \
-        if(__err != 0) {                                                                   \
-            LOG_ERROR("ERROR {} from {} at line {} of {}", __err, #x, __LINE__, __FILE__); \
-        }                                                                                  \
+#define GL_CHECK(x)                                                                                                                    \
+    do {                                                                                                                               \
+        if(gl_log != 0) {                                                                                                              \
+            LOG_INFO("{}", #x);                                                                                                        \
+        }                                                                                                                              \
+        x;                                                                                                                             \
+        GLenum __err = glGetError();                                                                                                   \
+        if(__err != 0) {                                                                                                               \
+            LOG_ERROR("ERROR {} from {} at line {} of {}\n{}", __err, #x, __LINE__, __FILE__, cpptrace::generate_trace().to_string()); \
+            fflush(stdout);                                                                                                            \
+        }                                                                                                                              \
     } while(0)
 #else
 #define GL_CHECK(x) \

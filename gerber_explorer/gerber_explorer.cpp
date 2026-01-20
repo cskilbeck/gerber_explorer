@@ -151,6 +151,22 @@ gl_arc_program gerber_explorer::arc_program{};
 gl_line2_program gerber_explorer::line2_program{};
 
 //////////////////////////////////////////////////////////////////////
+// If zoom_anim or any jobs in the pool, it's not idle
+// But also... suppress idleness for a couple of frames
+
+bool gerber_explorer::is_idle()
+{
+    static int idle_frames = 0;
+    job_pool::pool_info info = pool.get_info();
+    if(info.active == 0 && info.queued == 0 && !zoom_anim) {
+        idle_frames += 1;
+    } else {
+        idle_frames = 0;
+    }
+    return idle_frames > 3;
+}
+
+//////////////////////////////////////////////////////////////////////
 
 std::string gerber_explorer::window_name() const
 {
@@ -251,7 +267,7 @@ void gerber_explorer::fit_to_viewport()
         // zoom to selected entities or the whole layer
         rect extent{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
         int num_selected = 0;
-        for(auto const &e : selected_layer->drawer.entities) {
+        for(auto const &e : selected_layer->drawer->entities) {
             if((e.flags & entity_flags_t::selected) != 0) {
                 extent = extent.union_with(e.bounds);
                 num_selected += 1;
@@ -443,7 +459,7 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
                     should_fit_to_viewport = false;
                 }
             } else if(mouse_mode == mouse_drag_select && selected_layer != nullptr) {
-                selected_layer->drawer.select_hovered_entities();
+                selected_layer->drawer->select_hovered_entities();
             }
             set_mouse_mode(mouse_drag_none);
             break;
@@ -517,10 +533,10 @@ void gerber_explorer::handle_mouse()
             drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
             if(selected_layer != nullptr) {
                 if(drag_rect.min_pos.x > drag_rect.max_pos.x) {
-                    selected_layer->drawer.flag_touching_entities(
+                    selected_layer->drawer->flag_touching_entities(
                         board_rect_from_viewport_rect(drag_rect), entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
                 } else {
-                    selected_layer->drawer.flag_enclosed_entities(
+                    selected_layer->drawer->flag_enclosed_entities(
                         board_rect_from_viewport_rect(drag_rect), entity_flags_t::hovered | entity_flags_t::selected, entity_flags_t::hovered);
                 }
             }
@@ -531,7 +547,7 @@ void gerber_explorer::handle_mouse()
             // Just hovering, highlight entities under the mouse if selected_layer != nullptr
             if(selected_layer != nullptr) {
                 vec2d pos = board_pos_from_viewport_pos(mouse_pos);
-                selected_layer->drawer.flag_entities_at_point(pos, entity_flags_t::hovered, entity_flags_t::hovered);
+                selected_layer->drawer->flag_entities_at_point(pos, entity_flags_t::hovered, entity_flags_t::hovered);
             }
         } break;
         }
@@ -676,23 +692,23 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
         if(selected_layer != nullptr) {
             std::vector<int> entity_indices;
             mouse_world_pos = board_pos_from_viewport_pos(mouse_pos);
-            selected_layer->drawer.find_entities_at_point(mouse_world_pos, entity_indices);
+            selected_layer->drawer->find_entities_at_point(mouse_world_pos, entity_indices);
             if(entity_indices != active_entities) {
                 active_entity_index = 0;
             }
             active_entities = entity_indices;
             active_entity = nullptr;
-            selected_layer->drawer.clear_entity_flags(entity_flags_t::all_select);
+            selected_layer->drawer->clear_entity_flags(entity_flags_t::all_select);
             if(!active_entities.empty()) {
                 if(active_entity_index < active_entities.size()) {
-                    tesselator_entity &e = selected_layer->drawer.entities[active_entities[active_entity_index]];
+                    tesselator_entity &e = selected_layer->drawer->entities[active_entities[active_entity_index]];
                     set_active_entity(&e);
                 } else {
                     active_entity = nullptr;
                 }
                 active_entity_index = (active_entity_index + 1) % (active_entities.size() + 1);
                 for(int i : entity_indices) {
-                    selected_layer->drawer.entities[i].flags |= entity_flags_t::hovered;
+                    selected_layer->drawer->entities[i].flags |= entity_flags_t::hovered;
                 }
             }
         }
@@ -817,7 +833,7 @@ std::optional<std::filesystem::path> gerber_explorer::load_file_dialog()
 void gerber_explorer::select_layer(gerber_layer *layer)
 {
     if(selected_layer != nullptr) {
-        selected_layer->drawer.clear_entity_flags(entity_flags_t::all_select);
+        selected_layer->drawer->clear_entity_flags(entity_flags_t::all_select);
     }
     if(layer != selected_layer) {
         active_entity = nullptr;
@@ -837,6 +853,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
         layer->name = std::format("{}", std::filesystem::path(g->filename).filename().string());
         layer->visible = layer_to_load.visible;
         layer->clear_color = gl::colors::clear;
+        layer->drawer = &layer->drawers[0];
 
         layer_defaults_t d = get_defaults_for_layer_type(g->layer_type);
         if(layer->index == -1) {
@@ -855,24 +872,26 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
         next_index = std::max(layer->index + 1, next_index);
         layer->layer_order = d.layer_order;
 
-        layer->drawer.set_gerber(g);    // <----- TESSELATION HAPPENS HERE !!!!!
+        LOG_DEBUG("Finished loading {}, \"{}\"", layer->index, layer_to_load.filename);
 
-        LOG_DEBUG("Finished loading {}, {}", layer->index, layer_to_load.filename);
+        pool.add_job(job_type_tesselate, [layer, g, this](std::stop_token st) {
+            layer->drawer->set_gerber(g);    // <----- TESSELATION HAPPENS HERE !!!!!
 
-        // inform main thread that there's a new layer available and wait for it to pick it up
-        {
-            std::lock_guard loaded_lock(loaded_mutex);
-            loaded_layers.push_back(layer);
-        }
-        bool loaded = false;
-        while(!loaded) {
+            // inform main thread that there's a new layer available and wait for it to pick it up
             {
                 std::lock_guard loaded_lock(loaded_mutex);
-                loaded = loaded_layers.empty();
-                glfwPostEmptyEvent();
+                loaded_layers.push_back(layer);
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(25));
-        }
+            bool loaded = false;
+            while(!loaded) {
+                {
+                    std::lock_guard loaded_lock(loaded_mutex);
+                    loaded = loaded_layers.empty();
+                    glfwPostEmptyEvent();
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+        });
     } else {
         LOG_ERROR("Error loading {} ({})", layer_to_load.filename, gerber_lib::get_error_text(err));
     }
@@ -883,9 +902,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
 void gerber_explorer::add_gerber(settings::layer_t const &layer)
 {
     settings::layer_t l = layer;
-    pool.add_job([l, this](std::stop_token st) {
-        load_gerber(l);
-    });
+    pool.add_job(job_type_load_gerber, [l, this](std::stop_token st) { load_gerber(l); });
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -916,7 +933,7 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
         state = std::format("{}", net->aperture_state);
     }
     if(net->aperture != 0) {
-        auto apertures = selected_layer->drawer.gerber_file->image.apertures;
+        auto apertures = selected_layer->drawer->gerber_file->image.apertures;
         auto it = apertures.find(net->aperture);
         if(it != apertures.end()) {
             gerber_aperture *aperture = it->second;
@@ -983,6 +1000,19 @@ void gerber_explorer::ui()
             ImGui::MenuItem("Show Extent", "E", &settings.show_extent);
             if(ImGui::BeginMenu("Multisamples")) {
                 ImGui::SliderInt("##multisamples", &settings.multisamples, 1, max_multisamples, "%d");
+                ImGui::EndMenu();
+            }
+            if(ImGui::BeginMenu("Tesselation")) {
+                if(ImGui::SliderInt("##tesselation",
+                                 &settings.tesselation_quality,
+                                 tesselation_quality::low,
+                                 tesselation_quality::high,
+                                 tesselation_quality_name(settings.tesselation_quality))) {
+                    retesselate = true;
+                }
+                if(ImGui::Checkbox("Dynamic", &settings.dynamic_tesselation)) {
+                    retesselate = true;
+                }
                 ImGui::EndMenu();
             }
             if(ImGui::BeginMenu("Outline")) {
@@ -1181,7 +1211,7 @@ void gerber_explorer::ui()
         if(active_entity != nullptr) {
             ImGui::Text("%s", active_entity_description.c_str());
         } else if(selected_layer != nullptr) {
-            ImGui::Text("%s - %llu entities", selected_layer->name.c_str(), selected_layer->drawer.entities.size());
+            ImGui::Text("%s - %llu entities", selected_layer->name.c_str(), selected_layer->drawer->entities.size());
         } else {
             ImGui::Text("Select a layer...");
         }
@@ -1256,7 +1286,6 @@ void gerber_explorer::on_render()
         if(!loaded_layers.empty()) {
             gerber_layer *loaded_layer = loaded_layers.front();
             loaded_layers.pop_front();
-            loaded_layer->drawer.on_finished_loading();
             layers.push_front(loaded_layer);
             layers.sort([](gerber_layer const *a, gerber_layer const *b) { return a->index > b->index; });
             LOG_INFO("Loaded layer \"{}\"", loaded_layer->filename());
@@ -1325,6 +1354,13 @@ void gerber_explorer::on_render()
 
     ui();
 
+    if(retesselate) {
+        retesselate = false;
+        for(auto l : layers) {
+            tesselate_layer(l);
+        }
+    }
+
     update_view_rect();
 
     if(window_width == 0 || window_height == 0) {
@@ -1369,10 +1405,18 @@ void gerber_explorer::on_render()
         layer_render_target.init(viewport_width, viewport_height, settings.multisamples, 1);
     }
 
+    // update which drawer being used (in case retesselation happened)
+    {
+        std::lock_guard l(layer_drawer_mutex);
+        for(auto &layer : layers) {
+            layer->drawer = &layer->drawers[layer->current_drawer];
+        }
+    }
+
     // draw the layers
 
-    // 1. gather all the visible layers for current view mode
-    std::vector<gerber_layer const *> ordered_layers;
+    // 1. gather all the visible layers for current view mode (and update their drawer pointers)
+    std::vector<gerber_layer *> ordered_layers;
     ordered_layers.reserve(layers.size());
     for(auto const layer : layers) {
         if(layer_is_visible(layer)) {
@@ -1388,8 +1432,8 @@ void gerber_explorer::on_render()
                 x = gerber_lib::layer::type_t::drill_bottom;
                 std::swap(a, b);
             }
-            int ta = a->drawer.gerber_file->layer_type;
-            int tb = b->drawer.gerber_file->layer_type;
+            int ta = a->drawer->gerber_file->layer_type;
+            int tb = b->drawer->gerber_file->layer_type;
             if(gerber_lib::is_drill_layer(ta)) {
                 ta = x;
             }
@@ -1402,7 +1446,7 @@ void gerber_explorer::on_render()
 
     // 3. draw them in order
     for(auto it : ordered_layers) {
-        gerber_layer const &layer = *it;
+        gerber_layer &layer = *it;
         layer_render_target.bind_framebuffer();
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
 
@@ -1422,7 +1466,7 @@ void gerber_explorer::on_render()
         gl::colorf4 bg(bg_color);
         glClearColor(bg.red(), bg.green(), bg.blue(), bg.alpha());
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        layer.drawer.fill(world_matrix, entity_flags_t::selected, entity_flags_t::clear, entity_flags_t::fill);
+        layer.drawer->fill(world_matrix, entity_flags_t::selected, entity_flags_t::clear, entity_flags_t::fill);
         blend_layer(gl::colors::white, clear, fill, layer.alpha / 255.0f);
     }
 
@@ -1436,7 +1480,7 @@ void gerber_explorer::on_render()
         gl::color red_fill = gl::set_alpha(gl::colors::red, 0xC0);
         gl::color green_fill = gl::set_alpha(gl::colors::green, 0x80);
         gl::color blue_fill = gl::set_alpha(gl::colors::blue, 0x80);
-        selected_layer->drawer.fill(world_matrix, entity_flags_t::active, entity_flags_t::selected, entity_flags_t::hovered, red_fill, green_fill, blue_fill);
+        selected_layer->drawer->fill(world_matrix, entity_flags_t::active, entity_flags_t::selected, entity_flags_t::hovered, red_fill, green_fill, blue_fill);
         gl::color active(gl::colors::white);
         gl::color selected(gl::colors::cyan);
         gl::color hovered(gl::colors::light_blue);
@@ -1448,7 +1492,7 @@ void gerber_explorer::on_render()
             GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            selected_layer->drawer.outline(settings.outline_width, world_matrix, viewport_size);
+            selected_layer->drawer->outline(settings.outline_width, world_matrix, viewport_size);
             blend_layer(gl::colors::white, gl::colors::white, gl::colors::black, 1.0f);
         }
     }

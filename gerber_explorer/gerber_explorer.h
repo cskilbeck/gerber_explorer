@@ -7,6 +7,7 @@
 #include "gl_base.h"
 #include "gl_colors.h"
 #include "gl_matrix.h"
+#include "gl_drawer.h"
 
 #include "job_pool.h"
 
@@ -15,7 +16,7 @@
 enum class layer_order_t
 {
     all,
-    drill,  // drill is special, should be between top_outer and top_copper OR bottom_outer and botttom_copper (see drill_top, drill_bottom)
+    drill,    // drill is special, should be between top_outer and top_copper OR bottom_outer and botttom_copper (see drill_top, drill_bottom)
     top_outer,
     drill_top,
     top_copper,
@@ -26,14 +27,25 @@ enum class layer_order_t
     other
 };
 
-struct gerber_explorer : gl_window {
+struct gerber_explorer : gl_window
+{
 
     //////////////////////////////////////////////////////////////////////
 
     struct gerber_layer
     {
         int index;
-        gerber_3d::gl_drawer drawer{};
+
+        // have two gl_drawer instances and a pointer to one of them
+        // tesselate into the idle one and swap it over when that's complete
+
+        gerber_3d::gl_drawer *drawer;
+
+        gerber_3d::gl_drawer drawers[2];
+
+        // need a way to atomically swap
+        int current_drawer{ 0 };
+
         bool visible{ true };
         bool invert{ false };
         bool expanded{ false };
@@ -46,7 +58,7 @@ struct gerber_explorer : gl_window {
         std::string filename() const
         {
             if(is_valid()) {
-                return drawer.gerber_file->filename;
+                return drawer->gerber_file->filename;
             }
             return {};
         }
@@ -56,7 +68,7 @@ struct gerber_explorer : gl_window {
 
         bool is_valid() const
         {
-            return drawer.gerber_file != nullptr;
+            return drawer != nullptr && drawer->gerber_file != nullptr;
         }
 
         gerber_lib::rect extent() const
@@ -64,7 +76,7 @@ struct gerber_explorer : gl_window {
             if(!is_valid()) {
                 return rect{};
             }
-            return drawer.gerber_file->image.info.extent;
+            return drawer->gerber_file->image.info.extent;
         }
 
         bool operator<(gerber_layer const &other)
@@ -86,6 +98,14 @@ struct gerber_explorer : gl_window {
         mouse_drag_maybe_select,
         mouse_drag_select
     };
+
+    enum job_type_t
+    {
+        job_type_load_gerber = 1,
+        job_type_tesselate = 2,
+    };
+
+    gerber_3d::tesselation_quality_t tesselate_quality{ gerber_3d::tesselation_quality::medium };
 
     void set_mouse_mode(mouse_drag_action action);
 
@@ -119,7 +139,7 @@ struct gerber_explorer : gl_window {
     gerber_3d::gl_matrix ortho_screen_matrix{};
 
     // gerber layers
-    std::list<gerber_layer *> layers;     // active
+    std::list<gerber_layer *> layers;    // active
     gerber_layer *selected_layer{ nullptr };
 
     // zoom to rect admin
@@ -132,7 +152,7 @@ struct gerber_explorer : gl_window {
     gerber_3d::gl_drawlist overlay;
 
     // mouse moves are handled in the render function
-    bool mouse_did_move{false};
+    bool mouse_did_move{ false };
     vec2d mouse_pos{};
     vec2d prev_mouse_pos{};
 
@@ -159,10 +179,27 @@ struct gerber_explorer : gl_window {
     // active entity admin
     std::vector<int> active_entities;
     int active_entity_index;
-    gerber_3d::tesselator_entity *active_entity{nullptr};
+    gerber_3d::tesselator_entity *active_entity{ nullptr };
     std::string active_entity_description{};
 
     job_pool pool;
+
+    std::mutex layer_drawer_mutex;
+
+    bool retesselate{false};
+
+    void tesselate_layer(gerber_layer *layer)
+    {
+        pool.add_job(job_type_tesselate, [this, layer](std::stop_token st) {
+            gerber_3d::gl_drawer *d = &layer->drawers[1 - layer->current_drawer];
+            d->tesselation_quality = settings.tesselation_quality;
+            d->set_gerber(layer->drawer->gerber_file);
+            {
+                std::lock_guard l(layer_drawer_mutex);
+                layer->current_drawer = 1 - layer->current_drawer;
+            }
+        });
+    }
 
     std::list<gerber_layer *> loaded_layers;
     std::mutex loaded_mutex;
@@ -229,6 +266,8 @@ struct gerber_explorer : gl_window {
     void on_mouse_button(int button, int action, int mods) override;
     void on_mouse_move(double xpos, double ypos) override;
     void on_drop(int count, const char **paths) override;
+
+    bool is_idle() override;
 
     void handle_mouse();
 

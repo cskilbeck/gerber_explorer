@@ -93,7 +93,7 @@ struct job_pool
 
     void worker_loop(std::stop_token pool_stoken);
 
-    template <typename F> void add_job(F &&func, uint32_t flags = 0)
+    template <typename F> void add_job(uint32_t flags, F &&func)
     {
         {
             std::lock_guard lock(queue_mutex);

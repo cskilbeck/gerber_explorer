@@ -29,7 +29,30 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    struct tess_arena_t : gerber_lib::gerber_arena<1ULL<<24, 16>
+    using tesselation_quality_t = unsigned int;
+
+    namespace tesselation_quality
+    {
+        tesselation_quality_t constexpr low = 0;
+        tesselation_quality_t constexpr medium = 1;
+        tesselation_quality_t constexpr high = 2;
+        tesselation_quality_t constexpr num_qualities = 3;
+    };    // namespace tesselation_quality
+
+    //////////////////////////////////////////////////////////////////////
+
+    static char const *tesselation_quality_name(tesselation_quality_t q)
+    {
+        static constexpr char const *names[tesselation_quality::num_qualities] = { "Low", "Medium", "High" };
+        if(q < std::size(names)) {
+            return names[q];
+        }
+        return "?Unknown";
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    struct tess_arena_t : gerber_lib::gerber_arena<1ULL << 24, 16>
     {
         tess_arena_t() : gerber_arena()
         {
@@ -59,8 +82,7 @@ namespace gerber_3d
     struct tesselator_entity
     {
         gerber_lib::gerber_net *net{};
-        int first_fill;               // offset into fills spans
-        int num_fills{};              // # of fill draw calls
+        int fill_index;               // offset into fills spans
         int outline_offset;           // offset into outline lines
         int outline_size{};           // # of lines in the outline
         int flags;                    // see entity_flags_t
@@ -84,7 +106,7 @@ namespace gerber_3d
     {
         using vec2f = gerber_lib::vec2f;
         using vert = vec2f;
-        template<typename T> using typed_arena = gerber_lib::typed_arena<T>;
+        template <typename T> using typed_arena = gerber_lib::typed_arena<T>;
 
         gl_drawer() = default;
 
@@ -92,7 +114,7 @@ namespace gerber_3d
         void set_gerber(gerber_lib::gerber *g) override;
 
         // setup anything that has to be done in the main thread
-        void on_finished_loading() override;
+        void on_finished_loading();
 
         // callback to create draw calls from elements
         void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity,
@@ -107,7 +129,7 @@ namespace gerber_3d
 
         // for actually drawing it
         void fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, gl::color red_fill = gl::colors::red,
-                  gl::color green_fill = gl::colors::green, gl::color blue_fill = gl::colors::blue) const;
+                  gl::color green_fill = gl::colors::green, gl::color blue_fill = gl::colors::blue);
 
         void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &viewport_size);
 
@@ -119,17 +141,19 @@ namespace gerber_3d
         void find_entities_at_point(gerber_lib::vec2d point, std::vector<int> &indices);
         void select_hovered_entities();
 
+        void release();
+
+        bool ready_to_draw{ false };
+
+
         gerber_lib::gerber *gerber_file{};
+        tesselation_quality_t tesselation_quality;
         int current_flag{ entity_flags_t::none };
         int base_vert{};
         int current_entity_id{ -1 };
-
-        // tesselation
         TESStesselator *boundary_stesselator{};
-
         tess_arena_t boundary_arena;
         tess_arena_t interior_arena;
-
         typed_arena<tesselator_entity> entities;
         typed_arena<vec2f> temp_points{};
         typed_arena<gl_line2_program::line> outline_lines{};
@@ -138,13 +162,8 @@ namespace gerber_3d
         typed_arena<vert> fill_vertices;
         typed_arena<GLuint> fill_indices;
         typed_arena<tesselator_span> fill_spans;
-
-        // all the verts for interiors
         gl_vertex_array_solid vertex_array;
-
-        // indices for interior triangles
         gl_index_buffer index_array;
-
         GLuint line_buffers[3];
         GLuint textures[3];
     };
