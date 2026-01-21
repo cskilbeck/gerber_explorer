@@ -23,7 +23,8 @@ target_include_directories(glad PUBLIC ${GLAD_DIR}/include)
 FetchContent_Declare(
         glfw
         GIT_REPOSITORY https://github.com/glfw/glfw.git
-        GIT_TAG 3.4)
+        GIT_TAG 3.4
+        SYSTEM)
 
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -35,10 +36,13 @@ FetchContent_MakeAvailable(glfw)
 ######################################################################
 # cpptrace
 
+set(cpptrace_SYSTEM ON)
+
 FetchContent_Declare(
         cpptrace
         GIT_REPOSITORY https://github.com/jeremy-rifkin/cpptrace.git
-        GIT_TAG v1.0.4)
+        GIT_TAG v1.0.4
+        SYSTEM)
 
 FetchContent_MakeAvailable(cpptrace)
 
@@ -48,9 +52,32 @@ FetchContent_MakeAvailable(cpptrace)
 FetchContent_Declare(
         directxmath
         GIT_REPOSITORY https://github.com/microsoft/DirectXMath.git
-        GIT_TAG        apr2025)
+        GIT_TAG        apr2025
+        SYSTEM)
 
 FetchContent_MakeAvailable(directxmath)
+
+######################################################################
+# NativeFileDialog
+
+FetchContent_Declare(
+        nfd
+        GIT_REPOSITORY https://github.com/btzy/nativefiledialog-extended
+        GIT_TAG v1.3.0
+        SYSTEM)
+
+FetchContent_MakeAvailable(nfd)
+
+######################################################################
+# JSON
+
+FetchContent_Declare(
+        json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.11.3
+        SYSTEM)
+
+FetchContent_MakeAvailable(json)
 
 ######################################################################
 # IMGUI
@@ -58,7 +85,8 @@ FetchContent_MakeAvailable(directxmath)
 FetchContent_Declare(
         imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui.git
-        GIT_TAG docking)
+        GIT_TAG docking
+        SYSTEM)
 
 FetchContent_MakeAvailable(imgui)
 
@@ -80,16 +108,6 @@ target_include_directories(gerber_gl PUBLIC
         ${imgui_SOURCE_DIR}/backends)
 
 target_link_libraries(gerber_gl PUBLIC glfw glad OpenGL::GL DirectXMath)
-
-######################################################################
-# JSON
-
-FetchContent_Declare(
-        json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG v3.11.3)
-
-FetchContent_MakeAvailable(json)
 
 ######################################################################
 # libTESS2
@@ -120,11 +138,6 @@ if(MSVC)
 endif()
 
 target_include_directories(libtess2 PUBLIC ${LIB_TESS2_DIR}/Include)
-
-######################################################################
-# NativeFileDialog
-
-add_subdirectory(nativefiledialog-extended-1.2.1)
 
 ######################################################################
 

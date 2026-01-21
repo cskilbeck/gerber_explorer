@@ -57,17 +57,19 @@ if (MSVC)
 else ()
     target_compile_options(${PROJECT} PRIVATE
             -mavx2
+            -mfma
             -Wall
             -Wextra
-            -Wpedantic
+            -Wno-pedantic
+            -Wno-strict-aliasing
+            -Wno-unused-function
             -Werror
             -Wno-empty-body
+            -Wno-unused-but-set-variable
             -Wno-unused-parameter
             -Wno-implicit-fallthrough
+            -Wno-microsoft-anon-tag
             -Wno-multichar)
 endif ()
 
 target_compile_definitions(${PROJECT} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS WIN32_LEAN_AND_MEAN NOMINMAX)
-
-
-target_compile_features(${PROJECT} PUBLIC cxx_std_20)

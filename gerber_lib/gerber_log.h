@@ -70,10 +70,10 @@ namespace gerber_lib
 
 //////////////////////////////////////////////////////////////////////
 
-#define LOG_CONTEXT(context, max_level)                              \
-    static constexpr ::gerber_lib::gerber_log_context __log_context  \
-    {                                                                \
-        context, gerber_lib::gerber_log_level::log_level_##max_level \
+#define LOG_CONTEXT(context, max_level)                                              \
+    [[maybe_unused]] static constexpr ::gerber_lib::gerber_log_context __log_context \
+    {                                                                                \
+        context, gerber_lib::gerber_log_level::log_level_##max_level                 \
     }
 
 #define LOG_DEBUG(msg, ...) ::gerber_lib::log(::gerber_lib::log_level_debug, __log_context, msg, ##__VA_ARGS__)

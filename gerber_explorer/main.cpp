@@ -26,13 +26,13 @@
 // X detect gerber layer type/position from extension/name/x2 info
 // X top/bottom views
 // X selected entity info
+// X isolate / unisolate layer
 //
 // share arenas where possible in gl_drawer
 // reduce gpu usage - only draw frame when necessary
 // status bar
 // dynamic tesselation
 // detect board outline
-// isolate / unisolate layer
 //
 // measure tool
 //

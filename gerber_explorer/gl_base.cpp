@@ -132,7 +132,7 @@ namespace gerber_3d
     {
         int location;
         GL_CHECK(location = glGetUniformLocation(program_id, name));
-        if(location == GL_INVALID_INDEX) {
+        if(location == (int)GL_INVALID_INDEX) {
             LOG_WARNING("Can't get uniform location for \"{}\" in program \"{}\"", name, program_name);
         }
         return location;
@@ -144,7 +144,7 @@ namespace gerber_3d
     {
         int location;
         GL_CHECK(location = glGetAttribLocation(program_id, name));
-        if(location == GL_INVALID_INDEX) {
+        if(location == (int)GL_INVALID_INDEX) {
             LOG_ERROR("Can't get attribute location for \"{}\" in program \"{}\"", name, program_name);
         }
         return location;

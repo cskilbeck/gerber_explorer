@@ -18,9 +18,6 @@
 
 LOG_CONTEXT("gerber_explorer", debug);
 
-static double start_angle = 0;
-static double end_angle = 190;
-
 namespace
 {
     enum board_view_t
@@ -704,7 +701,7 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
             active_entity = nullptr;
             selected_layer->drawer->clear_entity_flags(entity_flags_t::all_select);
             if(!active_entities.empty()) {
-                if(active_entity_index < active_entities.size()) {
+                if(active_entity_index < (int)active_entities.size()) {
                     tesselator_entity &e = selected_layer->drawer->entities[active_entities[active_entity_index]];
                     set_active_entity(&e);
                 } else {

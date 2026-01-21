@@ -3,6 +3,8 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+static constexpr double PI = 3.1415926535897932384626433;
+
 namespace gerber_lib
 {
     //////////////////////////////////////////////////////////////////////
@@ -17,28 +19,28 @@ namespace gerber_lib
 
     inline double deg_2_rad(double x)
     {
-        return x * (M_PI / 180.0);
+        return x * (PI / 180.0);
     }
 
     //////////////////////////////////////////////////////////////////////
 
     inline float deg_2_radf(float x)
     {
-        return (float)(x * (M_PI / 180.0));
+        return (float)(x * (PI / 180.0));
     }
 
     //////////////////////////////////////////////////////////////////////
 
     inline float deg_2_radf(double x)
     {
-        return (float)(x * (M_PI / 180.0));
+        return (float)(x * (PI / 180.0));
     }
 
     //////////////////////////////////////////////////////////////////////
 
     inline double rad_2_deg(double x)
     {
-        return x * (180 / M_PI);
+        return x * (180 / PI);
     }
 
 }    // namespace gerber_lib

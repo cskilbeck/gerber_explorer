@@ -1,7 +1,11 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <iostream>
 #include <filesystem>
 #include <cstdlib>
 #include <string>
+#include <optional>
+#include <vector>
 // #include <unistd.h>
 
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -22,13 +26,13 @@ char const *settings_filename{ "settings.json" };
 
 std::optional<std::string> get_env_var(const std::string &key)
 {
-#ifdef _WIN32
+#if defined(MSVC)
 #pragma warning(push)
 #pragma warning(disable : 4996)
 #endif
     // ReSharper disable once CppDeprecatedEntity
     const char *val = std::getenv(key.c_str());
-#ifdef _WIN32
+#if defined(MSVC)
 #pragma warning(pop)
 #endif
     if(val == nullptr) {

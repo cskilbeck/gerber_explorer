@@ -88,13 +88,19 @@ if (MSVC)
 else ()
     target_compile_options(${PROJECT} PRIVATE
             -mavx2
+            -mfma
             -Wall
             -Wextra
-            -Wpedantic
+            -Wno-pedantic
             -Werror
+            -Wno-missing-field-initializers
+            -Wno-unused-function
             -Wno-empty-body
+            -Wno-strict-aliasing
+            -Wno-unused-but-set-variable
             -Wno-unused-parameter
             -Wno-implicit-fallthrough
+            -Wno-microsoft-anon-tag
             -Wno-multichar)
 endif ()
 

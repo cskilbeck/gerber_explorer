@@ -320,7 +320,7 @@ namespace gerber_3d
 
         entity_flags.increase_size_to(max_entity_id + 1);
         for(auto &e : entities) {
-            auto id = e.entity_id();
+            size_t id = e.entity_id();
             if(id >= entity_flags.size()) {
                 LOG_ERROR("Entity ID out of range!?");
                 id = 0;

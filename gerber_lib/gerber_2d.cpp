@@ -238,7 +238,7 @@ namespace gerber_lib
     bool point_in_poly(vec2f *points, int num_points, vec2f p)
     {
         bool inside = false;
-        for(size_t i = 0, j = num_points - 1; i < num_points; j = i++) {
+        for(int i = 0, j = num_points - 1; i < num_points; j = i++) {
             if(((points[i].y > p.y) != (points[j].y > p.y)) &&
                (p.x < (points[j].x - points[i].x) * (p.y - points[i].y) / (points[j].y - points[i].y) + points[i].x)) {
                 inside = !inside;

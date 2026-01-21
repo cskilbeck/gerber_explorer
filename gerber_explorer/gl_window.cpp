@@ -257,7 +257,6 @@ void gl_window::init()
     font_cfg.PixelSnapH = true;
     font_cfg.GlyphMinAdvanceX = 18.0f;
     font_cfg.GlyphOffset.y = fontSize / 6;
-    static const ImWchar icon_ranges[] = { MATSYM_MIN_CODEPOINT, MATSYM_MAX_CODEPOINT, 0 };
 
     io.Fonts->AddFontFromMemoryTTF(const_cast<void *>(matsym_font_data_ptr), static_cast<int>(matsym_font_data_size), fontSize, &font_cfg);
 

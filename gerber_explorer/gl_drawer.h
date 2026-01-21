@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <cstring>
+
 #include "gl_base.h"
 #include "gerber_lib.h"
 #include "gerber_draw.h"

@@ -2,8 +2,16 @@ cmake_minimum_required(VERSION 3.10)
 cmake_policy(SET CMP0069 NEW)
 project(gerber_explorer VERSION 1.0)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(MSVC)
+    if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
+        string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    else()
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
+    endif()
+endif()
 
 # LTO
 
