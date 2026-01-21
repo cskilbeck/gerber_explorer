@@ -27,12 +27,14 @@
 // X top/bottom views
 // X selected entity info
 // X isolate / unisolate layer
+// X tidy up the cmake
 //
 // share arenas where possible in gl_drawer
 // reduce gpu usage - only draw frame when necessary
 // status bar
 // dynamic tesselation
 // detect board outline
+// fix blending / inverted layers / alpha
 //
 // measure tool
 //

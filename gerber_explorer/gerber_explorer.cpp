@@ -92,12 +92,12 @@ namespace
     bool constexpr inverted = true;
 
     layer_defaults_t layer_defaults[] = {
-        { gerber_lib::layer::unknown, not_inverted, layer_order_t::other, gl::colors::magenta },
+        { gerber_lib::layer::unknown, not_inverted, layer_order_t::other, gl::colors::yellow },
         { gerber_lib::layer::vcut, not_inverted, layer_order_t::other, gl::colors::magenta },
-        { gerber_lib::layer::board, not_inverted, layer_order_t::other, gl::colors::magenta },
-        { gerber_lib::layer::outline, not_inverted, layer_order_t::other, gl::colors::magenta },
-        { gerber_lib::layer::mechanical, not_inverted, layer_order_t::other, gl::colors::magenta },
-        { gerber_lib::layer::info, not_inverted, layer_order_t::other, gl::colors::magenta },
+        { gerber_lib::layer::board, not_inverted, layer_order_t::other, gl::colors::black },
+        { gerber_lib::layer::outline, not_inverted, layer_order_t::other, gl::colors::black },
+        { gerber_lib::layer::mechanical, not_inverted, layer_order_t::other, gl::colors::cyan },
+        { gerber_lib::layer::info, not_inverted, layer_order_t::other, gl::colors::white },
         { gerber_lib::layer::keepout, not_inverted, layer_order_t::other, gl::colors::magenta },
         { gerber_lib::layer::drill, not_inverted, layer_order_t::drill, gl::colors::black },
         { gerber_lib::layer::paste_top, not_inverted, layer_order_t::top_outer, gl::colors::silver },
@@ -1007,9 +1007,9 @@ void gerber_explorer::ui()
             float posX = pos.x + ImGui::GetItemRectSize().x - boxSize - ImGui::GetStyle().ItemSpacing.x;
             ImGui::SetCursorScreenPos(ImVec2(posX, pos.y));
             ImGui::ColorButton("##bgcolor_btn",
-                                  { settings.background_color.r, settings.background_color.g, settings.background_color.b, 1.0f },
-                                  ImGuiColorEditFlags_NoAlpha,
-                                  ImVec2(boxSize, boxSize));
+                               { settings.background_color.r, settings.background_color.g, settings.background_color.b, 1.0f },
+                               ImGuiColorEditFlags_NoAlpha,
+                               ImVec2(boxSize, boxSize));
             if(ImGui::BeginPopup("BackgroundColorPickerPopup")) {
                 ImGui::ColorPicker3("##bgcolor_picker", (float *)settings.background_color, ImGuiColorEditFlags_NoAlpha);
                 ImGui::EndPopup();
@@ -1123,7 +1123,7 @@ void gerber_explorer::ui()
                 auto flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap;
 
                 ImVec4 color = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-                if(!l->visible) {
+                if(!layer_is_visible(*it)) {
                     color.w *= 0.5f;
                 }
                 ImGui::PushStyleColor(ImGuiCol_Text, color);
@@ -1463,18 +1463,25 @@ void gerber_explorer::on_render()
     // 2. sort them, based on current view mode
     if(settings.board_view != board_view_all) {
         std::sort(ordered_layers.begin(), ordered_layers.end(), [this](gerber_layer const *a, gerber_layer const *b) {
-            gerber_lib::layer::type_t x = gerber_lib::layer::type_t::drill_top;
+            using namespace gerber_lib;
+            layer::type_t drill_ordered = layer::type_t::drill_top;
+            layer::type_t pads_ordered = layer::type_t::pads_top;
             if(settings.board_view == board_view_bottom) {
-                x = gerber_lib::layer::type_t::drill_bottom;
+                drill_ordered = layer::type_t::drill_bottom;
+                pads_ordered = layer::type_t::pads_bottom;
                 std::swap(a, b);
             }
             int ta = a->drawer->gerber_file->layer_type;
             int tb = b->drawer->gerber_file->layer_type;
-            if(gerber_lib::is_drill_layer(ta)) {
-                ta = x;
+            if(is_layer(ta, layer::type_t::drill)) {
+                ta = drill_ordered;
+            } else if(is_layer(ta, layer::type_t::pads)) {
+                ta = pads_ordered;
             }
-            if(gerber_lib::is_drill_layer(tb)) {
-                tb = x;
+            if(is_layer(tb, layer::type_t::drill)) {
+                tb = drill_ordered;
+            } else if(is_layer(tb, layer::type_t::pads)) {
+                tb = pads_ordered;
             }
             return ta > tb;
         });

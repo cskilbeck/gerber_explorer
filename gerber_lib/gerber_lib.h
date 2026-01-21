@@ -36,24 +36,28 @@ namespace gerber_lib
             info = 1005,
             keepout = 1006,
 
-            drill = 2000,
-            paste_top = 3000,
-            overlay_top = 4000,
-            soldermask_top = 5000,
-            drill_top = 6000,
-            copper_top = 7000,
-            copper_inner = 8000,
-            copper_bottom = 9000,
-            drill_bottom = 10000,
-            soldermask_bottom = 11000,
-            overlay_bottom = 12000,
-            paste_bottom = 13000,
+            pads = 2000,
+            drill = 3000,
+
+            paste_top = 4000,
+            pads_top = 5000,
+            overlay_top = 6000,
+            soldermask_top = 7000,
+            drill_top = 8000,
+            copper_top = 9000,
+            copper_inner = 10000,
+            copper_bottom = 11000,
+            drill_bottom = 12000,
+            soldermask_bottom = 13000,
+            overlay_bottom = 14000,
+            pads_bottom = 15000,
+            paste_bottom = 16000,
         };
     }
 
-    inline bool is_drill_layer(int l)
+    inline bool is_layer(int l, layer::type_t t)
     {
-        return l >= layer::type_t::drill && l < layer::type_t::paste_top;
+        return l >= t && l < (t + 1000);
     }
 
     struct gerber_net;

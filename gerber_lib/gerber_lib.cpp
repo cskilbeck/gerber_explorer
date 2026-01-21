@@ -340,6 +340,12 @@ namespace gerber_lib
                 if(v.contains("drill")) {
                     return drill;
                 }
+                if(v.contains("other")) {
+                    return other;
+                }
+                if(v.contains("pads")) {
+                    return pads;
+                }
                 if(v.contains("vcut")) {
                     return vcut;
                 }
