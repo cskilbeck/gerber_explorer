@@ -1,4 +1,5 @@
-#include <DirectXMath.h>
+#include "dx_math.h"
+
 #include "gl_matrix.h"
 
 namespace gerber_3d

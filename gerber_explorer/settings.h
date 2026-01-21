@@ -35,24 +35,25 @@ namespace settings
     };
 }    // namespace settings
 
-#define SETTINGS_FIELDS                     \
-    X(bool, wireframe, false)               \
-    X(bool, show_axes, true)                \
-    X(bool, show_extent, true)              \
-    X(bool, flip_x, false)                  \
-    X(bool, flip_y, false)                  \
-    X(bool, window_maximized, false)        \
-    X(float, outline_width, 1.0f)           \
-    X(settings::color_t, outline_color, {}) \
-    X(int, window_width, 800)               \
-    X(int, window_height, 600)              \
-    X(int, window_xpos, 100)                \
-    X(int, window_ypos, 100)                \
-    X(int, multisamples, 1)                 \
-    X(int, tesselation_quality, 1)          \
-    X(bool, dynamic_tesselation, false)     \
-    X(bool, view_toolbar, true)             \
-    X(int, board_view, 0)                   \
+#define SETTINGS_FIELDS                        \
+    X(bool, wireframe, false)                  \
+    X(bool, show_axes, true)                   \
+    X(bool, show_extent, true)                 \
+    X(bool, flip_x, false)                     \
+    X(bool, flip_y, false)                     \
+    X(bool, window_maximized, false)           \
+    X(float, outline_width, 1.0f)              \
+    X(settings::color_t, outline_color, {})    \
+    X(settings::color_t, background_color, {}) \
+    X(int, window_width, 800)                  \
+    X(int, window_height, 600)                 \
+    X(int, window_xpos, 100)                   \
+    X(int, window_ypos, 100)                   \
+    X(int, multisamples, 1)                    \
+    X(int, tesselation_quality, 1)             \
+    X(bool, dynamic_tesselation, false)        \
+    X(bool, view_toolbar, true)                \
+    X(int, board_view, 0)                      \
     X(std::vector<settings::layer_t>, files, {})
 
 struct settings_t

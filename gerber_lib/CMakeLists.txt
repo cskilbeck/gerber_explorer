@@ -2,10 +2,6 @@ cmake_minimum_required(VERSION 3.10)
 
 set(PROJECT gerber_lib)
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
 add_library(${PROJECT}
         gerber_util.h
         gerber_2d.cpp
@@ -39,37 +35,11 @@ add_library(${PROJECT}
         gerber_stats.h
         gerber_util.cpp
         gerber_arena.cpp
-        gerber_arena.h)
-
-set_target_properties(${PROJECT} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})
+        gerber_arena.h
+        dx_math.h)
 
 target_include_directories(${PROJECT} PUBLIC .)
 
-if (MSVC)
-    string(REPLACE "/W3" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    target_compile_options(${PROJECT} PRIVATE
-            /MP       # multiprocessor build
-            /wd4100   # unreferenced formal parameter
-            /wd4505   # unreferenced function with internal linkage has been removed
-            /arch:AVX2
-            /WX)      # warnings-as-errors
+target_link_libraries(${PROJECT} PRIVATE project_options)
 
-else ()
-    target_compile_options(${PROJECT} PRIVATE
-            -mavx2
-            -mfma
-            -Wall
-            -Wextra
-            -Wno-pedantic
-            -Wno-strict-aliasing
-            -Wno-unused-function
-            -Werror
-            -Wno-empty-body
-            -Wno-unused-but-set-variable
-            -Wno-unused-parameter
-            -Wno-implicit-fallthrough
-            -Wno-microsoft-anon-tag
-            -Wno-multichar)
-endif ()
-
-target_compile_definitions(${PROJECT} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS WIN32_LEAN_AND_MEAN NOMINMAX)
+target_enable_ipo(${PROJECT})

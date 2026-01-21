@@ -1,0 +1,31 @@
+function(target_enable_ipo TARGET_NAME)
+    if(NOT TARGET ${TARGET_NAME})
+        return()
+    endif()
+
+    if(NOT CMAKE_BUILD_TYPE MATCHES "^(Release|RelWithDebInfo)$")
+        return()
+    endif()
+
+    set(REAL_TARGET ${TARGET_NAME})
+    get_target_property(ALIAS_CHECK ${REAL_TARGET} ALIAS_FOR)
+    while(ALIAS_CHECK)
+        set(REAL_TARGET ${ALIAS_CHECK})
+        get_target_property(ALIAS_CHECK ${REAL_TARGET} ALIAS_FOR)
+    endwhile()
+
+    get_target_property(TGT_TYPE ${REAL_TARGET} TYPE)
+    if(TGT_TYPE STREQUAL "INTERFACE_LIBRARY")
+        return()
+    endif()
+
+    get_target_property(IS_IMPORTED ${REAL_TARGET} IMPORTED)
+    if(IS_IMPORTED)
+        return()
+    endif()
+
+    if(IPO_SUPPORTED)
+        set_target_properties(${REAL_TARGET} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ON)
+        message(STATUS "IPO enabled for ${REAL_TARGET}")
+    endif()
+endfunction()

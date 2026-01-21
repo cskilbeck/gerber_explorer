@@ -1,0 +1,11 @@
+set(TARGET_PATH "${CMAKE_ARGV3}")
+
+if(EXISTS "${TARGET_PATH}")
+    file(SIZE "${TARGET_PATH}" RAW_SIZE)
+    math(EXPR SIZE_KB "${RAW_SIZE} / 1024")
+    math(EXPR SIZE_MB_INT "${SIZE_KB} / 1024")
+    math(EXPR SIZE_MB_DEC "(${SIZE_KB} * 100 / 1024) % 100")
+    message("Executable is ${SIZE_MB_INT}.${SIZE_MB_DEC} MB (${RAW_SIZE} bytes) (${TARGET_PATH})")
+else()
+    message(WARNING "Could not find binary to calculate size: ${TARGET_PATH}")
+endif()

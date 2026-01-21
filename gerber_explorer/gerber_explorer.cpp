@@ -929,7 +929,7 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
     std::string description{ "?" };
     std::string interpolation{ "" };
     if(net->aperture_state == aperture_state_on && net->interpolation_method < interpolation_region_start) {
-        interpolation = std::format(" {}", net->interpolation_method);
+        interpolation = std::format(" {} interpolation,", net->interpolation_method);
     }
     if(net->aperture_state != aperture_state_on) {
         state = std::format("{}", net->aperture_state);
@@ -952,7 +952,7 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
     } else if(net->num_region_points != 0) {
         description = std::format("region ({} points)", net->num_region_points);
     }
-    active_entity_description = std::format("Entity {}:{}{} {} {}", net->entity_id, state, interpolation, polarity, description);
+    active_entity_description = std::format("Entity {}:{}{} {} polarity ({})", net->entity_id, state, interpolation, polarity, description);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -997,6 +997,24 @@ void gerber_explorer::ui()
             ImGui::MenuItem("Flip X", "X", &settings.flip_x);
             ImGui::MenuItem("Flip Y", "Y", &settings.flip_y);
             ImGui::MenuItem("Toolbar", "", &settings.view_toolbar);
+
+            // Background color
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            if(ImGui::Selectable("Background", false, ImGuiSelectableFlags_DontClosePopups)) {
+                ImGui::OpenPopup("BackgroundColorPickerPopup");
+            }
+            float boxSize = ImGui::GetFontSize();
+            float posX = pos.x + ImGui::GetItemRectSize().x - boxSize - ImGui::GetStyle().ItemSpacing.x;
+            ImGui::SetCursorScreenPos(ImVec2(posX, pos.y));
+            ImGui::ColorButton("##bgcolor_btn",
+                                  { settings.background_color.r, settings.background_color.g, settings.background_color.b, 1.0f },
+                                  ImGuiColorEditFlags_NoAlpha,
+                                  ImVec2(boxSize, boxSize));
+            if(ImGui::BeginPopup("BackgroundColorPickerPopup")) {
+                ImGui::ColorPicker3("##bgcolor_picker", (float *)settings.background_color, ImGuiColorEditFlags_NoAlpha);
+                ImGui::EndPopup();
+            }
+
             ImGui::MenuItem("Wireframe", "W", &settings.wireframe);
             ImGui::MenuItem("Show Axes", "A", &settings.show_axes);
             ImGui::MenuItem("Show Extent", "E", &settings.show_extent);
@@ -1006,10 +1024,10 @@ void gerber_explorer::ui()
             }
             if(ImGui::BeginMenu("Tesselation")) {
                 if(ImGui::SliderInt("##tesselation",
-                                 &settings.tesselation_quality,
-                                 tesselation_quality::low,
-                                 tesselation_quality::high,
-                                 tesselation_quality_name(settings.tesselation_quality))) {
+                                    &settings.tesselation_quality,
+                                    tesselation_quality::low,
+                                    tesselation_quality::high,
+                                    tesselation_quality_name(settings.tesselation_quality))) {
                     retesselate = true;
                 }
                 if(ImGui::Checkbox("Dynamic", &settings.dynamic_tesselation)) {
@@ -1281,8 +1299,8 @@ void gerber_explorer::blend_layer(gl::color col_r, gl::color col_g, gl::color co
 
     GL_CHECK(glEnable(GL_BLEND));
     GL_CHECK(glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD));
-    // wacky sort-of-additive-but-not-additive blending
-    GL_CHECK(glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_SRC_ALPHA));
+
+    GL_CHECK(glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE));
 
     GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
 }
@@ -1411,7 +1429,7 @@ void gerber_explorer::on_render()
     //////////////////////////////////////////////////////////////////////
     // Draw stuff
 
-    GL_CHECK(glClearColor(0, 0, 0, 1.0f));
+    GL_CHECK(glClearColor(settings.background_color.r, settings.background_color.g, settings.background_color.b, 1.0f));
     GL_CHECK(glDisable(GL_DEPTH_TEST));
     GL_CHECK(glDisable(GL_CULL_FACE));
     GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));

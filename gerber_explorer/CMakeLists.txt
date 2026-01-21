@@ -1,57 +1,38 @@
 cmake_minimum_required(VERSION 3.10)
-include(FetchContent)
+
+include(${cmrc_SOURCE_DIR}/CMakeRC.cmake)
 
 ######################################################################
-# CMRC (CMake Resource Compiler)
-
-set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
-
-FetchContent_Declare(
-        cmrc
-        GIT_REPOSITORY https://github.com/vector-of-bool/cmrc.git
-        GIT_TAG 2.0.1)
-
-FetchContent_MakeAvailable(cmrc)
-
-list(APPEND CMAKE_MODULE_PATH "${cmrc_SOURCE_DIR}")
-
-include(CMakeRC)
-
 ### Fonts for ImGui
 
 cmrc_add_resource_library(my_assets
         WHENCE "${CMAKE_CURRENT_SOURCE_DIR}/assets"
-        "${CMAKE_CURRENT_SOURCE_DIR}/assets/Roboto-Medium.ttf"
-        "${CMAKE_CURRENT_SOURCE_DIR}/assets/MaterialIcons-Regular.ttf")
+        "assets/Roboto-Medium.ttf"
+        "assets/MaterialIcons-Regular.ttf")
 
+######################################################################
 ### GL Shader sources
 
 cmrc_add_resource_library(my_shaders
         WHENCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/color_vertex_shader.glsl"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/common_fragment_shader.glsl"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/layer_fragment_shader.glsl"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/layer_vertex_shader.glsl"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/line_fragment_shader.glsl"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/line_vertex_shader.glsl"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/line2_fragment_shader.glsl"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/line2_vertex_shader.glsl"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/arc_fragment_shader.glsl"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/arc_vertex_shader.glsl"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/solid_vertex_shader.glsl"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_fragment_shader.glsl"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_vertex_shader.glsl")
-
-target_include_directories(my_assets PUBLIC assets)
+        "shaders/color_vertex_shader.glsl"
+        "shaders/common_fragment_shader.glsl"
+        "shaders/layer_fragment_shader.glsl"
+        "shaders/layer_vertex_shader.glsl"
+        "shaders/line_fragment_shader.glsl"
+        "shaders/line_vertex_shader.glsl"
+        "shaders/line2_fragment_shader.glsl"
+        "shaders/line2_vertex_shader.glsl"
+        "shaders/arc_fragment_shader.glsl"
+        "shaders/arc_vertex_shader.glsl"
+        "shaders/solid_vertex_shader.glsl"
+        "shaders/textured_fragment_shader.glsl"
+        "shaders/textured_vertex_shader.glsl")
 
 ######################################################################
 # MAIN
 
 set(PROJECT gerber_explorer)
-
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(${PROJECT}
         main.cpp
@@ -75,44 +56,17 @@ add_executable(${PROJECT}
         job_pool.h
         job_pool.cpp)
 
-if (MSVC)
-    string(REPLACE "/W3" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    target_compile_options(${PROJECT} PRIVATE
-            /MP       # multiprocessor build
-            /wd4100   # unreferenced formal parameter
-            /wd4324   # padding due to alignment
-            /wd4505   # unreferenced function with internal linkage has been removed
-            /arch:AVX2
-            /WX)      # warnings-as-errors
+target_include_directories(${PROJECT} PRIVATE ${CMRC_INCLUDE_DIR})
 
-else ()
-    target_compile_options(${PROJECT} PRIVATE
-            -mavx2
-            -mfma
-            -Wall
-            -Wextra
-            -Wno-pedantic
-            -Werror
-            -Wno-missing-field-initializers
-            -Wno-unused-function
-            -Wno-empty-body
-            -Wno-strict-aliasing
-            -Wno-unused-but-set-variable
-            -Wno-unused-parameter
-            -Wno-implicit-fallthrough
-            -Wno-microsoft-anon-tag
-            -Wno-multichar)
-endif ()
+target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets my_shaders project_options)
 
-set_target_properties(${PROJECT} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${IPO_SUPPORTED})
-
-target_compile_definitions(${PROJECT} PRIVATE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
-
-target_include_directories(${PROJECT} PRIVATE
-        ${CMRC_INCLUDE_DIR})
-
-target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets my_shaders)
+target_enable_ipo(${PROJECT})
 
 if (MSVC)
-    set_target_properties(gerber_explorer PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+    set_target_properties(${PROJECT} PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
 endif ()
+
+add_custom_command(TARGET ${PROJECT} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/cmake/print_size.cmake" "$<TARGET_FILE:${PROJECT}>"
+        COMMENT "Calculating binary size..."
+)
