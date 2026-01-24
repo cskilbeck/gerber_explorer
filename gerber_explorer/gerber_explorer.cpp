@@ -81,34 +81,34 @@ namespace
     struct layer_defaults_t
     {
         gerber_lib::layer::type_t layer_type;
-        bool inverted;
+        bool is_inverted;
         layer_order_t layer_order;
         gl::color color;
     };
 
     //////////////////////////////////////////////////////////////////////
 
-    bool constexpr not_inverted = false;
-    bool constexpr inverted = true;
+    bool constexpr layer_normal = false;
+    bool constexpr layer_inverted = true;
 
     layer_defaults_t layer_defaults[] = {
-        { gerber_lib::layer::unknown, not_inverted, layer_order_t::other, gl::colors::yellow },
-        { gerber_lib::layer::vcut, not_inverted, layer_order_t::other, gl::colors::magenta },
-        { gerber_lib::layer::board, not_inverted, layer_order_t::other, gl::colors::black },
-        { gerber_lib::layer::outline, not_inverted, layer_order_t::other, gl::colors::black },
-        { gerber_lib::layer::mechanical, not_inverted, layer_order_t::other, gl::colors::cyan },
-        { gerber_lib::layer::info, not_inverted, layer_order_t::other, gl::colors::white },
-        { gerber_lib::layer::keepout, not_inverted, layer_order_t::other, gl::colors::magenta },
-        { gerber_lib::layer::drill, not_inverted, layer_order_t::drill, gl::colors::black },
-        { gerber_lib::layer::paste_top, not_inverted, layer_order_t::top_outer, gl::colors::silver },
-        { gerber_lib::layer::overlay_top, not_inverted, layer_order_t::top_outer, gl::colors::white },
-        { gerber_lib::layer::soldermask_top, inverted, layer_order_t::top_outer, gl::set_alpha(gl::colors::dark_green, 0.75f) },
-        { gerber_lib::layer::copper_top, not_inverted, layer_order_t::top_copper, 0xFF34AAAC },
-        { gerber_lib::layer::copper_inner, not_inverted, layer_order_t::inner_copper, 0xFF34AAAC },
-        { gerber_lib::layer::copper_bottom, not_inverted, layer_order_t::bottom_copper, 0xFF34AAAC },
-        { gerber_lib::layer::soldermask_bottom, inverted, layer_order_t::bottom_outer, gl::set_alpha(gl::colors::dark_green, 0.75f) },
-        { gerber_lib::layer::overlay_bottom, not_inverted, layer_order_t::bottom_outer, gl::colors::white },
-        { gerber_lib::layer::paste_bottom, not_inverted, layer_order_t::bottom_outer, gl::colors::silver },
+        { gerber_lib::layer::unknown, layer_normal, layer_order_t::other, gl::colors::yellow },
+        { gerber_lib::layer::vcut, layer_normal, layer_order_t::other, gl::colors::magenta },
+        { gerber_lib::layer::board, layer_normal, layer_order_t::other, gl::colors::black },
+        { gerber_lib::layer::outline, layer_normal, layer_order_t::other, gl::colors::black },
+        { gerber_lib::layer::mechanical, layer_normal, layer_order_t::other, gl::colors::cyan },
+        { gerber_lib::layer::info, layer_normal, layer_order_t::other, gl::colors::white },
+        { gerber_lib::layer::keepout, layer_normal, layer_order_t::other, gl::colors::magenta },
+        { gerber_lib::layer::drill, layer_normal, layer_order_t::drill, gl::colors::black },
+        { gerber_lib::layer::paste_top, layer_normal, layer_order_t::top_outer, gl::colors::silver },
+        { gerber_lib::layer::overlay_top, layer_normal, layer_order_t::top_outer, gl::colors::white },
+        { gerber_lib::layer::soldermask_top, layer_inverted, layer_order_t::top_outer, gl::set_alpha(gl::colors::dark_green, 0.75f) },
+        { gerber_lib::layer::copper_top, layer_normal, layer_order_t::top_copper, 0xFF34AAAC },
+        { gerber_lib::layer::copper_inner, layer_normal, layer_order_t::inner_copper, 0xFF34AAAC },
+        { gerber_lib::layer::copper_bottom, layer_normal, layer_order_t::bottom_copper, 0xFF34AAAC },
+        { gerber_lib::layer::soldermask_bottom, layer_inverted, layer_order_t::bottom_outer, gl::set_alpha(gl::colors::dark_green, 0.75f) },
+        { gerber_lib::layer::overlay_bottom, layer_normal, layer_order_t::bottom_outer, gl::colors::white },
+        { gerber_lib::layer::paste_bottom, layer_normal, layer_order_t::bottom_outer, gl::colors::silver },
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -853,15 +853,15 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
         layer->index = layer_to_load.index;
         layer->name = std::format("{}", std::filesystem::path(g->filename).filename().string());
         layer->visible = layer_to_load.visible;
-        layer->clear_color = gl::colors::clear;
+        layer->clear_color = gl::colors::black;
         layer->drawer = &layer->drawers[0];
 
         layer_defaults_t d = get_defaults_for_layer_type(g->layer_type);
         if(layer->index == -1) {
             layer->index = g->layer_type;
-            LOG_DEBUG("{}:{} ({})", layer->name, g->image.info.polarity, d.inverted);
+            LOG_DEBUG("{}:{} ({})", layer->name, g->image.info.polarity, d.is_inverted);
             if(g->image.info.polarity == gerber_lib::polarity_unspecified) {
-                layer->invert = d.inverted;
+                layer->invert = d.is_inverted;
             } else {
                 layer->invert = g->image.info.polarity == gerber_lib::polarity_negative;
             }
@@ -919,21 +919,25 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
         active_entity_description.clear();
         return;
     }
-    entity->flags |= entity_flags_t::active;
+    active_entity->flags |= entity_flags_t::active;
     using namespace gerber_lib;
+
     gerber_net *net = active_entity->net;
     gerber_level *level = net->level;
     gerber_polarity polarity = level->polarity;
     gerber_aperture_type aperture_type{ aperture_type_none };
-    std::string state{ "" };
-    std::string description{ "?" };
+
     std::string interpolation{ "" };
     if(net->aperture_state == aperture_state_on && net->interpolation_method < interpolation_region_start) {
         interpolation = std::format(" {} interpolation,", net->interpolation_method);
     }
+
+    std::string state{ "" };
     if(net->aperture_state != aperture_state_on) {
         state = std::format("{}", net->aperture_state);
     }
+
+    std::string description{ "?" };
     if(net->aperture != 0) {
         auto apertures = selected_layer->drawer->gerber_file->image.apertures;
         auto it = apertures.find(net->aperture);
@@ -952,7 +956,9 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
     } else if(net->num_region_points != 0) {
         description = std::format("region ({} points)", net->num_region_points);
     }
-    active_entity_description = std::format("Entity {}:{}{} {} polarity ({})", net->entity_id, state, interpolation, polarity, description);
+
+    int x = selected_layer->drawer->entity_flags.data()[active_entity->entity_id()];
+    active_entity_description = std::format("Entity {}:{}{} {} polarity ({}) flags: {} ({})", net->entity_id, state, interpolation, polarity, description, active_entity->flags, x);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1276,7 +1282,7 @@ void gerber_explorer::update_board_extent()
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::blend_layer(gl::color col_r, gl::color col_g, gl::color col_b, float alpha, int num_samples)
+void gerber_explorer::blend_layer(gl::color color_fill, gl::color color_other, bool inverted, int num_samples)
 {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
@@ -1290,18 +1296,15 @@ void gerber_explorer::blend_layer(gl::color col_r, gl::color col_g, gl::color co
         num_samples = layer_render_target.num_samples;
     }
 
-    GL_CHECK(glUniform4fv(textured_program.u_red, 1, gl::colorf4(col_r).f));
-    GL_CHECK(glUniform4fv(textured_program.u_green, 1, gl::colorf4(col_g).f));
-    GL_CHECK(glUniform4fv(textured_program.u_blue, 1, gl::colorf4(col_b).f));
-    GL_CHECK(glUniform1f(textured_program.u_alpha, alpha));
+    GL_CHECK(glUniform4fv(textured_program.u_fill_color, 1, gl::colorf4(color_fill).f));
+    GL_CHECK(glUniform4fv(textured_program.u_other_color, 1, gl::colorf4(color_other).f));
+    GL_CHECK(glUniform1ui(textured_program.u_inverted, inverted));
     GL_CHECK(glUniform1i(textured_program.u_num_samples, num_samples));
     GL_CHECK(glUniform1i(textured_program.u_cover_sampler, 0));
 
     GL_CHECK(glEnable(GL_BLEND));
-    GL_CHECK(glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD));
-
-    GL_CHECK(glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE));
-
+    GL_CHECK(glBlendEquation(GL_FUNC_ADD));
+    GL_CHECK(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
     GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
 }
 
@@ -1309,9 +1312,10 @@ void gerber_explorer::blend_layer(gl::color col_r, gl::color col_g, gl::color co
 
 void gerber_explorer::on_render()
 {
-    // call on_finished_loading (which creates gl buffers) in main thread
+    // gather up any layers which finished loading
+    // if we just got the last one loaded, fit to viewport
     {
-        std::lock_guard loaded_lock(loaded_mutex);
+        std::lock_guard _(loaded_mutex);
         if(!loaded_layers.empty()) {
             gerber_layer *loaded_layer = loaded_layers.front();
             loaded_layers.pop_front();
@@ -1432,7 +1436,7 @@ void gerber_explorer::on_render()
     GL_CHECK(glClearColor(settings.background_color.r, settings.background_color.g, settings.background_color.b, 1.0f));
     GL_CHECK(glDisable(GL_DEPTH_TEST));
     GL_CHECK(glDisable(GL_CULL_FACE));
-    GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+    GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
 
     // resize the offscreen render target if the window size changed
     if(layer_render_target.width != viewport_width || layer_render_target.height != viewport_height ||
@@ -1455,7 +1459,7 @@ void gerber_explorer::on_render()
     std::vector<gerber_layer *> ordered_layers;
     ordered_layers.reserve(layers.size());
     for(auto const layer : layers) {
-        if(layer_is_visible(layer)) {
+        if(layer_is_visible(layer) && !layer->drawer->entities.empty()) {
             ordered_layers.push_back(layer);
         }
     }
@@ -1487,11 +1491,17 @@ void gerber_explorer::on_render()
         });
     }
 
-    // 3. draw them in order
+    if(ordered_layers.empty()) {
+        GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
+        GL_CHECK(glClearColor(0,0,0,0));
+        GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
+    }
+
+    // 4. draw them in order
     for(auto it : ordered_layers) {
         gerber_layer &layer = *it;
-        layer_render_target.bind_framebuffer();
-        GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
+        layer.drawer->create_gl_resources();
+        layer.drawer->update_flags_buffer();
 
         if(settings.wireframe) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -1499,35 +1509,26 @@ void gerber_explorer::on_render()
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
 
-        gl::color fill = layer.fill_color;
-        gl::color clear = layer.clear_color;
-        gl::color bg_color(gl::colors::black);
-        if(layer.invert) {
-            bg_color = gl::colors::green;
-            std::swap(fill, clear);
-        }
-        gl::colorf4 bg(bg_color);
-        glClearColor(bg.red(), bg.green(), bg.blue(), bg.alpha());
+        layer_render_target.bind_framebuffer();
+        GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
+        GL_CHECK(glClearColor(0,0,0,0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        layer.drawer->fill(world_matrix, entity_flags_t::selected, entity_flags_t::clear, entity_flags_t::fill);
-        blend_layer(gl::colors::white, clear, fill, layer.alpha / 255.0f);
+        layer.drawer->fill(world_matrix, entity_flags_t::fill, entity_flags_t::clear, entity_flags_t::selected);
+        gl::color selected_color = gl::set_alpha(gl::colors::white, 0.5f);
+        blend_layer(layer.fill_color, selected_color, layer.invert, settings.multisamples);
     }
 
     // draw overlay/ouline of selected & hovered entities in selected layer on top of all other layers
 
-    if(selected_layer != nullptr) {
+    if(selected_layer != nullptr && !selected_layer->drawer->entities.empty()) {
         layer_render_target.bind_framebuffer();
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
         GL_CHECK(glClearColor(0, 0, 0, 1));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        gl::color red_fill = gl::set_alpha(gl::colors::red, 0xC0);
-        gl::color green_fill = gl::set_alpha(gl::colors::green, 0x80);
-        gl::color blue_fill = gl::set_alpha(gl::colors::blue, 0x80);
-        selected_layer->drawer->fill(world_matrix, entity_flags_t::active, entity_flags_t::selected, entity_flags_t::hovered, red_fill, green_fill, blue_fill);
-        gl::color active(gl::colors::white);
-        gl::color selected(gl::colors::cyan);
-        gl::color hovered(gl::colors::light_blue);
-        blend_layer(active, selected, hovered, 1.0f);
+        selected_layer->drawer->fill(world_matrix, entity_flags_t::hovered, 0, entity_flags_t::active);
+        gl::color selected(gl::set_alpha(gl::colors::white, 0.5f));
+        gl::color active = gl::color_from_floats(1, 0.75f, 1, 0.5f);
+        blend_layer(active, selected, false, settings.multisamples);
 
         // Draw outline for hovered/selected entities in the selected layer
         if(settings.outline_width > 0.0f) {
@@ -1536,7 +1537,7 @@ void gerber_explorer::on_render()
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             selected_layer->drawer->outline(settings.outline_width, world_matrix, viewport_size);
-            blend_layer(gl::colors::white, gl::colors::white, gl::colors::black, 1.0f);
+            blend_layer(gl::colors::black, gl::colors::white, false, settings.multisamples);
         }
     }
 

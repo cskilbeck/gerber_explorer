@@ -1,5 +1,3 @@
-#version 410 core
-
 layout (location = 0) in vec2 position;// Unit quad (0,0 to 1,1)
 layout (location = 1) in vec2 center;// Instanced
 layout (location = 2) in float radius;// Instanced

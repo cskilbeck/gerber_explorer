@@ -1,5 +1,3 @@
-#version 410 core
-
 in vec2 v_center_px;
 in vec2 v_current_px;
 in float v_radius_px;

@@ -1,5 +1,3 @@
-#version 410 core
-
 layout (location = 0) in vec2 position;// (-0.5, -0.5) to (0.5, 0.5)
 
 uniform mat4 transform;
@@ -33,10 +31,10 @@ void main() {
     // set color channels based on flags
     float hover = 0;
     float select = 0;
-    if((flags & 1u) != 0) {
+    if((flags & 4u) != 0) {
         hover = 1;
     }
-    if((flags & 2u) != 0) {
+    if((flags & 8u) != 0) {
         select = 1;
     }
     v_color = mix(vec4(0), hover_color, hover);

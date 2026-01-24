@@ -32,6 +32,46 @@ extern int gl_log;
     } while(0)
 #endif
 
+inline void set_uniform_1i(int id, int v)
+{
+    LOG_CONTEXT("set_uniform_1i", error);
+    if(id != -1) {
+        GL_CHECK(glUniform1i(id, v));
+    }
+}
+
+inline void set_uniform_1f(int id, float v)
+{
+    LOG_CONTEXT("set_uniform_1f", error);
+    if(id != -1) {
+        GL_CHECK(glUniform1f(id, v));
+    }
+}
+
+inline void set_uniform_2f(int id, float x, float y)
+{
+    LOG_CONTEXT("set_uniform_2f", error);
+    if(id != -1) {
+        GL_CHECK(glUniform2f(id, x, y));
+    }
+}
+
+inline void set_uniform_4f(int id, float x, float y, float z, float w)
+{
+    LOG_CONTEXT("set_uniform_4f", error);
+    if(id != -1) {
+        GL_CHECK(glUniform4f(id, x, y, z, w));
+    }
+}
+
+inline void set_uniform_4fv(int id, int n, float const *v)
+{
+    LOG_CONTEXT("set_uniform_4fv", error);
+    if(id != -1) {
+        GL_CHECK(glUniform4fv(id, n, v));
+    }
+}
+
 namespace gerber_3d
 {
     //////////////////////////////////////////////////////////////////////
@@ -47,6 +87,14 @@ namespace gerber_3d
     {
         float x, y;
         uint32_t color;
+    };
+
+    //////////////////////////////////////////////////////////////////////
+
+    struct gl_vertex_entity
+    {
+        float x,y;
+        uint32_t entity_id;
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -171,6 +219,17 @@ namespace gerber_3d
     };
 
     //////////////////////////////////////////////////////////////////////
+    // special for the quad points to make instanced thick lines
+
+    struct gl_vertex_array_entity : gl_vertex_array
+    {
+        gl_vertex_array_entity() = default;
+
+        int init(GLsizei vert_count) override;
+        int activate() const override;
+    };
+
+    //////////////////////////////////////////////////////////////////////
 
     struct gl_vertex_array_color : gl_vertex_array
     {
@@ -201,13 +260,16 @@ namespace gerber_3d
     struct gl_layer_program : gl_program_base
     {
         static int constexpr position_location = 0;
+        static int constexpr entity_id_location = 1;
 
         GLuint u_transform;
-        GLuint u_color{};
+        GLuint u_flags_sampler;
+
+        GLuint u_red_flags;
+        GLuint u_green_flags;
+        GLuint u_blue_flags;
 
         int init() override;
-
-        void set_color(gl::color cover) const;
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -228,10 +290,9 @@ namespace gerber_3d
 
     struct gl_textured_program : gl_program_base
     {
-        GLuint u_red;
-        GLuint u_green;
-        GLuint u_blue;
-        GLuint u_alpha;
+        GLuint u_fill_color;
+        GLuint u_other_color;
+        GLuint u_inverted;
         GLuint u_cover_sampler;
         GLuint u_num_samples{};
 

@@ -1,5 +1,3 @@
-#version 410 core
-
 layout(location = 0) in vec2 position;
 
 out vec4 color;

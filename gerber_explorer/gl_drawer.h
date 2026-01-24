@@ -54,7 +54,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    struct tess_arena_t : gerber_lib::gerber_arena<1ULL << 24, 16>
+    struct tess_arena_t : gerber_lib::gerber_arena<1ULL << 30, 16>
     {
         tess_arena_t() : gerber_arena()
         {
@@ -130,8 +130,7 @@ namespace gerber_3d
         void finalize();
 
         // for actually drawing it
-        void fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, gl::color red_fill = gl::colors::red,
-                  gl::color green_fill = gl::colors::green, gl::color blue_fill = gl::colors::blue);
+        void fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags);
 
         void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &viewport_size);
 
@@ -147,6 +146,7 @@ namespace gerber_3d
 
         bool ready_to_draw{ false };
 
+        void update_flags_buffer();
 
         gerber_lib::gerber *gerber_file{};
         tesselation_quality_t tesselation_quality;
@@ -161,13 +161,18 @@ namespace gerber_3d
         typed_arena<gl_line2_program::line> outline_lines{};
         typed_arena<vec2f> outline_vertices{};
         typed_arena<uint8_t> entity_flags;    // one byte per entity
-        typed_arena<vert> fill_vertices;
+        typed_arena<gl_vertex_entity> fill_vertices;
         typed_arena<GLuint> fill_indices;
-        typed_arena<tesselator_span> fill_spans;
-        gl_vertex_array_solid vertex_array;
+        gl_vertex_array_entity vertex_array;
         gl_index_buffer index_array;
-        GLuint line_buffers[3];
-        GLuint textures[3];
+
+        GLuint outline_lines_buffer;
+        GLuint outline_vertices_buffer;
+        GLuint flags_buffer;
+
+        GLuint outline_lines_texture;
+        GLuint outline_vertices_texture;
+        GLuint flags_texture;
     };
 
 }    // namespace gerber_3d

@@ -240,7 +240,7 @@ struct gerber_explorer : gl_window
     bool layer_is_visible(gerber_layer const *layer) const;
     void next_view();
 
-    void blend_layer(gl::color col_r, gl::color col_g, gl::color col_b, float alpha, int num_samples = 0);
+    void blend_layer(gl::color color_fill, gl::color color_other, bool inverted, int num_samples);
 
     void add_gerber(settings::layer_t const &layer);
 

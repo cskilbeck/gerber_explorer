@@ -98,7 +98,7 @@ namespace gerber_lib
     //////////////////////////////////////////////////////////////////////
     // Helper for using it as a one off std::vector replacement
 
-    template <typename U, size_t reserve_size = 1ULL << 30, size_t alignment = alignof(U), size_t min_grow_size = 16 * 1024>
+    template <typename U, size_t reserve_size = 1ULL << 32, size_t alignment = alignof(U), size_t min_grow_size = 64 * 1024>
     struct typed_arena : gerber_arena<reserve_size, alignment, min_grow_size>
     {
         using value_type = U;

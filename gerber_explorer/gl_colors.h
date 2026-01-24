@@ -299,6 +299,15 @@ namespace gl
         return (color)f;
     }
 
+    inline color color_from_floats(float r, float g, float b, float a)
+    {
+        uint32_t cr = (int)(r * 255.0f) << colorf4::iredpos;
+        uint32_t cg = (int)(g * 255.0f) << colorf4::igreenpos;
+        uint32_t cb = (int)(b * 255.0f) << colorf4::ibluepos;
+        uint32_t ca = (int)(a * 255.0f) << colorf4::ialphapos;
+        return ca | cb | cg | cr;
+    }
+
     inline colorf4 to_floats(color color)
     {
         return colorf4(color);

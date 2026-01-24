@@ -32,7 +32,7 @@ namespace
     }
 
     //////////////////////////////////////////////////////////////////////
-    // a quad for instanced line/arc shaders
+    // quads for instanced line/arc shaders
 
     const std::array<gerber_3d::gl_vertex_solid, 4> line_quad_verts{ -0.5f, -0.5f, 0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.5f };
     const std::array<gerber_3d::gl_vertex_solid, 4> arc_quad_verts{ 0, 0, 1, 0, 0, 1, 1, 1 };
@@ -43,11 +43,27 @@ namespace gerber_3d
 {
     //////////////////////////////////////////////////////////////////////
 
+    char const *shader_version_preamble = "#version 410 core\n";
+
+#if defined(_DEBUG)
+    char const *shader_debug_preamble = R"PREAMBLE(
+#define DEBUG
+#define _DEBUG
+    )PREAMBLE";
+#else
+    char const *shader_debug_preamble = R"PREAMBLE(
+#define NDEBUG
+    )PREAMBLE";
+#endif
+
     int gl_program_base::compile_shader(GLenum shader_type, char const *source) const
     {
+        while(glGetError() != GL_NO_ERROR) {}
+
+        char const *sources[] = { shader_version_preamble, shader_debug_preamble, source };
         GLuint id;
         GL_CHECK(id = glCreateShader(shader_type));
-        GL_CHECK(glShaderSource(id, 1, &source, NULL));
+        GL_CHECK(glShaderSource(id, std::size(sources), sources, NULL));
         GL_CHECK(glCompileShader(id));
 
         GLint result;
@@ -131,7 +147,7 @@ namespace gerber_3d
     int gl_program_base::get_uniform(char const *name)
     {
         int location;
-        GL_CHECK(location = glGetUniformLocation(program_id, name));
+        location = glGetUniformLocation(program_id, name);
         if(location == (int)GL_INVALID_INDEX) {
             LOG_WARNING("Can't get uniform location for \"{}\" in program \"{}\"", name, program_name);
         }
@@ -143,7 +159,7 @@ namespace gerber_3d
     int gl_program_base::get_attribute(char const *name)
     {
         int location;
-        GL_CHECK(location = glGetAttribLocation(program_id, name));
+        location = glGetAttribLocation(program_id, name);
         if(location == (int)GL_INVALID_INDEX) {
             LOG_ERROR("Can't get attribute location for \"{}\" in program \"{}\"", name, program_name);
         }
@@ -162,7 +178,7 @@ namespace gerber_3d
     void gl_line_program::set_color(gl::color solid_color) const
     {
         gl::colorf4 f(solid_color);
-        GL_CHECK(glUniform4f(u_color, f.red(), f.green(), f.blue(), f.alpha()));
+        set_uniform_4f(u_color, f.red(), f.green(), f.blue(), f.alpha());
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -232,7 +248,7 @@ namespace gerber_3d
     void gl_arc_program::set_color(gl::color solid_color) const
     {
         gl::colorf4 f(solid_color);
-        GL_CHECK(glUniform4f(u_color, f.red(), f.green(), f.blue(), f.alpha()));
+        set_uniform_4f(u_color, f.red(), f.green(), f.blue(), f.alpha());
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -279,17 +295,13 @@ namespace gerber_3d
         }
 
         u_transform = get_uniform("transform");
-        u_color = get_uniform("u_color");
+        u_flags_sampler = get_uniform("flags_sampler");
+
+        u_red_flags = get_uniform("red_flags");
+        u_green_flags = get_uniform("green_flags");
+        u_blue_flags = get_uniform("blue_flags");
 
         return 0;
-    }
-
-    //////////////////////////////////////////////////////////////////////
-
-    void gl_layer_program::set_color(gl::color cover) const
-    {
-        gl::colorf4 f(cover);
-        GL_CHECK(glUniform4f(u_color, f.red(), f.green(), f.blue(), f.alpha()));
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -313,7 +325,7 @@ namespace gerber_3d
     void gl_solid_program::set_color(gl::color solid_color) const
     {
         gl::colorf4 f(solid_color);
-        GL_CHECK(glUniform4f(u_color, f.red(), f.green(), f.blue(), f.alpha()));
+        set_uniform_4f(u_color, f.red(), f.green(), f.blue(), f.alpha());
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -342,10 +354,9 @@ namespace gerber_3d
         if(err != 0) {
             return err;
         }
-        u_red = get_uniform("red_color");
-        u_green = get_uniform("green_color");
-        u_blue = get_uniform("blue_color");
-        u_alpha = get_uniform("alpha");
+        u_fill_color = get_uniform("fill_color");
+        u_other_color = get_uniform("other_color");
+        u_inverted = get_uniform("inverted");
         u_cover_sampler = get_uniform("cover_sampler");
         u_num_samples = get_uniform("num_samples");
         return 0;
@@ -463,6 +474,31 @@ namespace gerber_3d
         gl_vertex_array::activate();
         glEnableVertexAttribArray(gl_solid_program::position_location);
         glVertexAttribPointer(gl_solid_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_solid), (void *)(offsetof(gl_vertex_solid, x)));
+        return 0;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    int gl_vertex_array_entity::init(GLsizei vert_count)
+    {
+        gl_vertex_array::init(vert_count);
+        int err = alloc(vert_count, sizeof(gl_vertex_entity));
+        if(err != 0) {
+            return err;
+        }
+        return 0;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    int gl_vertex_array_entity::activate() const
+    {
+        gl_vertex_array::activate();
+        glEnableVertexAttribArray(gl_layer_program::position_location);
+        glVertexAttribPointer(gl_layer_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_entity), (void *)(offsetof(gl_vertex_entity, x)));
+        glEnableVertexAttribArray(gl_layer_program::entity_id_location);
+        glVertexAttribIPointer(
+            gl_layer_program::entity_id_location, 1, GL_UNSIGNED_INT, sizeof(gl_vertex_entity), (void *)(offsetof(gl_vertex_entity, entity_id)));
         return 0;
     }
 
@@ -631,8 +667,12 @@ namespace gerber_3d
     void gl_render_target::bind_textures() const
     {
         for(GLuint slot = 0; slot < num_slots; ++slot) {
-            GL_CHECK(glActiveTexture(GL_TEXTURE0 + slot));
-            GL_CHECK(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, texture_ids[slot]));
+            if(texture_ids[slot] != 0) {
+                GL_CHECK(glActiveTexture(GL_TEXTURE0 + slot));
+                GL_CHECK(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, texture_ids[slot]));
+            } else {
+                LOG_ERROR("Can't bind!?");
+            }
         }
     }
 

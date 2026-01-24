@@ -1,5 +1,3 @@
-#version 410 core
-
 in vec2 v_local_pos;
 in float v_length_px;
 in vec4 v_color;
