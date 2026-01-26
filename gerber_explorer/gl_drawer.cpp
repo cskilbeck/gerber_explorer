@@ -38,7 +38,7 @@ namespace
 }    // namespace
 
 
-namespace gerber_3d
+namespace gerber
 {
     struct gl_matrix;
     using namespace gerber_lib;
@@ -215,7 +215,7 @@ namespace gerber_3d
     // gl resources cannot be initialized here - that must happen on the
     // main thread so do that in create_gl_resources()
 
-    void gl_drawer::set_gerber(gerber *g)
+    void gl_drawer::set_gerber(gerber_lib::gerber_file *g)
     {
         ready_to_draw = false;
         gerber_file = g;
@@ -470,7 +470,7 @@ namespace gerber_3d
 
         GL_CHECK(glGenBuffers(1, &outline_lines_buffer));
         GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, outline_lines_buffer));
-        GL_CHECK(glBufferData(GL_TEXTURE_BUFFER, outline_lines.size() * sizeof(gl_line2_program::line), outline_lines.data(), GL_STATIC_DRAW));
+        GL_CHECK(glBufferData(GL_TEXTURE_BUFFER, outline_lines.size() * sizeof(gl::line2_program::line), outline_lines.data(), GL_STATIC_DRAW));
 
         GL_CHECK(glGenBuffers(1, &outline_vertices_buffer));
         GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, outline_vertices_buffer));
@@ -498,14 +498,14 @@ namespace gerber_3d
 
         index_array.init(static_cast<GLsizei>(fill_indices.size()));
         index_array.activate();
-        update_buffer<GL_ELEMENT_ARRAY_BUFFER>(fill_indices);
+        gl::update_buffer<GL_ELEMENT_ARRAY_BUFFER>(fill_indices);
 
         ready_to_draw = true;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags)
+    void gl_drawer::fill(gl::gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags)
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -552,12 +552,12 @@ namespace gerber_3d
             }
         }
         GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, flags_buffer));
-        update_buffer<GL_TEXTURE_BUFFER>(entity_flags);
+        gl::update_buffer<GL_TEXTURE_BUFFER>(entity_flags);
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::outline(float outline_thickness, gl_matrix const &matrix, vec2d const &viewport_size)
+    void gl_drawer::outline(float outline_thickness, gl::gl_matrix const &matrix, vec2d const &viewport_size)
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;

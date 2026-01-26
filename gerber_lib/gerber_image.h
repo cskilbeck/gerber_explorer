@@ -14,6 +14,7 @@
 
 namespace gerber_lib
 {
+    struct gerber_file;
     struct gerber_aperture;
     struct gerber_aperture_macro;
     struct gerber_net;
@@ -64,7 +65,7 @@ namespace gerber_lib
         std::vector<gerber_net_state *> net_states;
 
         gerber_image_info info;
-        gerber *gerber;
+        gerber_file *gerber;
 
         gerber_image() = default;
 

@@ -2,7 +2,7 @@
 
 #include "gl_matrix.h"
 
-namespace gerber_3d
+namespace gl
 {
     using namespace DirectX;
     using gerber_lib::vec2f;

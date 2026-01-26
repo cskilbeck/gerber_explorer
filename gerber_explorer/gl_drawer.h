@@ -13,7 +13,7 @@
 
 #include "tesselator.h"
 
-namespace gerber_3d
+namespace gerber
 {
     //////////////////////////////////////////////////////////////////////
 
@@ -39,7 +39,7 @@ namespace gerber_3d
         tesselation_quality_t constexpr medium = 1;
         tesselation_quality_t constexpr high = 2;
         tesselation_quality_t constexpr num_qualities = 3;
-    };    // namespace tesselation_quality
+    }    // namespace tesselation_quality
 
     //////////////////////////////////////////////////////////////////////
 
@@ -113,7 +113,7 @@ namespace gerber_3d
         gl_drawer() = default;
 
         // setup from a parsed gerber file
-        void set_gerber(gerber_lib::gerber *g) override;
+        void set_gerber(gerber_lib::gerber_file *g) override;
 
         // setup anything that has to be done in the main thread
         void create_gl_resources();
@@ -130,9 +130,9 @@ namespace gerber_3d
         void finalize();
 
         // for actually drawing it
-        void fill(gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags);
+        void fill(gl::gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags);
 
-        void outline(float outline_thickness, gl_matrix const &matrix, gerber_lib::vec2d const &viewport_size);
+        void outline(float outline_thickness, gl::gl_matrix const &matrix, gerber_lib::vec2d const &viewport_size);
 
         // picking/selection
         void clear_entity_flags(int flags);
@@ -148,7 +148,7 @@ namespace gerber_3d
 
         void update_flags_buffer();
 
-        gerber_lib::gerber *gerber_file{};
+        gerber_lib::gerber_file *gerber_file{};
         tesselation_quality_t tesselation_quality;
         int current_flag{ entity_flags_t::none };
         int base_vert{};
@@ -158,13 +158,13 @@ namespace gerber_3d
         tess_arena_t interior_arena;
         typed_arena<tesselator_entity> entities;
         typed_arena<vec2f> temp_points{};
-        typed_arena<gl_line2_program::line> outline_lines{};
+        typed_arena<gl::line2_program::line> outline_lines{};
         typed_arena<vec2f> outline_vertices{};
         typed_arena<uint8_t> entity_flags;    // one byte per entity
-        typed_arena<gl_vertex_entity> fill_vertices;
+        typed_arena<gl::vertex_entity> fill_vertices;
         typed_arena<GLuint> fill_indices;
-        gl_vertex_array_entity vertex_array;
-        gl_index_buffer index_array;
+        gl::vertex_array_entity vertex_array;
+        gl::index_buffer index_array;
 
         GLuint outline_lines_buffer;
         GLuint outline_vertices_buffer;

@@ -34,12 +34,12 @@ namespace
     //////////////////////////////////////////////////////////////////////
     // quads for instanced line/arc shaders
 
-    const std::array<gerber_3d::gl_vertex_solid, 4> line_quad_verts{ -0.5f, -0.5f, 0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.5f };
-    const std::array<gerber_3d::gl_vertex_solid, 4> arc_quad_verts{ 0, 0, 1, 0, 0, 1, 1, 1 };
+    const std::array<gl::vertex_solid, 4> line_quad_verts{ -0.5f, -0.5f, 0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.5f };
+    const std::array<gl::vertex_solid, 4> arc_quad_verts{ 0, 0, 1, 0, 0, 1, 1, 1 };
 
 }    // namespace
 
-namespace gerber_3d
+namespace gl
 {
     //////////////////////////////////////////////////////////////////////
 
@@ -56,7 +56,7 @@ namespace gerber_3d
     )PREAMBLE";
 #endif
 
-    int gl_program_base::compile_shader(GLenum shader_type, char const *source) const
+    int program_base::compile_shader(GLenum shader_type, char const *source) const
     {
         while(glGetError() != GL_NO_ERROR) {}
 
@@ -86,7 +86,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_program_base::validate(GLuint param) const
+    int program_base::validate(GLuint param) const
     {
         GLint result;
         GL_CHECK(glGetProgramiv(program_id, param, &result));
@@ -111,7 +111,7 @@ namespace gerber_3d
     //////////////////////////////////////////////////////////////////////
     // base without transform
 
-    int gl_program_base::init()
+    int program_base::init()
     {
         if(vertex_shader_source.empty() || fragment_shader_source.empty()) {
             LOG_ERROR("SHADER SOURCE MISSING");
@@ -144,7 +144,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_program_base::get_uniform(char const *name)
+    int program_base::get_uniform(char const *name)
     {
         int location;
         location = glGetUniformLocation(program_id, name);
@@ -156,7 +156,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_program_base::get_attribute(char const *name)
+    int program_base::get_attribute(char const *name)
     {
         int location;
         location = glGetAttribLocation(program_id, name);
@@ -168,29 +168,29 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_program_base::activate() const
+    void program_base::activate() const
     {
         GL_CHECK(glUseProgram(program_id));
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_line_program::set_color(gl::color solid_color) const
+    void line_program::set_color(color solid_color) const
     {
-        gl::colorf4 f(solid_color);
+        colorf4 f(solid_color);
         set_uniform_4f(u_color, f.red(), f.green(), f.blue(), f.alpha());
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_line_program::init()
+    int line_program::init()
     {
         program_name = "line";
 
         vertex_shader_source = shader_src("line_vertex_shader.glsl");
         fragment_shader_source = shader_src("line_fragment_shader.glsl");
 
-        int err = gl_program_base::init();
+        int err = program_base::init();
         if(err != 0) {
             return err;
         }
@@ -217,14 +217,14 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_line2_program::init()
+    int line2_program::init()
     {
         program_name = "line";
 
         vertex_shader_source = shader_src("line2_vertex_shader.glsl");
         fragment_shader_source = shader_src("line2_fragment_shader.glsl");
 
-        int err = gl_program_base::init();
+        int err = program_base::init();
         if(err != 0) {
             return err;
         }
@@ -245,22 +245,22 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_arc_program::set_color(gl::color solid_color) const
+    void arc_program::set_color(color solid_color) const
     {
-        gl::colorf4 f(solid_color);
+        colorf4 f(solid_color);
         set_uniform_4f(u_color, f.red(), f.green(), f.blue(), f.alpha());
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_arc_program::init()
+    int arc_program::init()
     {
         program_name = "arc";
 
         vertex_shader_source = shader_src("arc_vertex_shader.glsl");
         fragment_shader_source = shader_src("arc_fragment_shader.glsl");
 
-        int err = gl_program_base::init();
+        int err = program_base::init();
         if(err != 0) {
             return err;
         }
@@ -282,14 +282,14 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_layer_program::init()
+    int layer_program::init()
     {
         program_name = "layer";
 
         vertex_shader_source = shader_src("layer_vertex_shader.glsl");
         fragment_shader_source = shader_src("layer_fragment_shader.glsl");
 
-        int err = gl_program_base::init();
+        int err = program_base::init();
         if(err != 0) {
             return err;
         }
@@ -308,12 +308,12 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_solid_program::init()
+    int solid_program::init()
     {
         program_name = "solid";
         vertex_shader_source = shader_src("solid_vertex_shader.glsl");
         fragment_shader_source = shader_src("common_fragment_shader.glsl");
-        int err = gl_program_base::init();
+        int err = program_base::init();
         if(err != 0) {
             return err;
         }
@@ -324,20 +324,20 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_solid_program::set_color(gl::color solid_color) const
+    void solid_program::set_color(color solid_color) const
     {
-        gl::colorf4 f(solid_color);
+        colorf4 f(solid_color);
         set_uniform_4f(u_color, f.red(), f.green(), f.blue(), f.alpha());
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_color_program::init()
+    int color_program::init()
     {
         program_name = "color";
         vertex_shader_source = shader_src("color_vertex_shader.glsl");
         fragment_shader_source = shader_src("common_fragment_shader.glsl");
-        int err = gl_program_base::init();
+        int err = program_base::init();
         if(err != 0) {
             return err;
         }
@@ -347,12 +347,12 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_textured_program::init()
+    int textured_program::init()
     {
         program_name = "textured";
         vertex_shader_source = shader_src("textured_vertex_shader.glsl");
         fragment_shader_source = shader_src("textured_fragment_shader.glsl");
-        int err = gl_program_base::init();
+        int err = program_base::init();
         if(err != 0) {
             return err;
         }
@@ -366,7 +366,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_program_base::cleanup()
+    void program_base::cleanup()
     {
         GL_CHECK(glDetachShader(program_id, vertex_shader_id));
         GL_CHECK(glDetachShader(program_id, fragment_shader_id));
@@ -383,7 +383,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_index_buffer::init(GLsizei index_count)
+    int index_buffer::init(GLsizei index_count)
     {
         GL_CHECK(glGenBuffers(1, &ibo_id));
         num_indices = index_count;
@@ -394,7 +394,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_index_buffer::activate() const
+    int index_buffer::activate() const
     {
         GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_id));
         return 0;
@@ -402,7 +402,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_index_buffer::cleanup()
+    void index_buffer::cleanup()
     {
         if(ibo_id != 0) {
             GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
@@ -416,7 +416,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array::init(GLsizei vert_count)
+    int vertex_array::init(GLsizei vert_count)
     {
         GL_CHECK(glGenVertexArrays(1, &vao_id));
         return 0;
@@ -424,7 +424,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array::alloc(GLsizei vert_count, size_t vertex_size)
+    int vertex_array::alloc(GLsizei vert_count, size_t vertex_size)
     {
         GL_CHECK(glGenBuffers(1, &vbo_id));
 
@@ -438,10 +438,10 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array_solid::init(GLsizei vert_count)
+    int vertex_array_solid::init(GLsizei vert_count)
     {
-        gl_vertex_array::init(vert_count);
-        int err = alloc(vert_count, sizeof(gl_vertex_solid));
+        vertex_array::init(vert_count);
+        int err = alloc(vert_count, sizeof(vertex_solid));
         if(err != 0) {
             return err;
         }
@@ -450,10 +450,10 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array_color::init(GLsizei vert_count)
+    int vertex_array_color::init(GLsizei vert_count)
     {
-        gl_vertex_array::init(vert_count);
-        int err = alloc(vert_count, sizeof(gl_vertex_color));
+        vertex_array::init(vert_count);
+        int err = alloc(vert_count, sizeof(vertex_color));
         if(err != 0) {
             return err;
         }
@@ -462,7 +462,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array::activate() const
+    int vertex_array::activate() const
     {
         GL_CHECK(glBindVertexArray(vao_id));
         GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vbo_id));
@@ -471,20 +471,20 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array_solid::activate() const
+    int vertex_array_solid::activate() const
     {
-        gl_vertex_array::activate();
-        glEnableVertexAttribArray(gl_solid_program::position_location);
-        glVertexAttribPointer(gl_solid_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_solid), (void *)(offsetof(gl_vertex_solid, x)));
+        vertex_array::activate();
+        glEnableVertexAttribArray(solid_program::position_location);
+        glVertexAttribPointer(solid_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_solid), (void *)(offsetof(vertex_solid, x)));
         return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array_entity::init(GLsizei vert_count)
+    int vertex_array_entity::init(GLsizei vert_count)
     {
-        gl_vertex_array::init(vert_count);
-        int err = alloc(vert_count, sizeof(gl_vertex_entity));
+        vertex_array::init(vert_count);
+        int err = alloc(vert_count, sizeof(vertex_entity));
         if(err != 0) {
             return err;
         }
@@ -493,24 +493,24 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array_entity::activate() const
+    int vertex_array_entity::activate() const
     {
-        gl_vertex_array::activate();
-        glEnableVertexAttribArray(gl_layer_program::position_location);
-        glVertexAttribPointer(gl_layer_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_entity), (void *)(offsetof(gl_vertex_entity, x)));
-        glEnableVertexAttribArray(gl_layer_program::entity_id_location);
+        vertex_array::activate();
+        glEnableVertexAttribArray(layer_program::position_location);
+        glVertexAttribPointer(layer_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_entity), (void *)(offsetof(vertex_entity, x)));
+        glEnableVertexAttribArray(layer_program::entity_id_location);
         glVertexAttribIPointer(
-            gl_layer_program::entity_id_location, 1, GL_UNSIGNED_INT, sizeof(gl_vertex_entity), (void *)(offsetof(gl_vertex_entity, entity_id)));
+            layer_program::entity_id_location, 1, GL_UNSIGNED_INT, sizeof(vertex_entity), (void *)(offsetof(vertex_entity, entity_id)));
         return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array_quad_points::init(GLsizei vert_count)
+    int vertex_array_quad_points::init(GLsizei vert_count)
     {
         // this is for the quad verts
-        gl_vertex_array::init(vert_count);
-        int err = alloc(vert_count, sizeof(gl_vertex_solid));
+        vertex_array::init(vert_count);
+        int err = alloc(vert_count, sizeof(vertex_solid));
         if(err != 0) {
             return err;
         }
@@ -519,34 +519,34 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array_quad_points::activate() const
+    int vertex_array_quad_points::activate() const
     {
-        gl_vertex_array::activate();
-        glEnableVertexAttribArray(gl_line_program::position_location);
-        glVertexAttribPointer(gl_line_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_solid), (void *)(offsetof(gl_vertex_solid, x)));
+        vertex_array::activate();
+        glEnableVertexAttribArray(line_program::position_location);
+        glVertexAttribPointer(line_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_solid), (void *)(offsetof(vertex_solid, x)));
         return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_vertex_array_color::activate() const
+    int vertex_array_color::activate() const
     {
-        gl_vertex_array::activate();
-        glEnableVertexAttribArray(gl_color_program::position_location);
-        glEnableVertexAttribArray(gl_color_program::vert_color_location);
-        glVertexAttribPointer(gl_color_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(gl_vertex_color), (void *)(offsetof(gl_vertex_color, x)));
-        glVertexAttribPointer(gl_color_program::vert_color_location,
+        vertex_array::activate();
+        glEnableVertexAttribArray(color_program::position_location);
+        glEnableVertexAttribArray(color_program::vert_color_location);
+        glVertexAttribPointer(color_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_color), (void *)(offsetof(vertex_color, x)));
+        glVertexAttribPointer(color_program::vert_color_location,
                               4,
                               GL_UNSIGNED_BYTE,
                               GL_TRUE,
-                              sizeof(gl_vertex_color),
-                              reinterpret_cast<void *>(offsetof(gl_vertex_color, color)));
+                              sizeof(vertex_color),
+                              reinterpret_cast<void *>(offsetof(vertex_color, color)));
         return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_vertex_array::cleanup()
+    void vertex_array::cleanup()
     {
         if(vbo_id != 0) {
             GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
@@ -560,7 +560,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_texture::init(GLuint w, GLuint h, uint32_t *data)
+    int texture::init(GLuint w, GLuint h, uint32_t *data)
     {
         GL_CHECK(glActiveTexture(GL_TEXTURE0));
         GL_CHECK(glGenTextures(1, &texture_id));
@@ -577,7 +577,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_texture::bind() const
+    int texture::bind() const
     {
         GL_CHECK(glBindTexture(GL_TEXTURE_2D, texture_id));
         return 0;
@@ -585,7 +585,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_texture::update([[maybe_unused]] uint32_t *data)
+    int texture::update([[maybe_unused]] uint32_t *data)
     {
         LOG_ERROR("NOPE");
         return 1;
@@ -593,7 +593,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_texture::cleanup()
+    void texture::cleanup()
     {
         if(texture_id != 0) {
             GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
@@ -605,7 +605,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_render_target::init(GLuint new_width, GLuint new_height, GLuint multisample_count, GLuint slots)
+    int render_target::init(GLuint new_width, GLuint new_height, GLuint multisample_count, GLuint slots)
     {
         if(num_slots > max_num_slots) {
             cleanup();
@@ -648,7 +648,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_render_target::bind_framebuffer() const
+    void render_target::bind_framebuffer() const
     {
         bind_textures();
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -666,7 +666,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_render_target::bind_textures() const
+    void render_target::bind_textures() const
     {
         for(GLuint slot = 0; slot < num_slots; ++slot) {
             if(texture_ids[slot] != 0) {
@@ -680,7 +680,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_render_target::cleanup()
+    void render_target::cleanup()
     {
         if(num_slots == 0) {
             return;
@@ -705,17 +705,17 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawlist::draw()
+    void drawlist::draw()
     {
-        if(!drawlist.empty()) {
+        if(!drawlist_entries.empty()) {
             vertex_array.activate();
-            gl_vertex_color *v;
-            GL_CHECK(v = static_cast<gl_vertex_color *>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY)));
-            memcpy(v, verts.data(), verts.size() * sizeof(gl_vertex_color));
+            vertex_color *v;
+            GL_CHECK(v = static_cast<vertex_color *>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY)));
+            memcpy(v, verts.data(), verts.size() * sizeof(vertex_color));
             GL_CHECK(glUnmapBuffer(GL_ARRAY_BUFFER));
             GL_CHECK(glEnable(GL_BLEND));
             GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-            for(auto const &d : drawlist) {
+            for(auto const &d : drawlist_entries) {
                 GL_CHECK(glDrawArrays(d.draw_type, d.offset, d.count));
             }
         }

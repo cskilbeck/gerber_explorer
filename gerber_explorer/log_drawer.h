@@ -4,10 +4,9 @@
 #pragma once
 
 #include "gerber_lib.h"
-#include "gerber_2d.h"
 #include "gerber_draw.h"
 
-namespace gerber_3d
+namespace gl
 {
     //////////////////////////////////////////////////////////////////////
 
@@ -15,10 +14,10 @@ namespace gerber_3d
     {
         log_drawer() = default;
 
-        void set_gerber(gerber_lib::gerber *g) override;
+        void set_gerber(gerber_lib::gerber_file *g) override;
         void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, gerber_lib::gerber_net *gnet) override;
 
-        gerber_lib::gerber *gerber_file{ nullptr };
+        gerber_lib::gerber_file *gerber_file{ nullptr };
     };
 
 }    // namespace gerber_3d

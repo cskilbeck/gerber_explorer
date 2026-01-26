@@ -41,9 +41,9 @@ struct gerber_explorer : gl_window
         // have two gl_drawer instances and a pointer to one of them
         // tesselate into the idle one and swap it over when that's complete
 
-        gerber_3d::gl_drawer *drawer;
+        gerber::gl_drawer *drawer;
 
-        gerber_3d::gl_drawer drawers[2];
+        gerber::gl_drawer drawers[2];
 
         // need a way to atomically swap
         int current_drawer{ 0 };
@@ -107,7 +107,7 @@ struct gerber_explorer : gl_window
         job_type_tesselate = 2,
     };
 
-    gerber_3d::tesselation_quality_t tesselate_quality{ gerber_3d::tesselation_quality::medium };
+    gerber::tesselation_quality_t tesselate_quality{ gerber::tesselation_quality::medium };
 
     void set_mouse_mode(mouse_drag_action action);
 
@@ -137,8 +137,8 @@ struct gerber_explorer : gl_window
     rect viewport_rect{};
 
     // transform matrices
-    gerber_3d::gl_matrix world_matrix{};
-    gerber_3d::gl_matrix ortho_screen_matrix{};
+    gl::gl_matrix world_matrix{};
+    gl::gl_matrix ortho_screen_matrix{};
 
     // gerber layers
     std::list<gerber_layer *> layers;    // active
@@ -152,7 +152,7 @@ struct gerber_explorer : gl_window
     std::chrono::time_point<std::chrono::high_resolution_clock> target_view_time{};
 
     // overlay graphics (selection rectangle etc)
-    gerber_3d::gl_drawlist overlay;
+    gl::drawlist overlay;
 
     // mouse moves are handled in the render function
     bool mouse_did_move{ false };
@@ -160,15 +160,15 @@ struct gerber_explorer : gl_window
     vec2d prev_mouse_pos{};
 
     // glsl programs
-    static gerber_3d::gl_solid_program solid_program;
-    static gerber_3d::gl_color_program color_program;
-    static gerber_3d::gl_layer_program layer_program;
-    static gerber_3d::gl_textured_program textured_program;
-    static gerber_3d::gl_arc_program arc_program;
-    static gerber_3d::gl_line2_program line2_program;
+    static gl::solid_program solid_program;
+    static gl::color_program color_program;
+    static gl::layer_program layer_program;
+    static gl::textured_program textured_program;
+    static gl::arc_program arc_program;
+    static gl::line2_program line2_program;
 
     // for drawing things offscreen and then blending them to the final composition
-    gerber_3d::gl_render_target layer_render_target{};
+    gl::render_target layer_render_target{};
 
     int max_multisamples{ 1 };
 
@@ -182,7 +182,7 @@ struct gerber_explorer : gl_window
     // active entity admin
     std::vector<int> active_entities;
     int active_entity_index;
-    gerber_3d::tesselator_entity *active_entity{ nullptr };
+    gerber::tesselator_entity *active_entity{ nullptr };
     std::string active_entity_description{};
 
     job_pool pool;
@@ -194,7 +194,7 @@ struct gerber_explorer : gl_window
     void tesselate_layer(gerber_layer *layer)
     {
         pool.add_job(job_type_tesselate, [this, layer](std::stop_token st) {
-            gerber_3d::gl_drawer *d = &layer->drawers[1 - layer->current_drawer];
+            gerber::gl_drawer *d = &layer->drawers[1 - layer->current_drawer];
             d->tesselation_quality = settings.tesselation_quality;
             d->set_gerber(layer->drawer->gerber_file);
             {
@@ -209,7 +209,7 @@ struct gerber_explorer : gl_window
 
     settings_t settings;
 
-    void set_active_entity(gerber_3d::tesselator_entity *entity);
+    void set_active_entity(gerber::tesselator_entity *entity);
 
     void update_board_extent();
 

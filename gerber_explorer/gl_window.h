@@ -3,7 +3,6 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "gl_drawer.h"
-#include "gerber_2d.h"
 
 //////////////////////////////////////////////////////////////////////
 

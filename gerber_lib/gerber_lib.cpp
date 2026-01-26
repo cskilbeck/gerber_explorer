@@ -286,7 +286,7 @@ namespace gerber_lib
 {
     //////////////////////////////////////////////////////////////////////
 
-    layer::type_t gerber::classify() const
+    layer::type_t gerber_file::classify() const
     {
         using namespace layer;
         auto path = std::filesystem::path(filename);
@@ -456,7 +456,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    void gerber::cleanup()
+    void gerber_file::cleanup()
     {
         attributes.clear();
         filename = std::string{};
@@ -466,7 +466,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    void gerber::reset()
+    void gerber_file::reset()
     {
         cleanup();
         image.file_type = file_type_rs274x;
@@ -480,7 +480,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::do_parse()
+    gerber_error_code gerber_file::do_parse()
     {
         filename = reader.filename;
         image.gerber = this;
@@ -494,7 +494,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::parse_file(char const *file_path)
+    gerber_error_code gerber_file::parse_file(char const *file_path)
     {
         reset();
         CHECK(reader.open(file_path));
@@ -503,7 +503,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::parse_memory(char const *data, size_t size)
+    gerber_error_code gerber_file::parse_memory(char const *data, size_t size)
     {
         reset();
         CHECK(reader.open(data, size));
@@ -512,7 +512,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::parse_g_code()
+    gerber_error_code gerber_file::parse_g_code()
     {
         int code;
         CHECK(reader.get_int(&code));
@@ -637,7 +637,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::parse_d_code()
+    gerber_error_code gerber_file::parse_d_code()
     {
         LOG_CONTEXT("parse_d_code", info);
 
@@ -684,7 +684,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    bool gerber::parse_m_code()
+    bool gerber_file::parse_m_code()
     {
         LOG_CONTEXT("M_code", none);
 
@@ -722,7 +722,7 @@ namespace gerber_lib
     // If it's not a macro, that's simple
     // But if it's a macro, that's a bit more... complex?
 
-    gerber_error_code gerber::parse_rs274x(gerber_net *net)
+    gerber_error_code gerber_file::parse_rs274x(gerber_net *net)
     {
         LOG_CONTEXT("RS274X", info);
 
@@ -1529,7 +1529,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::parse_tf_code()
+    gerber_error_code gerber_file::parse_tf_code()
     {
         char c;
         CHECK(reader.read_char(&c));
@@ -1555,7 +1555,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    void gerber::update_knockout_measurements()
+    void gerber_file::update_knockout_measurements()
     {
         if(knockout_measure) {
             knockout_level.knockout.lower_left = knockout_limit_min;
@@ -1566,7 +1566,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::parse_aperture_definition(gerber_aperture *aperture, gerber_image *cur_image, double unit_scale)
+    gerber_error_code gerber_file::parse_aperture_definition(gerber_aperture *aperture, gerber_image *cur_image, double unit_scale)
     {
         LOG_CONTEXT("parse_aperture", info);
 
@@ -1676,14 +1676,14 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    void gerber::update_net_bounds(rect &bounds, std::vector<vec2d> const &points) const
+    void gerber_file::update_net_bounds(rect &bounds, std::vector<vec2d> const &points) const
     {
         update_bounds(bounds, aperture_matrix, points);
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gerber::update_net_bounds(rect &bounds, double x, double y, double w, double h) const
+    void gerber_file::update_net_bounds(rect &bounds, double x, double y, double w, double h) const
     {
         update_bounds(bounds, aperture_matrix, { x - w, y - h });
         update_bounds(bounds, aperture_matrix, { x + w, y + h });
@@ -1691,7 +1691,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    void gerber::update_image_bounds(rect &bounds, double repeat_offset_x, double repeat_offset_y, gerber_image &cur_image) const
+    void gerber_file::update_image_bounds(rect &bounds, double repeat_offset_x, double repeat_offset_y, gerber_image &cur_image) const
     {
         double minx = bounds.min_pos.x + repeat_offset_x;
         double maxx = bounds.max_pos.x + repeat_offset_x;
@@ -1717,7 +1717,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::get_aperture_points(gerber_macro_parameters const &macro, gerber_net *net, std::vector<vec2d> &points) const
+    gerber_error_code gerber_file::get_aperture_points(gerber_macro_parameters const &macro, gerber_net *net, std::vector<vec2d> &points) const
     {
         switch(macro.aperture_type) {
 
@@ -1857,7 +1857,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_entity &gerber::add_entity()
+    gerber_entity &gerber_file::add_entity()
     {
         entities.emplace_back(reader.line_number, reader.line_number, image.nets.size());
         gerber_entity &e = entities.back();
@@ -1867,7 +1867,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::parse_gerber_segment(gerber_net *net)
+    gerber_error_code gerber_file::parse_gerber_segment(gerber_net *net)
     {
         LOG_CONTEXT("parse_segment", info);
 
@@ -2360,7 +2360,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::fill_region_path(gerber_draw_interface &drawer, size_t net_index, gerber_polarity polarity) const
+    gerber_error_code gerber_file::fill_region_path(gerber_draw_interface &drawer, size_t net_index, gerber_polarity polarity) const
     {
         std::vector<gerber_draw_element> elements;
 
@@ -2405,7 +2405,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::fill_polygon(gerber_draw_interface &drawer, double diameter, int num_sides, double angle_degrees) const
+    gerber_error_code gerber_file::fill_polygon(gerber_draw_interface &drawer, double diameter, int num_sides, double angle_degrees) const
     {
         LOG_DEBUG("fill_polygon");
         (void)drawer;
@@ -2417,7 +2417,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::draw_macro(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *const macro_aperture) const
+    gerber_error_code gerber_file::draw_macro(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *const macro_aperture) const
     {
         for(auto m : macro_aperture->macro_parameters_list) {
 
@@ -2539,7 +2539,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::draw_linear_circle(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *aperture) const
+    gerber_error_code gerber_file::draw_linear_circle(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *aperture) const
     {
         double width = aperture->parameters[0];
 
@@ -2578,7 +2578,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::draw_linear_rectangle(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *aperture) const
+    gerber_error_code gerber_file::draw_linear_rectangle(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *aperture) const
     {
         double w = aperture->parameters[0] / 2;
         double h = aperture->parameters[1] / 2;
@@ -2614,7 +2614,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::draw_linear_interpolation(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *aperture) const
+    gerber_error_code gerber_file::draw_linear_interpolation(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *aperture) const
     {
         switch(aperture->aperture_type) {
         case aperture_type_circle:
@@ -2632,7 +2632,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::draw_circle(gerber_draw_interface &drawer, gerber_net *net, vec2d const &pos, double radius) const
+    gerber_error_code gerber_file::draw_circle(gerber_draw_interface &drawer, gerber_net *net, vec2d const &pos, double radius) const
     {
         gerber_draw_element e(pos, 0.0, 360.0, radius);
         drawer.fill_elements(&e, 1, net->level->polarity, net);
@@ -2641,7 +2641,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::draw_arc(gerber_draw_interface &drawer, gerber_net *net, double thickness) const
+    gerber_error_code gerber_file::draw_arc(gerber_draw_interface &drawer, gerber_net *net, double thickness) const
     {
         gerber_arc const &arc = net->circle_segment;
 
@@ -2748,7 +2748,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::draw_capsule(gerber_draw_interface &drawer, gerber_net *net, double width, double height) const
+    gerber_error_code gerber_file::draw_capsule(gerber_draw_interface &drawer, gerber_net *net, double width, double height) const
     {
         vec2d const &center = net->end;
         gerber_draw_element el[4];
@@ -2783,7 +2783,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::draw_rectangle(gerber_draw_interface &drawer, gerber_net *net, rect const &draw_rect) const
+    gerber_error_code gerber_file::draw_rectangle(gerber_draw_interface &drawer, gerber_net *net, rect const &draw_rect) const
     {
         rect r = { draw_rect.min_pos.add(net->end), draw_rect.max_pos.add(net->end) };
         vec2d bottom_right = vec2d{ r.max_pos.x, r.min_pos.y };
@@ -2799,7 +2799,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::lines(gerber_draw_interface &drawer) const
+    gerber_error_code gerber_file::lines(gerber_draw_interface &drawer) const
     {
         // to skip a region block
 
@@ -2902,7 +2902,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber::draw(gerber_draw_interface &drawer) const
+    gerber_error_code gerber_file::draw(gerber_draw_interface &drawer) const
     {
         auto should_hide = [=](gerber_hide_elements h) { return (static_cast<int>(h) & hide_elements) != 0; };
 

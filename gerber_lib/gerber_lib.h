@@ -65,7 +65,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    struct gerber
+    struct gerber_file
     {
         static constexpr int min_aperture = 10;
         static constexpr int max_num_apertures = 9999;
@@ -146,9 +146,9 @@ namespace gerber_lib
 
         void update_knockout_measurements();
 
-        gerber() = default;
+        gerber_file() = default;
 
-        ~gerber() = default;
+        ~gerber_file() = default;
     };
 
 }    // namespace gerber_lib

@@ -27,6 +27,8 @@ LOG_CONTEXT("gerber_explorer", debug);
 
 namespace
 {
+    using namespace gerber;
+
     enum board_view_t
     {
         board_view_all = 0,
@@ -40,7 +42,6 @@ namespace
     using gerber_lib::rect;
     using gerber_lib::vec2d;
     using gerber_lib::vec2f;
-    using namespace gerber_3d;
 
     rect arc_extent;
 
@@ -147,12 +148,12 @@ namespace
 
 }    // namespace
 
-gl_solid_program gerber_explorer::solid_program{};
-gl_color_program gerber_explorer::color_program{};
-gl_layer_program gerber_explorer::layer_program{};
-gl_textured_program gerber_explorer::textured_program{};
-gl_arc_program gerber_explorer::arc_program{};
-gl_line2_program gerber_explorer::line2_program{};
+gl::solid_program gerber_explorer::solid_program{};
+gl::color_program gerber_explorer::color_program{};
+gl::layer_program gerber_explorer::layer_program{};
+gl::textured_program gerber_explorer::textured_program{};
+gl::arc_program gerber_explorer::arc_program{};
+gl::line2_program gerber_explorer::line2_program{};
 
 //////////////////////////////////////////////////////////////////////
 // If zoom_anim or any jobs in the pool, it's not idle
@@ -864,7 +865,7 @@ void gerber_explorer::select_layer(gerber_layer *layer)
 
 void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
 {
-    gerber_lib::gerber *g = new gerber_lib::gerber();
+    gerber_lib::gerber_file *g = new gerber_lib::gerber_file();
     gerber_lib::gerber_error_code err = g->parse_file(layer_to_load.filename.c_str());
     if(err == gerber_lib::ok) {
         gerber_layer *layer = new gerber_layer();
@@ -1433,20 +1434,20 @@ void gerber_explorer::on_render()
 
     flip_xy = { settings.flip_x ? -1.0 : 1.0, settings.flip_y ? -1.0 : 1.0 };
 
-    ortho_screen_matrix = make_ortho(viewport_width, viewport_height);
+    ortho_screen_matrix = gl::make_ortho(viewport_width, viewport_height);
 
     // world matrix has optional x/y flip around board center
-    gl_matrix flip_m = make_identity();
+    gl::gl_matrix flip_m = gl::make_identity();
     flip_m.m[0] = (float)flip_xy.x;
     flip_m.m[5] = (float)flip_xy.y;
     flip_m.m[12] = (float)(board_center.x - flip_xy.x * board_center.x);
     flip_m.m[13] = (float)(board_center.y - flip_xy.y * board_center.y);
-    gl_matrix view_m = make_identity();
+    gl::gl_matrix view_m = gl::make_identity();
     view_m.m[0] = (float)view_scale.x;
     view_m.m[5] = (float)view_scale.y;
     view_m.m[12] = (float)(-(view_rect.min_pos.x * view_scale.x));
     view_m.m[13] = (float)(-(view_rect.min_pos.y * view_scale.y));
-    gl_matrix temp = matrix_multiply(view_m, flip_m);
+    gl::gl_matrix temp = matrix_multiply(view_m, flip_m);
     world_matrix = matrix_multiply(ortho_screen_matrix, temp);
 
     //////////////////////////////////////////////////////////////////////

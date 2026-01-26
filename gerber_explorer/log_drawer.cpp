@@ -5,11 +5,11 @@
 
 LOG_CONTEXT("log_dump", debug);
 
-namespace gerber_3d
+namespace gl
 {
     //////////////////////////////////////////////////////////////////////
 
-    void log_drawer::set_gerber(gerber_lib::gerber *g)
+    void log_drawer::set_gerber(gerber_lib::gerber_file *g)
     {
         gerber_file = g;
         LOG_INFO("LOGGER IS READY, {} nets in total", g->image.nets.size());

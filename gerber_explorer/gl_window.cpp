@@ -21,8 +21,6 @@
 #include "util.h"
 #include "gl_window.h"
 
-#include "assets/matsym_codepoints_utf8.h"
-
 LOG_CONTEXT("gl_window", debug);
 
 CMRC_DECLARE(my_assets);
