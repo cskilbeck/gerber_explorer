@@ -29,11 +29,12 @@
 // X isolate / unisolate layer
 // X tidy up the cmake
 //
+// detect board outline
 // share arenas where possible in gl_drawer
+// make the gerber parser interruptible with stop_token
 // reduce gpu usage - only draw frame when necessary
 // status bar
 // dynamic tesselation
-// detect board outline
 // fix blending / inverted layers / alpha
 //
 // measure tool

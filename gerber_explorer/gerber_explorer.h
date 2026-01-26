@@ -13,6 +13,8 @@
 
 #include "settings.h"
 
+#include <expected>
+
 enum class layer_order_t
 {
     all,
@@ -250,8 +252,8 @@ struct gerber_explorer : gl_window
 
     void close_all_layers();
 
-    std::optional<std::filesystem::path> save_file_dialog();
-    std::optional<std::filesystem::path> load_file_dialog();
+    std::expected<std::filesystem::path, std::error_code> save_file_dialog();
+    std::expected<std::filesystem::path, std::error_code> load_file_dialog();
 
     void save_settings(std::filesystem::path const &path);
     void load_settings(std::filesystem::path const &path);

@@ -273,7 +273,7 @@ void RightAlignButtons(const std::vector<const char *> &labels) {
 
 //////////////////////////////////////////////////////////////////////
 
-int MessageBox(char const *banner, char const *text, char const *yes_text = "Yes", char const *no_text = "No")
+int MsgBox(char const *banner, char const *text, char const *yes_text = "Yes", char const *no_text = "No")
 {
     int rc = 0;
     ImVec2 text_size = ImGui::CalcTextSize(text, nullptr, false, ImGui::GetWindowWidth() / 3.0f);

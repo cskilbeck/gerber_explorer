@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
+include(../cmake/utils.cmake)
 include(FetchContent)
 
 ######################################################################
@@ -36,7 +37,8 @@ FetchContent_MakeAvailable(glfw)
 FetchContent_Declare(
         imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui.git
-        GIT_TAG docking)
+        GIT_TAG v1.92.5-docking
+)
 
 FetchContent_MakeAvailable(imgui)
 
@@ -150,10 +152,47 @@ if (NOT libtess2_POPULATED)
 
     target_include_directories(libtess2 PRIVATE "${libtess2_SOURCE_DIR}/Contrib")
 
-    if (MSVC)
-        target_compile_options(libtess2 PRIVATE /wd4267)
-    endif ()
+    silence_target_warnings(libtess2)
 endif ()
+
+######################################################################
+# stb_image
+
+FetchContent_Declare(
+        stb
+        GIT_REPOSITORY https://github.com/nothings/stb.git
+        GIT_TAG        f1c79c02822848a9bed4315b12c8c8f3761e1296  # Or a specific commit hash for stability
+)
+
+# Download and make it available
+FetchContent_MakeAvailable(stb)
+
+# Create an INTERFACE library for your project to link against
+add_library(stb_image INTERFACE)
+
+# Add the downloaded directory to the include path for this target
+target_include_directories(stb_image INTERFACE ${stb_SOURCE_DIR})
+
+######################################################################
+# Clipper2
+
+FetchContent_Declare(
+        Clipper2
+        GIT_REPOSITORY https://github.com/AngusJohnson/Clipper2.git
+        GIT_TAG        Clipper2_2.0.1
+        SOURCE_SUBDIR  CPP
+)
+
+set(CLIPPER2_TESTS OFF CACHE BOOL "" FORCE)
+set(CLIPPER2_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_CLIPPER2_UTILS OFF CACHE BOOL "" FORCE)
+set(CLIPPER2_UTILS OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(Clipper2)
+
+silence_target_warnings(Clipper2)
+silence_target_warnings(Clipper2utils)
+silence_target_warnings(Clipper2Zutils)
 
 ######################################################################
 # Enable IPO/LTO for some libs
@@ -164,7 +203,9 @@ set(IPO_LIBS
         imgui_lib
         DirectXMath
         nfd
-        libtess2)
+        libtess2
+        Clipper2
+)
 
 foreach(LIB ${IPO_LIBS})
     target_enable_ipo(${LIB})
@@ -181,4 +222,7 @@ target_link_libraries(third_party INTERFACE
         DirectXMath
         nfd
         nlohmann_json::nlohmann_json
-        libtess2)
+        libtess2
+        Clipper2
+        stb_image
+)

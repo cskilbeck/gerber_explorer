@@ -1,6 +1,11 @@
-#include <filesystem>
+#include <windows.h>
 
+#include <filesystem>
+#include <expected>
+
+#define GLFW_EXPOSE_NATIVE_WIN32
 #define IMGUI_DEFINE_MATH_OPERATORS
+
 #include "imgui.h"
 #include "imgui_internal.h"
 
@@ -15,6 +20,8 @@
 #include "util.h"
 
 #include "assets/matsym_codepoints_utf8.h"
+
+#include "GLFW/glfw3native.h"
 
 LOG_CONTEXT("gerber_explorer", debug);
 
@@ -728,6 +735,17 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
 
 bool gerber_explorer::on_init()
 {
+
+#ifdef WIN32
+    HICON hIcon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(1));
+    if(hIcon) {
+        HWND hwnd = glfwGetWin32Window(window);
+        SendMessage(hwnd, WM_SETICON, ICON_SMALL2, (LPARAM)hIcon);
+        SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
+        SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+    }
+#endif
+
     pool.start_workers();
 
     NFD_Init();
@@ -793,7 +811,7 @@ void gerber_explorer::file_open()
 
 //////////////////////////////////////////////////////////////////////
 
-std::optional<std::filesystem::path> gerber_explorer::save_file_dialog()
+std::expected<std::filesystem::path, std::error_code> gerber_explorer::save_file_dialog()
 {
     nfdu8char_t *path;
     nfdresult_t result = NFD_SaveDialogU8(&path, nullptr, 0, nullptr, "settings.json");
@@ -802,17 +820,17 @@ std::optional<std::filesystem::path> gerber_explorer::save_file_dialog()
         return { path };
     case NFD_CANCEL:
         LOG_DEBUG("Cancelled");
-        break;
+        return std::unexpected(std::make_error_code(std::errc::operation_canceled));
     default:
         LOG_ERROR("Error: {}", NFD_GetError());
         break;
     }
-    return std::nullopt;
+    return std::unexpected(std::make_error_code(std::errc::io_error));
 }
 
 //////////////////////////////////////////////////////////////////////
 
-std::optional<std::filesystem::path> gerber_explorer::load_file_dialog()
+std::expected<std::filesystem::path, std::error_code> gerber_explorer::load_file_dialog()
 {
     nfdu8char_t *path;
     nfdresult_t result = NFD_OpenDialogU8(&path, nullptr, 0, nullptr);
@@ -821,12 +839,12 @@ std::optional<std::filesystem::path> gerber_explorer::load_file_dialog()
         return { path };
     case NFD_CANCEL:
         LOG_DEBUG("Cancelled");
-        break;
+        return std::unexpected(std::make_error_code(std::errc::operation_canceled));
     default:
         LOG_ERROR("Error: {}", NFD_GetError());
         break;
     }
-    return std::nullopt;
+    return std::unexpected(std::make_error_code(std::errc::io_error));
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -875,7 +893,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
 
         LOG_DEBUG("Finished loading {}, \"{}\"", layer->index, layer_to_load.filename);
 
-        pool.add_job(job_type_tesselate, [layer, g, this](std::stop_token st) {
+        pool.add_job(job_type_tesselate, [layer, g, this]([[maybe_unused]] std::stop_token st) {
             layer->drawer->tesselation_quality = settings.tesselation_quality;
             layer->drawer->set_gerber(g);    // <----- TESSELATION HAPPENS HERE !!!!!
 
@@ -904,7 +922,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
 void gerber_explorer::add_gerber(settings::layer_t const &layer)
 {
     settings::layer_t l = layer;
-    pool.add_job(job_type_load_gerber, [l, this](std::stop_token st) { load_gerber(l); });
+    pool.add_job(job_type_load_gerber, [l, this]([[maybe_unused]] std::stop_token st) { load_gerber(l); });
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -958,7 +976,8 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
     }
 
     int x = selected_layer->drawer->entity_flags.data()[active_entity->entity_id()];
-    active_entity_description = std::format("Entity {}:{}{} {} polarity ({}) flags: {} ({})", net->entity_id, state, interpolation, polarity, description, active_entity->flags, x);
+    active_entity_description =
+        std::format("Entity {}:{}{} {} polarity ({}) flags: {} ({})", net->entity_id, state, interpolation, polarity, description, active_entity->flags, x);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1090,7 +1109,7 @@ void gerber_explorer::ui()
                 }
                 ImGui::EndCombo();
             }
-            if(MessageBox("Close All", "Are you sure you want to close all the layers?") == 1) {
+            if(MsgBox("Close All", "Are you sure you want to close all the layers?") == 1) {
                 close_all_layers();
             }
         }
@@ -1493,7 +1512,7 @@ void gerber_explorer::on_render()
 
     if(ordered_layers.empty()) {
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
-        GL_CHECK(glClearColor(0,0,0,0));
+        GL_CHECK(glClearColor(0, 0, 0, 0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
     }
 
@@ -1511,11 +1530,11 @@ void gerber_explorer::on_render()
 
         layer_render_target.bind_framebuffer();
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
-        GL_CHECK(glClearColor(0,0,0,0));
+        GL_CHECK(glClearColor(0, 0, 0, 0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         layer.drawer->fill(world_matrix, entity_flags_t::fill, entity_flags_t::clear, entity_flags_t::selected);
         gl::color selected_color = gl::set_alpha(gl::colors::white, 0.5f);
-        blend_layer(layer.fill_color, selected_color, layer.invert, settings.multisamples);
+        blend_layer(layer.fill_color, selected_color, false, settings.multisamples);
     }
 
     // draw overlay/ouline of selected & hovered entities in selected layer on top of all other layers
@@ -1523,7 +1542,7 @@ void gerber_explorer::on_render()
     if(selected_layer != nullptr && !selected_layer->drawer->entities.empty()) {
         layer_render_target.bind_framebuffer();
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
-        GL_CHECK(glClearColor(0, 0, 0, 1));
+        GL_CHECK(glClearColor(0, 0, 0, 0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         selected_layer->drawer->fill(world_matrix, entity_flags_t::hovered, 0, entity_flags_t::active);
         gl::color selected(gl::set_alpha(gl::colors::white, 0.5f));

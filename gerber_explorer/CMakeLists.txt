@@ -7,6 +7,7 @@ include(${cmrc_SOURCE_DIR}/CMakeRC.cmake)
 
 cmrc_add_resource_library(my_assets
         WHENCE "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+        "assets/icon.png"
         "assets/Roboto-Medium.ttf"
         "assets/MaterialIcons-Regular.ttf")
 
@@ -34,7 +35,7 @@ cmrc_add_resource_library(my_shaders
 
 set(PROJECT gerber_explorer)
 
-add_executable(${PROJECT}
+set(PROJECT_SOURCES
         main.cpp
         gl_colors.h
         log_drawer.h
@@ -54,7 +55,14 @@ add_executable(${PROJECT}
         settings.cpp
         settings.h
         job_pool.h
-        job_pool.cpp)
+        job_pool.cpp
+)
+
+if (WIN32)
+    list(APPEND PROJECT_SOURCES resources.rc)
+endif ()
+
+add_executable(${PROJECT} ${PROJECT_SOURCES})
 
 target_include_directories(${PROJECT} PRIVATE ${CMRC_INCLUDE_DIR})
 

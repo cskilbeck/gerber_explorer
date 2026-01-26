@@ -269,6 +269,8 @@ namespace gerber_3d
         GLuint u_green_flags;
         GLuint u_blue_flags;
 
+        GLuint u_value;
+
         int init() override;
     };
 

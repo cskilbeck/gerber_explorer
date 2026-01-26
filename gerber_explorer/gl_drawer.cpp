@@ -527,7 +527,9 @@ namespace gerber_3d
         set_uniform_1i(gerber_explorer::layer_program.u_blue_flags, b_flags);
         set_uniform_1i(gerber_explorer::layer_program.u_flags_sampler, 0);    // flags_sampler    -> GL_TEXTURE0
 
-        if(flags_texture != -1) {
+        set_uniform_4f(gerber_explorer::layer_program.u_value, 1.0f, 1.0f, 1.0f, 1.0f);
+
+        if(flags_texture != (GLuint)-1) {
             GL_CHECK(glActiveTexture(GL_TEXTURE0));
             GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, flags_texture));    // The Flags TBO (R8UI) in slot 0
         }
@@ -543,7 +545,7 @@ namespace gerber_3d
     {
         for(auto const &e : entities) {
             int id = e.entity_id();
-            if(id < 0 || id >= entity_flags.size()) {
+            if(id < 0 || id >= (int)entity_flags.size()) {
                 LOG_ERROR("INVALID ENTITY ID {}!?", id);
             } else {
                 entity_flags[id] = (uint8_t)e.flags;

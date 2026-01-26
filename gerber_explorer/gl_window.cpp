@@ -10,6 +10,9 @@
 
 #include <cmrc/cmrc.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -153,6 +156,18 @@ namespace
     }
 #endif
 }    // namespace
+
+//////////////////////////////////////////////////////////////////////
+
+void gl_window::set_icon(uint8_t const *png_data, size_t png_size)
+{
+    GLFWimage images[1];
+    images[0].pixels = stbi_load_from_memory(png_data, (int)png_size, &images[0].width, &images[0].height, nullptr, 4);
+    if (images[0].pixels) {
+        glfwSetWindowIcon(window, 1, images);
+        stbi_image_free(images[0].pixels);
+    }
+}
 
 //////////////////////////////////////////////////////////////////////
 

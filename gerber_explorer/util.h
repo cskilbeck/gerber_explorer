@@ -18,7 +18,7 @@ bool IconCheckbox(const char *label, bool *v, const char *icon_on, const char *i
 bool IconCheckboxTristate(const char *label, int *v, const char *icon_on, const char *icon_off, const char *icon_mixed);
 bool IconButton(const char *label, const char *icon);
 void RightAlignButtons(const std::vector<const char *> &labels);
-int MessageBox(char const *banner, char const *text, char const *yes_text = "Yes", char const *no_text = "No");
+int MsgBox(char const *banner, char const *text, char const *yes_text = "Yes", char const *no_text = "No");
 
 static double get_time()
 {

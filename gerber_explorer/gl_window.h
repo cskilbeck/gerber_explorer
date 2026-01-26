@@ -22,6 +22,8 @@ struct gl_window
     void init();
     bool update();
 
+    void set_icon(uint8_t const *png_data, size_t png_size);
+
     virtual bool on_init() = 0;
     virtual void on_frame();
     virtual void on_render() = 0;

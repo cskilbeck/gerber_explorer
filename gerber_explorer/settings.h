@@ -8,9 +8,9 @@ namespace settings
 {
     struct color_t
     {
-        float r{ 1 };
+        float r{ 0 };
         float g{ 0 };
-        float b{ 1 };
+        float b{ 0 };
         float a{ 1 };
         explicit operator float *()
         {

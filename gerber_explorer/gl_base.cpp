@@ -301,6 +301,8 @@ namespace gerber_3d
         u_green_flags = get_uniform("green_flags");
         u_blue_flags = get_uniform("blue_flags");
 
+        u_value = get_uniform("value");
+
         return 0;
     }
 
