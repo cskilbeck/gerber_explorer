@@ -361,8 +361,10 @@ bool gl_window::update()
     } else {
         glfwPollEvents();
     }
+    double frame_start_time = get_time();
     if(!glfwWindowShouldClose(window)) {
         on_frame();
+        last_frame_elapsed_time = get_time() - frame_start_time;
         return true;
     }
     on_closed();

@@ -102,7 +102,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    template <typename vertex_array_type> struct filled_shape
+    template <typename vertex_array_type> struct drawable_shape
     {
         using vertex_type = typename vertex_array_type::vertex_type;
 
@@ -126,16 +126,16 @@ namespace gerber
         }
 
         // setup GPU buffers
-        void setup()
+        void create_gpu_resources()
         {
-            cleanup();
-            if(!vertices.empty()) {
+            if(!vertices.empty() && vertex_array.vao_id == 0) {
                 vertex_array.init(vertices.size());
                 vertex_array.alloc(vertices.size(), sizeof(vertex_type));
             }
-            if(!indices.empty()) {
+            if(!indices.empty() && index_array.ibo_id == 0) {
                 index_array.init(indices.size());
             }
+            update();
         }
 
         // release GPU buffers
@@ -168,6 +168,8 @@ namespace gerber
         }
     };
 
+    using solid_shape = drawable_shape<gl::vertex_array_solid>;
+
     //////////////////////////////////////////////////////////////////////
 
     struct gl_drawer : gerber_lib::gerber_draw_interface
@@ -189,8 +191,6 @@ namespace gerber
             fill_vertices.init();
             fill_indices.init();
         }
-
-        filled_shape<gl::vertex_array_solid> filler;
 
         // setup from a parsed gerber file
         void set_gerber(gerber_lib::gerber_file *g) override;
@@ -224,11 +224,15 @@ namespace gerber
 
         void release();
 
-        void get_outline_from_layer();
+        void create_mask();
+        bool got_mask{false};
 
         bool ready_to_draw{ false };
 
         void update_flags_buffer();
+
+        // only used if it's an outline layer
+        solid_shape mask{};
 
         gerber_lib::gerber_file *gerber_file{};
         tesselation_quality_t tesselation_quality;

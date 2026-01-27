@@ -47,18 +47,27 @@ struct gerber_explorer : gl_window
 
         gerber::gl_drawer *drawer{};
         gerber::gl_drawer drawers[2]{};
+
         int index;
         int current_drawer{ 0 };
         bool visible{ true };
         bool invert{ false };
         bool expanded{ false };
         bool selected{ false };
+        bool is_outline_layer{ false };
         int alpha{ 255 };
         std::string name;
-        layer_order_t layer_order{layer_order_t::all};
-        gerber_lib::layer::type_t layer_type{gerber_lib::layer::type_t::other};
+        layer_order_t layer_order{ layer_order_t::all };
         gl::color fill_color;
         gl::color clear_color;
+
+        gerber_lib::layer::type_t layer_type() const
+        {
+            if(drawer->gerber_file != nullptr) {
+                return drawer->gerber_file->layer_type;
+            }
+            return gerber_lib::layer::type_t::unknown;
+        }
 
         std::string filename() const
         {
@@ -143,7 +152,7 @@ struct gerber_explorer : gl_window
     // gerber layers
     std::list<gerber_layer *> layers;    // active
     gerber_layer *selected_layer{ nullptr };
-    bool isolate_selected_layer{false};
+    bool isolate_selected_layer{ false };
 
     // zoom to rect admin
     rect target_view_rect{};
@@ -189,20 +198,9 @@ struct gerber_explorer : gl_window
 
     std::mutex layer_drawer_mutex;
 
-    bool retesselate{false};
+    bool retesselate{ false };
 
-    void tesselate_layer(gerber_layer *layer)
-    {
-        pool.add_job(job_type_tesselate, [this, layer](std::stop_token st) {
-            gerber::gl_drawer *d = &layer->drawers[1 - layer->current_drawer];
-            d->tesselation_quality = settings.tesselation_quality;
-            d->set_gerber(layer->drawer->gerber_file);
-            {
-                std::lock_guard l(layer_drawer_mutex);
-                layer->current_drawer = 1 - layer->current_drawer;
-            }
-        });
-    }
+    void tesselate_layer(gerber_layer *layer);
 
     std::list<gerber_layer *> loaded_layers;
     std::mutex loaded_mutex;

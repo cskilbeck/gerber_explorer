@@ -87,6 +87,9 @@ namespace gerber_lib
         void release()
         {
             deallocate_address_space(base_address);
+            base_address = nullptr;
+            used_size = 0;
+            committed_size = 0;
         }
 
         //////////////////////////////////////////////////////////////////////

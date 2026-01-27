@@ -225,7 +225,6 @@ namespace gerber
         g->draw(*this);
         finish_entity();
         finalize();
-        get_outline_from_layer();
 
         // create the lines index buffer and flags buffer
 
@@ -246,10 +245,6 @@ namespace gerber
             }
         }
     }
-
-    //////////////////////////////////////////////////////////////////////
-
-
 
     //////////////////////////////////////////////////////////////////////
 
@@ -429,7 +424,7 @@ namespace gerber
         }
 
         if(temp_points.size() < 3) {
-            LOG_WARNING("CULLED SECTION OF ENTITY {}", gnet->entity_id);
+            LOG_INFO("CULLED SECTION OF ENTITY {}", gnet->entity_id);
             return;
         }
 
@@ -462,8 +457,6 @@ namespace gerber
         }
 
         // ditch existing gl resources before creating new ones
-
-        filler.cleanup();
 
         vertex_array.cleanup();
         index_array.cleanup();
@@ -508,9 +501,6 @@ namespace gerber
         index_array.activate();
         gl::update_buffer<GL_ELEMENT_ARRAY_BUFFER>(fill_indices);
 
-        filler.setup();
-        filler.update();
-
         ready_to_draw = true;
     }
 
@@ -548,13 +538,6 @@ namespace gerber
         GL_CHECK(glBlendEquation(GL_FUNC_ADD));
         GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         glDrawElements(GL_TRIANGLES, index_array.num_indices, GL_UNSIGNED_INT, nullptr);    // draw the whole layer
-
-        if(!filler.indices.empty()) {
-            gerber_explorer::solid_program.activate();
-            GL_CHECK(glUniformMatrix4fv(gerber_explorer::solid_program.u_transform, 1, false, matrix.m));
-            set_uniform_4f(gerber_explorer::solid_program.u_color, 1, 1, 1, 1);
-            filler.draw();
-        }
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -614,11 +597,13 @@ namespace gerber
     // Given some entities, create a shape which encloses them
     // This is used for drawing inverted layers...
 
-    void gl_drawer::get_outline_from_layer()
+    void gl_drawer::create_mask()
     {
         using namespace Clipper2Lib;
 
         const int64_t CLIPPER_SCALE = 1000000;
+
+        LOG_INFO("Get outline mask for layer {}", gerber_file->filename);
 
         Paths64 paths;
         for(const auto &entity : entities) {
@@ -651,11 +636,11 @@ namespace gerber
             tessAddContour(tess, 2, coords.data(), sizeof(float) * 2, (int)child->Polygon().size());
         }
 
-        filler.release();
-        filler.init();
+        mask.release();
+        mask.init();
 
         vec2f scale{ 1.0f, 1.0f };
-        vec2f offset{ 80.0f, 0.0f };
+        vec2f offset{ 0.0f, 0.0f };
 
         if(tessTesselate(tess, TESS_WINDING_ODD, TESS_POLYGONS, 3, 2, nullptr)) {
             const TESSreal *verts = tessGetVertices(tess);
@@ -663,15 +648,18 @@ namespace gerber
             int nVerts = tessGetVertexCount(tess);
             int nElems = tessGetElementCount(tess);
 
-            uint32_t indexOffset = (uint32_t)filler.vertices.size();
+            uint32_t indexOffset = (uint32_t)mask.vertices.size();
             for(int i = 0; i < nVerts; i++) {
-                filler.vertices.push_back({ verts[i * 2] * scale.x + offset.x, verts[i * 2 + 1] * scale.y + offset.y });
+                mask.vertices.push_back({ verts[i * 2] * scale.x + offset.x, verts[i * 2 + 1] * scale.y + offset.y });
             }
             for(int i = 0; i < nElems * 3; i++) {
-                filler.indices.push_back(indexOffset + elems[i]);
+                mask.indices.push_back(indexOffset + elems[i]);
             }
         }
         tessDeleteTess(tess);
+
+        LOG_INFO("Got outline mask for layer {}", gerber_file->filename);
+        got_mask = true;
     }
 
 }    // namespace gerber

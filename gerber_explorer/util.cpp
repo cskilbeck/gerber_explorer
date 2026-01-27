@@ -10,6 +10,8 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 
+#include "util.h"
+
 //////////////////////////////////////////////////////////////////////
 
 char const *app_name{ "gerber_explorer" };
@@ -259,10 +261,11 @@ bool IconButton(const char *label, const char *icon)
 
 //////////////////////////////////////////////////////////////////////
 
-void RightAlignButtons(const std::vector<const char *> &labels) {
+void RightAlignButtons(const std::vector<const char *> &labels)
+{
     float totalWidth = 0.0f;
     float spacing = ImGui::GetStyle().ItemSpacing.x;
-    for (auto label : labels) {
+    for(auto label : labels) {
         totalWidth += ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2.0f;
     }
     totalWidth += spacing * (labels.size() - 1);
@@ -271,7 +274,7 @@ void RightAlignButtons(const std::vector<const char *> &labels) {
 
 //////////////////////////////////////////////////////////////////////
 
-int MsgBox(char const *banner, char const *text, char const *yes_text = "Yes", char const *no_text = "No")
+int MsgBox(char const *banner, char const *text, char const *yes_text, char const *no_text)
 {
     int rc = 0;
     ImVec2 text_size = ImGui::CalcTextSize(text, nullptr, false, ImGui::GetWindowWidth() / 3.0f);
@@ -286,7 +289,7 @@ int MsgBox(char const *banner, char const *text, char const *yes_text = "Yes", c
         ImGui::Dummy(ImVec2(0.0f, pad));
         ImGui::Separator();
         ImGui::Dummy(ImVec2(0.0f, pad));
-        RightAlignButtons({yes_text, no_text});
+        RightAlignButtons({ yes_text, no_text });
         if(ImGui::Button(yes_text)) {
             rc = 1;
             ImGui::CloseCurrentPopup();

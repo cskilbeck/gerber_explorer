@@ -286,6 +286,82 @@ namespace gerber_lib
 {
     //////////////////////////////////////////////////////////////////////
 
+    char const *layer_type_name(layer::type_t t)
+    {
+        if(is_layer_type(t, layer::type_t::unknown)) {
+            return "unknown";
+        }
+        if(is_layer_type(t, layer::type_t::other)) {
+            return "other";
+        }
+        if(is_layer_type(t, layer::type_t::vcut)) {
+            return "vcut";
+        }
+        if(is_layer_type(t, layer::type_t::board)) {
+            return "board";
+        }
+        if(is_layer_type(t, layer::type_t::outline)) {
+            return "outline";
+        }
+        if(is_layer_type(t, layer::type_t::mechanical)) {
+            return "mechanical";
+        }
+        if(is_layer_type(t, layer::type_t::info)) {
+            return "info";
+        }
+        if(is_layer_type(t, layer::type_t::keepout)) {
+            return "keepout";
+        }
+        if(is_layer_type(t, layer::type_t::pads)) {
+            return "pads";
+        }
+        if(is_layer_type(t, layer::type_t::drill)) {
+            return "drill";
+        }
+        if(is_layer_type(t, layer::type_t::paste_top)) {
+            return "paste_top";
+        }
+        if(is_layer_type(t, layer::type_t::pads_top)) {
+            return "pads_top";
+        }
+        if(is_layer_type(t, layer::type_t::overlay_top)) {
+            return "overlay_top";
+        }
+        if(is_layer_type(t, layer::type_t::soldermask_top)) {
+            return "soldermask_top";
+        }
+        if(is_layer_type(t, layer::type_t::drill_top)) {
+            return "drill_top";
+        }
+        if(is_layer_type(t, layer::type_t::copper_top)) {
+            return "copper_top";
+        }
+        if(is_layer_type(t, layer::type_t::copper_inner)) {
+            return "copper_inner";
+        }
+        if(is_layer_type(t, layer::type_t::copper_bottom)) {
+            return "copper_bottom";
+        }
+        if(is_layer_type(t, layer::type_t::drill_bottom)) {
+            return "drill_bottom";
+        }
+        if(is_layer_type(t, layer::type_t::soldermask_bottom)) {
+            return "soldermask_bottom";
+        }
+        if(is_layer_type(t, layer::type_t::overlay_bottom)) {
+            return "overlay_bottom";
+        }
+        if(is_layer_type(t, layer::type_t::pads_bottom)) {
+            return "pads_bottom";
+        }
+        if(is_layer_type(t, layer::type_t::paste_bottom)) {
+            return "paste_bottom";
+        }
+        return "?unclassifiable!?";
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
     layer::type_t gerber_file::classify() const
     {
         using namespace layer;
@@ -486,9 +562,7 @@ namespace gerber_lib
         image.gerber = this;
         CHECK(parse_gerber_segment(image.nets[0]));
         LOG_VERBOSE("Parsing complete after {} lines, found {} entities", reader.line_number, entities.size());
-
         layer_type = classify();
-
         return ok;
     }
 

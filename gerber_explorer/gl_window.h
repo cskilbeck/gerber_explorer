@@ -23,6 +23,8 @@ struct gl_window
 
     void set_icon(uint8_t const *png_data, size_t png_size);
 
+    double last_frame_elapsed_time{};
+
     virtual bool on_init() = 0;
     virtual void on_frame();
     virtual void on_render() = 0;

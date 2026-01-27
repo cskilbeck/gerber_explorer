@@ -27,31 +27,28 @@ namespace gerber_lib
         enum type_t
         {
             unknown = 0,
-
             other = 1000,
-            vcut = 1001,
-            board = 1002,
-            outline = 1003,
-            mechanical = 1004,
-            info = 1005,
-            keepout = 1006,
-
-            pads = 2000,
-            drill = 3000,
-
-            paste_top = 4000,
-            pads_top = 5000,
-            overlay_top = 6000,
-            soldermask_top = 7000,
-            drill_top = 8000,
-            copper_top = 9000,
-            copper_inner = 10000,
-            copper_bottom = 11000,
-            drill_bottom = 12000,
-            soldermask_bottom = 13000,
-            overlay_bottom = 14000,
-            pads_bottom = 15000,
-            paste_bottom = 16000,
+            vcut = 2000,
+            board = 3000,
+            outline = 4000,
+            mechanical = 5000,
+            info = 6000,
+            keepout = 7000,
+            pads = 8000,
+            drill = 8000,
+            paste_top = 10000,
+            pads_top = 11000,
+            overlay_top = 12000,
+            soldermask_top = 13000,
+            drill_top = 14000,
+            copper_top = 15000,
+            copper_inner = 16000,
+            copper_bottom = 17000,
+            drill_bottom = 18000,
+            soldermask_bottom = 19000,
+            overlay_bottom = 20000,
+            pads_bottom = 21000,
+            paste_bottom = 22000,
         };
     }
 
@@ -61,6 +58,8 @@ namespace gerber_lib
     {
         return l >= t && l < (t + 1000);
     }
+
+    char const *layer_type_name(layer::type_t t);
 
     //////////////////////////////////////////////////////////////////////
 
