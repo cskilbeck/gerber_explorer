@@ -171,7 +171,7 @@ namespace gl
 
         index_buffer() = default;
 
-        int init(GLsizei index_count);
+        int init(size_t index_count);
         int activate() const;
 
         void cleanup();
@@ -189,9 +189,9 @@ namespace gl
 
         vertex_array() = default;
 
-        int alloc(GLsizei vert_count, size_t vertex_size);
+        int alloc(size_t vert_count, size_t vertex_size);
 
-        virtual int init(GLsizei vert_count);
+        virtual int init(size_t vert_count);
         virtual int activate() const;
 
         void cleanup();
@@ -201,9 +201,11 @@ namespace gl
 
     struct vertex_array_solid : vertex_array
     {
+        using vertex_type = vertex_solid;
+
         vertex_array_solid() = default;
 
-        int init(GLsizei vert_count) override;
+        int init(size_t vert_count) override;
         int activate() const override;
     };
 
@@ -212,9 +214,11 @@ namespace gl
 
     struct vertex_array_quad_points : vertex_array
     {
+        using vertex_type = vertex_solid;
+
         vertex_array_quad_points() = default;
 
-        int init(GLsizei vert_count) override;
+        int init(size_t vert_count) override;
         int activate() const override;
     };
 
@@ -223,9 +227,11 @@ namespace gl
 
     struct vertex_array_entity : vertex_array
     {
+        using vertex_type = vertex_solid;
+
         vertex_array_entity() = default;
 
-        int init(GLsizei vert_count) override;
+        int init(size_t vert_count) override;
         int activate() const override;
     };
 
@@ -233,9 +239,11 @@ namespace gl
 
     struct vertex_array_color : vertex_array
     {
+        using vertex_type = vertex_color;
+
         vertex_array_color() = default;
 
-        int init(GLsizei vert_count) override;
+        int init(size_t vert_count) override;
         int activate() const override;
     };
 

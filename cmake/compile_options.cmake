@@ -1,3 +1,6 @@
+######################################################################
+# Common options for gerber_lib and gerber_explorer
+
 add_library(project_options INTERFACE)
 
 if (MSVC)
@@ -41,4 +44,10 @@ else ()
     )
 endif ()
 
-target_compile_definitions(project_options INTERFACE _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS WIN32_LEAN_AND_MEAN NOMINMAX)
+set(DEFINITIONS _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
+
+if (WIN32)
+    list(APPEND DEFINITIONS WIN32_LEAN_AND_MEAN NOMINMAX)
+endif ()
+
+target_compile_definitions(project_options INTERFACE ${DEFINITIONS})

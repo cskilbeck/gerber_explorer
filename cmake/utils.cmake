@@ -1,3 +1,6 @@
+######################################################################
+# Enable Link Time Optimization for a target
+
 function(target_enable_ipo TARGET_NAME)
     if(NOT TARGET ${TARGET_NAME})
         return()
@@ -30,7 +33,10 @@ function(target_enable_ipo TARGET_NAME)
     endif()
 endfunction()
 
-function(silence_target_warnings TARGET_NAME)
+######################################################################
+# Silence warnings for a target (used for some 3rd party libs)
+
+function(target_silence_warnings TARGET_NAME)
     if(TARGET ${TARGET_NAME})
         set_target_properties(${TARGET_NAME} PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
                 $<TARGET_PROPERTY:${TARGET_NAME},INTERFACE_INCLUDE_DIRECTORIES>)

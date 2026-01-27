@@ -24,9 +24,8 @@ namespace gerber_lib
 
         //////////////////////////////////////////////////////////////////////
 
-        gerber_arena() : used_size(0), committed_size(0)
+        gerber_arena() : base_address(nullptr), used_size(0), committed_size(0)
         {
-            base_address = allocate_address_space(reserve_size);
         }
 
         //////////////////////////////////////////////////////////////////////
@@ -40,6 +39,15 @@ namespace gerber_lib
 
         gerber_arena(const gerber_arena&) = delete;
         gerber_arena& operator=(const gerber_arena&) = delete;
+
+        //////////////////////////////////////////////////////////////////////
+
+        void init()
+        {
+            base_address = allocate_address_space(reserve_size);
+            used_size = 0;
+            committed_size = 0;
+        }
 
         //////////////////////////////////////////////////////////////////////
 
@@ -109,6 +117,12 @@ namespace gerber_lib
         {
         }
 
+        void init()
+        {
+            gerber_arena<reserve_size, alignment, min_grow_size>::init();
+            count = 0;
+        }
+
         //////////////////////////////////////////////////////////////////////
 
         typed_arena(const typed_arena&) = delete;
@@ -136,6 +150,7 @@ namespace gerber_lib
 
         void pop_back()
         {
+            // assert(count != 0);
             count -= 1;
         }
 

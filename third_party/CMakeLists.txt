@@ -152,7 +152,7 @@ if (NOT libtess2_POPULATED)
 
     target_include_directories(libtess2 PRIVATE "${libtess2_SOURCE_DIR}/Contrib")
 
-    silence_target_warnings(libtess2)
+    target_silence_warnings(libtess2)
 endif ()
 
 ######################################################################
@@ -190,9 +190,9 @@ set(CLIPPER2_UTILS OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(Clipper2)
 
-silence_target_warnings(Clipper2)
-silence_target_warnings(Clipper2utils)
-silence_target_warnings(Clipper2Zutils)
+target_silence_warnings(Clipper2)
+target_silence_warnings(Clipper2utils)
+target_silence_warnings(Clipper2Zutils)
 
 ######################################################################
 # Enable IPO/LTO for some libs

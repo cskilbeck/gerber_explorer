@@ -869,6 +869,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
     gerber_lib::gerber_error_code err = g->parse_file(layer_to_load.filename.c_str());
     if(err == gerber_lib::ok) {
         gerber_layer *layer = new gerber_layer();
+        layer->init();
         layer->index = layer_to_load.index;
         layer->name = std::format("{}", std::filesystem::path(g->filename).filename().string());
         layer->visible = layer_to_load.visible;
@@ -1437,17 +1438,17 @@ void gerber_explorer::on_render()
     ortho_screen_matrix = gl::make_ortho(viewport_width, viewport_height);
 
     // world matrix has optional x/y flip around board center
-    gl::gl_matrix flip_m = gl::make_identity();
+    gl::matrix flip_m = gl::make_identity();
     flip_m.m[0] = (float)flip_xy.x;
     flip_m.m[5] = (float)flip_xy.y;
     flip_m.m[12] = (float)(board_center.x - flip_xy.x * board_center.x);
     flip_m.m[13] = (float)(board_center.y - flip_xy.y * board_center.y);
-    gl::gl_matrix view_m = gl::make_identity();
+    gl::matrix view_m = gl::make_identity();
     view_m.m[0] = (float)view_scale.x;
     view_m.m[5] = (float)view_scale.y;
     view_m.m[12] = (float)(-(view_rect.min_pos.x * view_scale.x));
     view_m.m[13] = (float)(-(view_rect.min_pos.y * view_scale.y));
-    gl::gl_matrix temp = matrix_multiply(view_m, flip_m);
+    gl::matrix temp = matrix_multiply(view_m, flip_m);
     world_matrix = matrix_multiply(ortho_screen_matrix, temp);
 
     //////////////////////////////////////////////////////////////////////
@@ -1497,14 +1498,14 @@ void gerber_explorer::on_render()
             }
             int ta = a->drawer->gerber_file->layer_type;
             int tb = b->drawer->gerber_file->layer_type;
-            if(is_layer(ta, layer::type_t::drill)) {
+            if(is_layer_type(ta, layer::type_t::drill)) {
                 ta = drill_ordered;
-            } else if(is_layer(ta, layer::type_t::pads)) {
+            } else if(is_layer_type(ta, layer::type_t::pads)) {
                 ta = pads_ordered;
             }
-            if(is_layer(tb, layer::type_t::drill)) {
+            if(is_layer_type(tb, layer::type_t::drill)) {
                 tb = drill_ordered;
-            } else if(is_layer(tb, layer::type_t::pads)) {
+            } else if(is_layer_type(tb, layer::type_t::pads)) {
                 tb = pads_ordered;
             }
             return ta > tb;

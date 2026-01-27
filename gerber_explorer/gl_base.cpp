@@ -383,10 +383,10 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    int index_buffer::init(GLsizei index_count)
+    int index_buffer::init(size_t index_count)
     {
         GL_CHECK(glGenBuffers(1, &ibo_id));
-        num_indices = index_count;
+        num_indices = (int)index_count;
         GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_id));
         GL_CHECK(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * num_indices, nullptr, GL_DYNAMIC_DRAW));
         return 0;
@@ -416,7 +416,7 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array::init(GLsizei vert_count)
+    int vertex_array::init(size_t vert_count)
     {
         GL_CHECK(glGenVertexArrays(1, &vao_id));
         return 0;
@@ -424,11 +424,11 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array::alloc(GLsizei vert_count, size_t vertex_size)
+    int vertex_array::alloc(size_t vert_count, size_t vertex_size)
     {
         GL_CHECK(glGenBuffers(1, &vbo_id));
 
-        num_verts = vert_count;
+        num_verts = (GLsizei)vert_count;
 
         GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vbo_id));
         GL_CHECK(glBufferData(GL_ARRAY_BUFFER, vertex_size * num_verts, nullptr, GL_DYNAMIC_DRAW));
@@ -438,7 +438,7 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array_solid::init(GLsizei vert_count)
+    int vertex_array_solid::init(size_t vert_count)
     {
         vertex_array::init(vert_count);
         int err = alloc(vert_count, sizeof(vertex_solid));
@@ -450,7 +450,7 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array_color::init(GLsizei vert_count)
+    int vertex_array_color::init(size_t vert_count)
     {
         vertex_array::init(vert_count);
         int err = alloc(vert_count, sizeof(vertex_color));
@@ -481,7 +481,7 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array_entity::init(GLsizei vert_count)
+    int vertex_array_entity::init(size_t vert_count)
     {
         vertex_array::init(vert_count);
         int err = alloc(vert_count, sizeof(vertex_entity));
@@ -506,7 +506,7 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array_quad_points::init(GLsizei vert_count)
+    int vertex_array_quad_points::init(size_t vert_count)
     {
         // this is for the quad verts
         vertex_array::init(vert_count);

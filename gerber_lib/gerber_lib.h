@@ -55,15 +55,17 @@ namespace gerber_lib
         };
     }
 
-    inline bool is_layer(int l, layer::type_t t)
+    //////////////////////////////////////////////////////////////////////
+
+    inline bool is_layer_type(int l, layer::type_t t)
     {
         return l >= t && l < (t + 1000);
     }
 
+    //////////////////////////////////////////////////////////////////////
+
     struct gerber_net;
     struct gerber_macro_parameters;
-
-    //////////////////////////////////////////////////////////////////////
 
     struct gerber_file
     {

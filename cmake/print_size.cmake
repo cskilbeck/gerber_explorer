@@ -1,3 +1,6 @@
+######################################################################
+# Print the size of the exe
+
 set(TARGET_PATH "${CMAKE_ARGV3}")
 
 if(EXISTS "${TARGET_PATH}")

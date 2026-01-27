@@ -11,11 +11,15 @@
 #include "gerber_arena.h"
 #include "gl_matrix.h"
 
+#include "clipper2/clipper.h"
+
 #include "tesselator.h"
 
 namespace gerber
 {
     //////////////////////////////////////////////////////////////////////
+
+    template <typename T> using typed_arena = gerber_lib::typed_arena<T>;
 
     namespace entity_flags_t
     {
@@ -96,10 +100,72 @@ namespace gerber
         }
     };
 
-    struct tesselator_span
+    //////////////////////////////////////////////////////////////////////
+
+    template <typename vertex_array_type> struct filled_shape
     {
-        int start;    // glDrawElements(start, length) (for interior triangles)
-        int length;
+        using vertex_type = typename vertex_array_type::vertex_type;
+
+        typed_arena<vertex_type> vertices;
+        typed_arena<GLuint> indices;
+        vertex_array_type vertex_array;
+        gl::index_buffer index_array;
+
+        // init cpu buffers
+        void init()
+        {
+            vertices.init();
+            indices.init();
+        }
+
+        // release cpu buffers
+        void release()
+        {
+            vertices.release();
+            indices.release();
+        }
+
+        // setup GPU buffers
+        void setup()
+        {
+            cleanup();
+            if(!vertices.empty()) {
+                vertex_array.init(vertices.size());
+                vertex_array.alloc(vertices.size(), sizeof(vertex_type));
+            }
+            if(!indices.empty()) {
+                index_array.init(indices.size());
+            }
+        }
+
+        // release GPU buffers
+        void cleanup()
+        {
+            vertex_array.cleanup();
+            index_array.cleanup();
+        }
+
+        // update cpu data -> GPU buffers
+        void update()
+        {
+            if(!vertices.empty()) {
+                vertex_array.activate();
+                gl::update_buffer<GL_ARRAY_BUFFER>(vertices);
+            }
+
+            if(!indices.empty()) {
+                index_array.activate();
+                gl::update_buffer<GL_ELEMENT_ARRAY_BUFFER>(indices);
+            }
+        }
+
+        // render it
+        void draw()
+        {
+            vertex_array.activate();
+            index_array.activate();
+            glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr);
+        }
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -108,9 +174,23 @@ namespace gerber
     {
         using vec2f = gerber_lib::vec2f;
         using vert = vec2f;
-        template <typename T> using typed_arena = gerber_lib::typed_arena<T>;
 
         gl_drawer() = default;
+
+        void init()
+        {
+            boundary_arena.init();
+            interior_arena.init();
+            entities.init();
+            temp_points.init();
+            outline_lines.init();
+            outline_vertices.init();
+            entity_flags.init();
+            fill_vertices.init();
+            fill_indices.init();
+        }
+
+        filled_shape<gl::vertex_array_solid> filler;
 
         // setup from a parsed gerber file
         void set_gerber(gerber_lib::gerber_file *g) override;
@@ -130,9 +210,9 @@ namespace gerber
         void finalize();
 
         // for actually drawing it
-        void fill(gl::gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags);
+        void fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags);
 
-        void outline(float outline_thickness, gl::gl_matrix const &matrix, gerber_lib::vec2d const &viewport_size);
+        void outline(float outline_thickness, gl::matrix const &matrix, gerber_lib::vec2d const &viewport_size);
 
         // picking/selection
         void clear_entity_flags(int flags);
@@ -143,6 +223,8 @@ namespace gerber
         void select_hovered_entities();
 
         void release();
+
+        void get_outline_from_layer();
 
         bool ready_to_draw{ false };
 
@@ -157,9 +239,9 @@ namespace gerber
         tess_arena_t boundary_arena;
         tess_arena_t interior_arena;
         typed_arena<tesselator_entity> entities;
-        typed_arena<vec2f> temp_points{};
-        typed_arena<gl::line2_program::line> outline_lines{};
-        typed_arena<vec2f> outline_vertices{};
+        typed_arena<vec2f> temp_points;
+        typed_arena<gl::line2_program::line> outline_lines;
+        typed_arena<vec2f> outline_vertices;
         typed_arena<uint8_t> entity_flags;    // one byte per entity
         typed_arena<gl::vertex_entity> fill_vertices;
         typed_arena<GLuint> fill_indices;

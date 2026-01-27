@@ -35,6 +35,7 @@ namespace
             buffer_id = 0;
         }
     }
+
 }    // namespace
 
 
@@ -224,6 +225,7 @@ namespace gerber
         g->draw(*this);
         finish_entity();
         finalize();
+        get_outline_from_layer();
 
         // create the lines index buffer and flags buffer
 
@@ -244,6 +246,10 @@ namespace gerber
             }
         }
     }
+
+    //////////////////////////////////////////////////////////////////////
+
+
 
     //////////////////////////////////////////////////////////////////////
 
@@ -457,6 +463,8 @@ namespace gerber
 
         // ditch existing gl resources before creating new ones
 
+        filler.cleanup();
+
         vertex_array.cleanup();
         index_array.cleanup();
 
@@ -500,12 +508,15 @@ namespace gerber
         index_array.activate();
         gl::update_buffer<GL_ELEMENT_ARRAY_BUFFER>(fill_indices);
 
+        filler.setup();
+        filler.update();
+
         ready_to_draw = true;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::fill(gl::gl_matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags)
+    void gl_drawer::fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags)
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -537,6 +548,13 @@ namespace gerber
         GL_CHECK(glBlendEquation(GL_FUNC_ADD));
         GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         glDrawElements(GL_TRIANGLES, index_array.num_indices, GL_UNSIGNED_INT, nullptr);    // draw the whole layer
+
+        if(!filler.indices.empty()) {
+            gerber_explorer::solid_program.activate();
+            GL_CHECK(glUniformMatrix4fv(gerber_explorer::solid_program.u_transform, 1, false, matrix.m));
+            set_uniform_4f(gerber_explorer::solid_program.u_color, 1, 1, 1, 1);
+            filler.draw();
+        }
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -557,7 +575,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::outline(float outline_thickness, gl::gl_matrix const &matrix, vec2d const &viewport_size)
+    void gl_drawer::outline(float outline_thickness, gl::matrix const &matrix, vec2d const &viewport_size)
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -592,4 +610,68 @@ namespace gerber
         GL_CHECK(glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)outline_lines.size()));
     }
 
-}    // namespace gerber_3d
+    //////////////////////////////////////////////////////////////////////
+    // Given some entities, create a shape which encloses them
+    // This is used for drawing inverted layers...
+
+    void gl_drawer::get_outline_from_layer()
+    {
+        using namespace Clipper2Lib;
+
+        const int64_t CLIPPER_SCALE = 1000000;
+
+        Paths64 paths;
+        for(const auto &entity : entities) {
+            Path64 path;
+            for(int i = 0; i < entity.outline_size; ++i) {
+                const vec2f &pt = outline_vertices[entity.outline_offset + i];
+                path.push_back(Point64(pt.x * CLIPPER_SCALE, pt.y * CLIPPER_SCALE));
+            }
+            if(!path.empty()) {
+                paths.push_back(path);
+            }
+        }
+
+        Clipper64 clipper;
+        clipper.AddSubject(paths);
+
+        PolyTree64 tree;
+        clipper.Execute(ClipType::Union, FillRule::NonZero, tree);
+
+        TESStesselator *tess = tessNewTess(nullptr);
+        tessSetOption(tess, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 1);
+
+        // Each top-level child in the tree is an "Outer" boundary (a board hull)
+        for (const auto& child : tree) {
+            std::vector<float> coords;
+            for(const auto &pt : child->Polygon()) {
+                coords.push_back(static_cast<float>(pt.x / (double)CLIPPER_SCALE));
+                coords.push_back(static_cast<float>(pt.y / (double)CLIPPER_SCALE));
+            }
+            tessAddContour(tess, 2, coords.data(), sizeof(float) * 2, (int)child->Polygon().size());
+        }
+
+        filler.release();
+        filler.init();
+
+        vec2f scale{ 1.0f, 1.0f };
+        vec2f offset{ 80.0f, 0.0f };
+
+        if(tessTesselate(tess, TESS_WINDING_ODD, TESS_POLYGONS, 3, 2, nullptr)) {
+            const TESSreal *verts = tessGetVertices(tess);
+            const TESSindex *elems = tessGetElements(tess);
+            int nVerts = tessGetVertexCount(tess);
+            int nElems = tessGetElementCount(tess);
+
+            uint32_t indexOffset = (uint32_t)filler.vertices.size();
+            for(int i = 0; i < nVerts; i++) {
+                filler.vertices.push_back({ verts[i * 2] * scale.x + offset.x, verts[i * 2 + 1] * scale.y + offset.y });
+            }
+            for(int i = 0; i < nElems * 3; i++) {
+                filler.indices.push_back(indexOffset + elems[i]);
+            }
+        }
+        tessDeleteTess(tess);
+    }
+
+}    // namespace gerber

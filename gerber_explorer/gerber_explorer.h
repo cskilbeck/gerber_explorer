@@ -36,26 +36,29 @@ struct gerber_explorer : gl_window
 
     struct gerber_layer
     {
-        int index;
+        void init()
+        {
+            drawers[0].init();
+            drawers[1].init();
+        }
 
         // have two gl_drawer instances and a pointer to one of them
-        // tesselate into the idle one and swap it over when that's complete
+        // tesselate into the idle one and swap it over when that's complete (in the main thread)
 
-        gerber::gl_drawer *drawer;
-
-        gerber::gl_drawer drawers[2];
-
-        // need a way to atomically swap
+        gerber::gl_drawer *drawer{};
+        gerber::gl_drawer drawers[2]{};
+        int index;
         int current_drawer{ 0 };
-
         bool visible{ true };
         bool invert{ false };
         bool expanded{ false };
         bool selected{ false };
         int alpha{ 255 };
         std::string name;
-        layer_order_t layer_order;
-        gerber_lib::layer::type_t layer_type;
+        layer_order_t layer_order{layer_order_t::all};
+        gerber_lib::layer::type_t layer_type{gerber_lib::layer::type_t::other};
+        gl::color fill_color;
+        gl::color clear_color;
 
         std::string filename() const
         {
@@ -64,9 +67,6 @@ struct gerber_explorer : gl_window
             }
             return {};
         }
-
-        gl::color fill_color;
-        gl::color clear_color;
 
         bool is_valid() const
         {
@@ -137,8 +137,8 @@ struct gerber_explorer : gl_window
     rect viewport_rect{};
 
     // transform matrices
-    gl::gl_matrix world_matrix{};
-    gl::gl_matrix ortho_screen_matrix{};
+    gl::matrix world_matrix{};
+    gl::matrix ortho_screen_matrix{};
 
     // gerber layers
     std::list<gerber_layer *> layers;    // active
