@@ -29,7 +29,11 @@
 // X isolate / unisolate layer
 // X tidy up the cmake
 //
-// detect board outline
+// \ detect & use board outline for inverted layers
+//
+// fix select/hover/active highlighting
+// fix job pool hang
+// don't save settings until all layers loaded
 // share arenas where possible in gl_drawer
 // make the gerber parser interruptible with stop_token
 // reduce gpu usage - only draw frame when necessary
@@ -102,14 +106,6 @@ int main(int, char **)
     gerber_lib::log_set_emitter_function(puts);
 #endif
 
-    // {
-    //     gerber_lib::gerber_arena arena;
-    //     for(int i=0; i<10; ++i) {
-    //         auto p = arena.alloc(32768);
-    //         LOG_INFO("{}", p);
-    //     }
-    // }
-    //
     gerber_explorer window;
     window.init();
 

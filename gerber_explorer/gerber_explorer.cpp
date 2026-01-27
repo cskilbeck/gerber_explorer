@@ -859,6 +859,9 @@ void gerber_explorer::select_layer(gerber_layer *layer)
         active_entity = nullptr;
     }
     selected_layer = layer;
+    if(selected_layer == nullptr) {
+        isolate_selected_layer = false;
+    }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1132,6 +1135,7 @@ void gerber_explorer::ui()
                     bool is_selected = settings.board_view == n;
                     if(ImGui::Selectable(board_view_names[n], is_selected)) {
                         settings.board_view = n;
+                        isolate_selected_layer = false;
                     }
                     if(is_selected) {
                         ImGui::SetItemDefaultFocus();
