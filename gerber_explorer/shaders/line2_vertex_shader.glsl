@@ -24,7 +24,7 @@ void main() {
 
     // get flags from flags_sampler via entity_id
     uint flags = texelFetch(flags_sampler, int(entity_id)).r;
-    if (flags == 0) {
+    if ((flags & 12u) == 0) {
         gl_Position = vec4(0.0);
         return;
     }
