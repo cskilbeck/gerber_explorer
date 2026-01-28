@@ -82,6 +82,13 @@ int flushed_puts(char const *s)
     return x;
 }
 
+int output_debug_string(char const *s)
+{
+    OutputDebugStringA(s);
+    OutputDebugStringA("\n");
+    return 0;
+}
+
 int main(int, char **)
 {
 #ifdef _DEBUG
@@ -100,7 +107,11 @@ int main(int, char **)
         }
         gerber_lib::log_set_emitter_function(puts);
     } else {
+#if defined(LOG_USE_OUTPUT_DEBUG_STRING)
+        gerber_lib::log_set_emitter_function(output_debug_string);
+#else
         gerber_lib::log_set_emitter_function(flushed_puts);
+#endif
     }
 #else
     gerber_lib::log_set_emitter_function(puts);

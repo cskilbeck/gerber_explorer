@@ -3,3 +3,7 @@ cmake-build*/
 .idea/
 imgui.ini
 .venv/
+out/build/
+.vs/
+vc*.pdb
+CMakeSettings.json

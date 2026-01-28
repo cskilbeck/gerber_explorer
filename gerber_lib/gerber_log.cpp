@@ -19,7 +19,12 @@ namespace
     constexpr char const *cyan = "\x1b[36m";
     constexpr char const *white = "\x1b[37m";
     constexpr char const *default_color = "\x1b[39m";
+
+#if defined(LOG_USE_OUTPUT_DEBUG_STRING)
+    constexpr char const *reset_color = "";
+#else
     constexpr char const *reset_color = "\x1b[0m";
+#endif
 
     constexpr char const *log_level_colors[] = { green, cyan, yellow, magenta, red, red };
     constexpr char const *log_level_names[] = { "D", "V", "I", "W", "E", "F" };
@@ -28,8 +33,12 @@ namespace
 
     constexpr char const *log_color(gerber_lib::gerber_log_level level)
     {
+#if defined(LOG_USE_OUTPUT_DEBUG_STRING)
+        return "";
+#else
         int l = level;
         return log_level_colors[l];
+#endif
     }
 
     //////////////////////////////////////////////////////////////////////

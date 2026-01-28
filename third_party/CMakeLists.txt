@@ -78,6 +78,8 @@ FetchContent_Declare(
         GIT_TAG v1.0.4
 )
 
+set(CPPTRACE_DISABLE_CXX_20_MODULES ON CACHE BOOL "Disable modules for cpptrace" FORCE)
+
 FetchContent_MakeAvailable(cpptrace)
 
 ######################################################################

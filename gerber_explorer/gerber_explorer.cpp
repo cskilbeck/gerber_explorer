@@ -1312,7 +1312,7 @@ void gerber_explorer::ui()
 
     ImGui::Begin("Job Pool");
     {
-        ImGui::Text("Active: %5d, Queued: %5d", info.active, info.queued);
+        ImGui::Text("Active: %5llu, Queued: %5llu", info.active, info.queued);
     }
     ImGui::End();
 

@@ -17,6 +17,13 @@ if(MSVC)
     endif()
 endif()
 
+if (MSVC_IDE OR DEFINED ENV{VisualStudioVersion} OR DEFINED ENV{VSAPPIDNAME})
+    message(STATUS "Environment: Visual Studio detected.")
+    add_definitions(-DLOG_USE_OUTPUT_DEBUG_STRING)
+else()
+    message(STATUS "Environment: Standard Terminal or CLion detected.")
+endif()
+
 # LTO
 
 include(CheckIPOSupported)
