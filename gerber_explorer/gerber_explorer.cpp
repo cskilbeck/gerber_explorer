@@ -923,7 +923,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
 
         LOG_DEBUG("Finished loading {}, \"{}\"", layer->index, layer_to_load.filename);
 
-        pool.add_job(job_type_tesselate, [layer, g, this]([[maybe_unused]] std::stop_token st) {
+        pool.add_job(job_type_tesselate, [layer, this]([[maybe_unused]] std::stop_token st) {
             using namespace gerber_lib;
             layer->drawer->tesselation_quality = settings.tesselation_quality;
             layer->drawer->set_gerber(layer->file);    // <----- TESSELATION HAPPENS HERE !!!!!
@@ -994,7 +994,7 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
 
     std::string description{ "?" };
     if(net->aperture != 0) {
-        auto apertures = selected_layer->drawer->gerber_file->image.apertures;
+        auto apertures = selected_layer->file->image.apertures;
         auto it = apertures.find(net->aperture);
         if(it != apertures.end()) {
             gerber_aperture *aperture = it->second;
@@ -1221,6 +1221,7 @@ void gerber_explorer::ui()
                         if(l->is_outline_layer) {
                             tesselate_layer(l, tesselation_options_force_outline);
                         } else {
+                            l->got_mask = false;
                             l->drawer->got_mask = false;
                             l->drawer->mask.cleanup();
                             l->drawer->mask.release();
@@ -1327,7 +1328,7 @@ void gerber_explorer::ui()
             ImGui::Text("%s", active_entity_description.c_str());
         } else if(selected_layer != nullptr) {
             char const *layer_type_name = gerber_lib::layer_type_name_friendly(selected_layer->layer_type());
-            ImGui::Text("%s - %s (%llu entities) (outline: {}) (got_mask: {})", selected_layer->name.c_str(), layer_type_name, selected_layer->drawer->entities.size(), selected_layer->is_outline_layer, selected_layer->drawer->got_mask);
+            ImGui::Text("%s - %s (%llu entities) (outline: {}) (got_mask: {})", selected_layer->name.c_str(), layer_type_name, selected_layer->drawer->entities.size(), selected_layer->is_outline_layer, selected_layer->got_mask);
         } else {
             ImGui::Text("Select a layer...");
         }
@@ -1530,6 +1531,7 @@ void gerber_explorer::on_render()
         std::lock_guard l(layer_drawer_mutex);
         for(auto &layer : layers) {
             layer->drawer = &layer->drawers[layer->current_drawer];
+            layer->got_mask = layer->drawer->got_mask;
         }
     }
 
@@ -1544,7 +1546,7 @@ void gerber_explorer::on_render()
             ordered_layers.push_back(layer);
         }
         // first valid outline layer is it
-        if(outline_layer == nullptr && layer->is_outline_layer && layer->drawer->got_mask) {
+        if(outline_layer == nullptr && layer->is_outline_layer && layer->got_mask) {
             outline_layer = layer;
             outline_layer->drawer->mask.create_gpu_resources();
         }
@@ -1561,8 +1563,8 @@ void gerber_explorer::on_render()
                 pads_ordered = layer::type_t::pads_bottom;
                 std::swap(a, b);
             }
-            int ta = a->drawer->gerber_file->layer_type;
-            int tb = b->drawer->gerber_file->layer_type;
+            int ta = a->file->layer_type;
+            int tb = b->file->layer_type;
             if(is_layer_type(ta, layer::type_t::drill)) {
                 ta = drill_ordered;
             } else if(is_layer_type(ta, layer::type_t::pads)) {
@@ -1632,7 +1634,8 @@ void gerber_explorer::on_render()
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         }
-        layer.drawer->fill(world_matrix, fill_flag, clear_flag, entity_flags_t::selected);
+        uint8_t draw_flags = entity_flags_t::fill | entity_flags_t::clear | entity_flags_t::selected;
+        layer.drawer->fill(world_matrix, fill_flag, clear_flag, entity_flags_t::selected, draw_flags);
 
         gl::color selected_color = gl::set_alpha(gl::colors::white, 0.95f);
         blend_layer(layer.fill_color, selected_color, false, settings.multisamples);
@@ -1645,7 +1648,8 @@ void gerber_explorer::on_render()
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
         GL_CHECK(glClearColor(0, 0, 0, 0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        selected_layer->drawer->fill(world_matrix, entity_flags_t::hovered, entity_flags_t::selected, entity_flags_t::active);
+        uint8_t draw_flags = entity_flags_t::selected | entity_flags_t::active;
+        selected_layer->drawer->fill(world_matrix, entity_flags_t::hovered, entity_flags_t::selected, entity_flags_t::active, draw_flags);
         gl::color hovered(gl::set_alpha(gl::colors::white, 0.95f));
         gl::color active = gl::color_from_floats(1, 0.75f, 1, 0.95f);
         blend_layer(hovered, active, false, settings.multisamples);

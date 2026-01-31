@@ -57,6 +57,13 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
+    std::string const &gl_drawer::name() const
+    {
+        return this->layer->name;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
     void gl_drawer::clear()
     {
         // reset everything to prepare for new tesselation
@@ -97,10 +104,12 @@ namespace gerber
 
         delete_texture(outline_lines_texture);
         delete_texture(outline_vertices_texture);
+        LOG_INFO("DELETE_TEXTURE {}", name());
         delete_texture(flags_texture);
 
         delete_buffer(outline_lines_buffer);
         delete_buffer(outline_vertices_buffer);
+        LOG_INFO("DELETE_BUFFER {}", name());
         delete_buffer(flags_buffer);
     }
 
@@ -219,7 +228,6 @@ namespace gerber
     void gl_drawer::set_gerber(gerber_lib::gerber_file *g)
     {
         ready_to_draw = false;
-        gerber_file = g;
         current_entity_id = -1;
         clear();
         g->draw(*this);
@@ -326,7 +334,7 @@ namespace gerber
     void gl_drawer::finalize()
     {
         finish_entity();
-        LOG_INFO("{}%,{}% for {}", boundary_arena.percent_committed(), interior_arena.percent_committed(), gerber_file->filename);
+        // LOG_INFO("{}%,{}% {}", boundary_arena.percent_committed(), interior_arena.percent_committed(), name());
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -421,7 +429,7 @@ namespace gerber
         }
 
         if(temp_points.size() < 3) {
-            LOG_INFO("CULLED SECTION OF ENTITY {}", gnet->entity_id);
+            LOG_INFO("CULLED SECTION OF ENTITY {} in {}", gnet->entity_id, name());
             return;
         }
 
@@ -448,7 +456,7 @@ namespace gerber
         }
 
         if(fill_vertices.empty() || fill_indices.empty() || outline_vertices.empty()) {
-            LOG_INFO("Layer {} is empty", this->gerber_file->filename);
+            LOG_INFO("EMPTY LAYER {}", name());
             ready_to_draw = true;
             return;
         }
@@ -460,10 +468,12 @@ namespace gerber
 
         delete_texture(outline_lines_texture);
         delete_texture(outline_vertices_texture);
+        LOG_INFO(">DELETE_TEXTURE {}", name());
         delete_texture(flags_texture);
 
         delete_buffer(outline_lines_buffer);
         delete_buffer(outline_vertices_buffer);
+        LOG_INFO(">DELETE_BUFFER {}", name());
         delete_buffer(flags_buffer);
 
         GL_CHECK(glGenBuffers(1, &outline_lines_buffer));
@@ -487,8 +497,10 @@ namespace gerber
         GL_CHECK(glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, outline_vertices_buffer));
 
         GL_CHECK(glGenTextures(1, &flags_texture));
+        LOG_INFO(">GEN_TEXTURE {} {}", flags_texture, name());
         GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, flags_texture));
         GL_CHECK(glTexBuffer(GL_TEXTURE_BUFFER, GL_R8UI, flags_buffer));
+        LOG_INFO(">TEX_BUFFER {} {}", flags_buffer, name());
 
         vertex_array.init(static_cast<GLsizei>(fill_vertices.size()));
         vertex_array.activate();
@@ -503,7 +515,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags)
+    void gl_drawer::fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, uint8_t draw_flags)
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -524,6 +536,7 @@ namespace gerber
         set_uniform_1i(gerber_explorer::layer_program.u_green_flags, g_flags);
         set_uniform_1i(gerber_explorer::layer_program.u_blue_flags, b_flags);
         set_uniform_1i(gerber_explorer::layer_program.u_flags_sampler, 0);    // flags_sampler    -> GL_TEXTURE0
+        set_uniform_1i(gerber_explorer::layer_program.u_draw_flags, draw_flags);
 
         set_uniform_4f(gerber_explorer::layer_program.u_value, 1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -600,8 +613,6 @@ namespace gerber
 
         const int64_t CLIPPER_SCALE = 1000000;
 
-        LOG_INFO("Get outline mask for layer {}", gerber_file->filename);
-
         Paths64 paths;
         for(const auto &entity : entities) {
             Path64 path;
@@ -654,8 +665,6 @@ namespace gerber
             }
         }
         tessDeleteTess(tess);
-
-        LOG_INFO("Got outline mask for layer {}", gerber_file->filename);
 
         // we need to notify that mask.vertex_array and mask.index_array need to be rebuilt
         got_mask = true;

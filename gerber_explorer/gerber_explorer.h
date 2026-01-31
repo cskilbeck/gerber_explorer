@@ -29,75 +29,82 @@ enum class layer_order_t
     other
 };
 
+//////////////////////////////////////////////////////////////////////
+
+struct gerber_layer
+{
+    using rect = gerber_lib::rect;
+    using vec2d = gerber_lib::vec2d;
+    using matrix = gerber_lib::matrix;
+
+    void init()
+    {
+        drawers[0].init(this);
+        drawers[1].init(this);
+    }
+
+    // have two gl_drawer instances and a pointer to one of them
+    // tesselate into the idle one and swap it over when that's complete (in the main thread)
+
+    gerber::gl_drawer *drawer{};
+    gerber::gl_drawer drawers[2]{};
+
+    gerber_lib::gerber_file *file;
+
+    int index;
+    int current_drawer{ 0 };
+    bool visible{ true };
+    bool invert{ false };
+    bool expanded{ false };
+    bool selected{ false };
+    bool is_outline_layer{ false };
+    int alpha{ 255 };
+
+    bool got_mask{false};
+
+    std::string name;
+    layer_order_t layer_order{ layer_order_t::all };
+    gl::color fill_color;
+    gl::color clear_color;
+
+    gerber_lib::layer::type_t layer_type() const
+    {
+        if(file != nullptr) {
+            return file->layer_type;
+        }
+        return gerber_lib::layer::type_t::unknown;
+    }
+
+    std::string filename() const
+    {
+        if(is_valid()) {
+            return file->filename;
+        }
+        return {};
+    }
+
+    bool is_valid() const
+    {
+        return drawer != nullptr && file != nullptr;
+    }
+
+    gerber_lib::rect extent() const
+    {
+        if(!is_valid()) {
+            return rect{};
+        }
+        return file->image.info.extent;
+    }
+
+    bool operator<(gerber_layer const &other)
+    {
+        return index < other.index;
+    }
+};
+
+
 struct gerber_explorer : gl_window
 {
-
-    //////////////////////////////////////////////////////////////////////
-
-    struct gerber_layer
-    {
-        void init()
-        {
-            drawers[0].init();
-            drawers[1].init();
-        }
-
-        // have two gl_drawer instances and a pointer to one of them
-        // tesselate into the idle one and swap it over when that's complete (in the main thread)
-
-        gerber::gl_drawer *drawer{};
-        gerber::gl_drawer drawers[2]{};
-
-        gerber_lib::gerber_file *file;
-
-        int index;
-        int current_drawer{ 0 };
-        bool visible{ true };
-        bool invert{ false };
-        bool expanded{ false };
-        bool selected{ false };
-        bool is_outline_layer{ false };
-        int alpha{ 255 };
-        std::string name;
-        layer_order_t layer_order{ layer_order_t::all };
-        gl::color fill_color;
-        gl::color clear_color;
-
-        gerber_lib::layer::type_t layer_type() const
-        {
-            if(drawer->gerber_file != nullptr) {
-                return drawer->gerber_file->layer_type;
-            }
-            return gerber_lib::layer::type_t::unknown;
-        }
-
-        std::string filename() const
-        {
-            if(is_valid()) {
-                return drawer->gerber_file->filename;
-            }
-            return {};
-        }
-
-        bool is_valid() const
-        {
-            return drawer != nullptr && drawer->gerber_file != nullptr;
-        }
-
-        gerber_lib::rect extent() const
-        {
-            if(!is_valid()) {
-                return rect{};
-            }
-            return drawer->gerber_file->image.info.extent;
-        }
-
-        bool operator<(gerber_layer const &other)
-        {
-            return index < other.index;
-        }
-    };
-
     using rect = gerber_lib::rect;
     using vec2d = gerber_lib::vec2d;
     using matrix = gerber_lib::matrix;

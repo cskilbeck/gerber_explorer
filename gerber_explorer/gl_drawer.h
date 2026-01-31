@@ -17,6 +17,8 @@
 
 #include "gerber_log.h"
 
+struct gerber_layer;
+
 namespace gerber
 {
     //////////////////////////////////////////////////////////////////////
@@ -192,8 +194,9 @@ namespace gerber
 
         gl_drawer() = default;
 
-        void init()
+        void init(gerber_layer const *for_layer)
         {
+            layer = for_layer;
             boundary_arena.init();
             interior_arena.init();
             entities.init();
@@ -223,7 +226,7 @@ namespace gerber
         void finalize();
 
         // for actually drawing it
-        void fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags);
+        void fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, uint8_t draw_flags);
 
         void outline(float outline_thickness, gl::matrix const &matrix, gerber_lib::vec2d const &viewport_size);
 
@@ -244,10 +247,12 @@ namespace gerber
 
         void update_flags_buffer();
 
+        std::string const &name() const;
+
         // only used if it's an outline layer
         solid_shape mask{};
 
-        gerber_lib::gerber_file *gerber_file{};
+        gerber_layer const * layer{};
         tesselation_quality_t tesselation_quality;
         int current_flag{ entity_flags_t::none };
         int base_vert{};

@@ -86,9 +86,7 @@ void job_pool::worker_loop(std::stop_token pool_stoken)
         }
 
         if(current_job->work) {
-            LOG_INFO("job begins");
             current_job->work(current_job->stop_src.get_token());
-            LOG_INFO("job complete");
         }
 
         {

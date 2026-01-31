@@ -296,6 +296,7 @@ namespace gl
 
         u_transform = get_uniform("transform");
         u_flags_sampler = get_uniform("flags_sampler");
+        u_draw_flags = get_uniform("draw_flags");
 
         u_red_flags = get_uniform("red_flags");
         u_green_flags = get_uniform("green_flags");

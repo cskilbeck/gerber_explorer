@@ -274,6 +274,7 @@ namespace gl
 
         GLuint u_transform;
         GLuint u_flags_sampler;
+        GLuint u_draw_flags;
 
         GLuint u_red_flags;
         GLuint u_green_flags;
