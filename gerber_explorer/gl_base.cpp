@@ -474,8 +474,8 @@ namespace gl
     int vertex_array_solid::activate() const
     {
         vertex_array::activate();
-        glEnableVertexAttribArray(solid_program::position_location);
-        glVertexAttribPointer(solid_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_solid), (void *)(offsetof(vertex_solid, x)));
+        GL_CHECK(glEnableVertexAttribArray(solid_program::position_location));
+        GL_CHECK(glVertexAttribPointer(solid_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_solid), (void *)(offsetof(vertex_solid, x))));
         return 0;
     }
 
@@ -550,11 +550,12 @@ namespace gl
     {
         if(vbo_id != 0) {
             GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
-
-            GLuint buffers[] = { vbo_id };
-            GL_CHECK(glDeleteBuffers(static_cast<GLsizei>(gerber_util::array_length(buffers)), buffers));
-
+            GL_CHECK(glDeleteBuffers(1, &vbo_id));
             vbo_id = 0;
+        }
+        if(vao_id != 0) {
+            GL_CHECK(glDeleteVertexArrays(1, &vao_id));
+            vao_id = 0;
         }
     }
 

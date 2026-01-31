@@ -65,6 +65,11 @@ endif ()
 
 add_executable(${PROJECT} ${PROJECT_SOURCES})
 
+if(USE_OUTPUT_DEBUG_STRING)
+    message("Using OutputDebugString for logging")
+    target_compile_definitions(${PROJECT} PRIVATE LOG_USE_OUTPUT_DEBUG_STRING=1)
+endif()
+
 target_include_directories(${PROJECT} PRIVATE ${CMRC_INCLUDE_DIR})
 
 target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets my_shaders project_options)

@@ -574,15 +574,16 @@ void gerber_explorer::on_closed()
 
 void gerber_explorer::load_settings(std::filesystem::path const &path)
 {
-    settings.load(path);
-    LOG_DEBUG("Settings loaded...");
-    window_state.width = settings.window_width;
-    window_state.height = settings.window_height;
-    window_state.x = settings.window_xpos;
-    window_state.y = settings.window_ypos;
-    window_state.isMaximized = settings.window_maximized;
-    for(auto const &layer : settings.files) {
-        add_gerber(layer);
+    if(settings.load(path)) {
+        LOG_DEBUG("Settings loaded...");
+        window_state.width = settings.window_width;
+        window_state.height = settings.window_height;
+        window_state.x = settings.window_xpos;
+        window_state.y = settings.window_ypos;
+        window_state.isMaximized = settings.window_maximized;
+        for(auto const &layer : settings.files) {
+            add_gerber(layer);
+        }
     }
 }
 
@@ -624,11 +625,11 @@ void gerber_explorer::close_all_layers()
 
 bool gerber_explorer::layer_is_visible(gerber_layer const *layer) const
 {
-    if(!layer->visible) {
-        return false;
-    }
     if(selected_layer != nullptr && isolate_selected_layer) {
         return layer == selected_layer;
+    }
+    if(!layer->visible) {
+        return false;
     }
     if(settings.board_view == board_view_bottom && !is_bottom_layer(layer->layer_order)) {
         return false;
@@ -866,21 +867,23 @@ void gerber_explorer::select_layer(gerber_layer *layer)
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::tesselate_layer(gerber_layer *layer)
+void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t options)
 {
-    pool.add_job(job_type_tesselate, [this, layer](std::stop_token st) {
-        gl_drawer *drawer = &layer->drawers[1 - layer->current_drawer];
+    pool.add_job(job_type_tesselate, [this, layer, options](std::stop_token st) {
+        bool force_outline = (options & tesselation_options_force_outline) != 0;
+        int d = 1 - layer->current_drawer;
+        gl_drawer *other_drawer = &layer->drawers[d];
         using namespace gerber_lib;
-        drawer->tesselation_quality = settings.tesselation_quality;
-        drawer->set_gerber(layer->drawer->gerber_file);
+        other_drawer->tesselation_quality = settings.tesselation_quality;
+        other_drawer->set_gerber(layer->file);
         auto layer_type = layer->layer_type();
-        layer->is_outline_layer = is_layer_type(layer_type, layer::type_t::board) || is_layer_type(layer_type, layer::type_t::outline);
+        layer->is_outline_layer = force_outline || is_layer_type(layer_type, layer::type_t::board) || is_layer_type(layer_type, layer::type_t::outline);
         if(layer->is_outline_layer) {
-            layer->drawer->create_mask();
+            other_drawer->create_mask();
         }
         {
             std::lock_guard l(layer_drawer_mutex);
-            layer->current_drawer = 1 - layer->current_drawer;
+            layer->current_drawer = d;
         }
     });
 }
@@ -894,6 +897,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
     if(err == gerber_lib::ok) {
         gerber_layer *layer = new gerber_layer();
         layer->init();
+        layer->file = g;
         layer->index = layer_to_load.index;
         layer->name = std::format("{}", std::filesystem::path(g->filename).filename().string());
         layer->visible = layer_to_load.visible;
@@ -922,7 +926,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
         pool.add_job(job_type_tesselate, [layer, g, this]([[maybe_unused]] std::stop_token st) {
             using namespace gerber_lib;
             layer->drawer->tesselation_quality = settings.tesselation_quality;
-            layer->drawer->set_gerber(g);    // <----- TESSELATION HAPPENS HERE !!!!!
+            layer->drawer->set_gerber(layer->file);    // <----- TESSELATION HAPPENS HERE !!!!!
             auto layer_type = layer->layer_type();
             layer->is_outline_layer = is_layer_type(layer_type, layer::type_t::board) || is_layer_type(layer_type, layer::type_t::outline);
             LOG_INFO("Tesselated ({}:{}) {}", layer_type_name(layer_type), layer->is_outline_layer, layer->filename());
@@ -1102,6 +1106,17 @@ void gerber_explorer::ui()
             }
             ImGui::EndMenu();
         }
+
+        // 1. Define your text
+#if defined(_DEBUG)
+        static int frames = 0;
+        frames += 1;
+        std::string text = std::format("Frame {:07d} {:5.2f}ms {:5.2f}ms", frames, last_frame_elapsed_time * 1000.0, last_frame_cpu_time * 1000.0);
+        float text_width = ImGui::CalcTextSize(text.c_str()).x;
+        float posX = ImGui::GetWindowWidth() - text_width - ImGui::GetStyle().ItemSpacing.x;
+        ImGui::SetCursorPosX(posX);
+        ImGui::Text("%s", text.c_str());
+#endif
         ImGui::EndMainMenuBar();
     }
     ImGui::PopStyleVar(1);
@@ -1158,7 +1173,7 @@ void gerber_explorer::ui()
     ImGui::Begin("Files");
     {
         bool any_item_hovered = false;
-        int constexpr num_controls = 4;
+        int constexpr num_controls = 3;
         float controls_width = ImGui::GetFrameHeight() * num_controls + ImGui::GetStyle().ItemSpacing.x * num_controls;
 
         ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(ImGui::GetStyle().CellPadding.x, 0.0f));
@@ -1189,18 +1204,30 @@ void gerber_explorer::ui()
 
                 if(ImGui::Selectable(l->name.c_str(), is_selected, flags, ImVec2(0, row_height))) {
                     select_layer(l);
-                }
-                if(ImGui::BeginPopupContextItem("##popup")) {
-                    if(ImGui::Selectable(isolate_selected_layer ? "UnIsolate" : "Isolate")) {
-                        isolate_selected_layer = !isolate_selected_layer;
-                    }
-                    if(isolate_selected_layer) {
-                        select_layer(l);
-                    }
-                    ImGui::EndPopup();
+                    // what to do if they select a hidden layer and isolation is on?
+                    // if layer is visible, just make it active and keep isolation
+                    // if layer is invisible...?
                 }
 
                 ImGui::PopStyleColor();
+
+                if(ImGui::BeginPopupContextItem("##popup")) {
+                    select_layer(l);
+                    ImGui::MenuItem(isolate_selected_layer ? "UnIsolate" : "Isolate", nullptr, &isolate_selected_layer);
+                    ImGui::MenuItem("Invert", nullptr, &l->invert);
+                    bool was_outline = l->is_outline_layer;
+                    ImGui::MenuItem("Outline", nullptr, &l->is_outline_layer);
+                    if(was_outline != l->is_outline_layer) {
+                        if(l->is_outline_layer) {
+                            tesselate_layer(l, tesselation_options_force_outline);
+                        } else {
+                            l->drawer->got_mask = false;
+                            l->drawer->mask.cleanup();
+                            l->drawer->mask.release();
+                        }
+                    }
+                    ImGui::EndPopup();
+                }
 
                 if(ImGui::IsItemHovered()) {
                     any_item_hovered = true;
@@ -1240,11 +1267,11 @@ void gerber_explorer::ui()
                 if(ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
                     ImGui::SetItemTooltip("Toggle visibility");
                 }
-                ImGui::SameLine();
-                IconCheckbox("##inv", &l->invert, MATSYM_invert_colors, MATSYM_invert_colors_off);
-                if(ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
-                    ImGui::SetItemTooltip("Invert layer");
-                }
+                // ImGui::SameLine();
+                // IconCheckbox("##inv", &l->invert, MATSYM_invert_colors, MATSYM_invert_colors_off);
+                // if(ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+                //     ImGui::SetItemTooltip("Invert layer");
+                // }
                 // ImGui::SameLine();
                 // IconCheckboxTristate("##mode", &l->draw_mode, MATSYM_radio_button_checked, MATSYM_circle, MATSYM_radio_button_off);
                 // if(ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
@@ -1299,7 +1326,8 @@ void gerber_explorer::ui()
         if(active_entity != nullptr) {
             ImGui::Text("%s", active_entity_description.c_str());
         } else if(selected_layer != nullptr) {
-            ImGui::Text("%s - %llu entities", selected_layer->name.c_str(), selected_layer->drawer->entities.size());
+            char const *layer_type_name = gerber_lib::layer_type_name_friendly(selected_layer->layer_type());
+            ImGui::Text("%s - %s (%llu entities) (outline: {}) (got_mask: {})", selected_layer->name.c_str(), layer_type_name, selected_layer->drawer->entities.size(), selected_layer->is_outline_layer, selected_layer->drawer->got_mask);
         } else {
             ImGui::Text("Select a layer...");
         }
@@ -1450,7 +1478,11 @@ void gerber_explorer::on_render()
             }
         }
         for(auto l : layers) {
-            tesselate_layer(l);
+            auto options = tesselation_options_none;
+            if(l->is_outline_layer) {
+                options = tesselation_options_force_outline;
+            }
+            tesselate_layer(l, options);
         }
     }
 
@@ -1486,11 +1518,6 @@ void gerber_explorer::on_render()
     //////////////////////////////////////////////////////////////////////
     // Draw stuff
 
-    GL_CHECK(glClearColor(settings.background_color.r, settings.background_color.g, settings.background_color.b, 1.0f));
-    GL_CHECK(glDisable(GL_DEPTH_TEST));
-    GL_CHECK(glDisable(GL_CULL_FACE));
-    GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-
     // resize the offscreen render target if the window size changed
     if(layer_render_target.width != viewport_width || layer_render_target.height != viewport_height ||
        layer_render_target.num_samples != settings.multisamples) {
@@ -1509,13 +1536,14 @@ void gerber_explorer::on_render()
     // draw the layers
 
     // 1. gather all the visible layers for current view mode (and update their drawer pointers)
-    gerber_layer *outline_layer{nullptr};
+    gerber_layer *outline_layer{ nullptr };
     std::vector<gerber_layer *> ordered_layers;
     ordered_layers.reserve(layers.size());
     for(auto const layer : layers) {
         if(layer_is_visible(layer) && !layer->drawer->entities.empty()) {
             ordered_layers.push_back(layer);
         }
+        // first valid outline layer is it
         if(outline_layer == nullptr && layer->is_outline_layer && layer->drawer->got_mask) {
             outline_layer = layer;
             outline_layer->drawer->mask.create_gpu_resources();
@@ -1549,6 +1577,14 @@ void gerber_explorer::on_render()
         });
     }
 
+    GL_CHECK(glClearColor(settings.background_color.r, settings.background_color.g, settings.background_color.b, 1.0f));
+
+    double t = get_time();
+
+    GL_CHECK(glDisable(GL_DEPTH_TEST));
+    GL_CHECK(glDisable(GL_CULL_FACE));
+    GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
+
     if(ordered_layers.empty()) {
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
         GL_CHECK(glClearColor(0, 0, 0, 0));
@@ -1570,15 +1606,18 @@ void gerber_explorer::on_render()
         layer_render_target.bind_framebuffer();
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
 
-        // GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        // layer.drawer->fill(world_matrix, entity_flags_t::fill, entity_flags_t::clear, entity_flags_t::selected);
-        //
+        // if layer is inverted
+        uint8_t fill_flag = entity_flags_t::fill;
+        uint8_t clear_flag = entity_flags_t::clear;
+
         if(layer.invert) {
+            // and we have no board outline mask layer
             if(outline_layer == nullptr) {
+                // then just clear the whole render target to red
                 GL_CHECK(glClearColor(1, 0, 0, 0));
                 GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             } else {
-                // draw the board mask in red
+                // else clear the render target then draw the board mask in red
                 GL_CHECK(glClearColor(0, 0, 0, 0));
                 GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
                 solid_program.activate();
@@ -1586,14 +1625,16 @@ void gerber_explorer::on_render()
                 set_uniform_4f(solid_program.u_color, 1, 0, 0, 0);
                 outline_layer->drawer->mask.draw();
             }
-            layer.drawer->fill(world_matrix, entity_flags_t::clear, entity_flags_t::fill, entity_flags_t::selected);
+            // either way, swap clear/fill flags
+            std::swap(fill_flag, clear_flag);
         } else {
+            // else clear render target to black
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-            layer.drawer->fill(world_matrix, entity_flags_t::fill, entity_flags_t::clear, entity_flags_t::selected);
         }
+        layer.drawer->fill(world_matrix, fill_flag, clear_flag, entity_flags_t::selected);
 
-        gl::color selected_color = gl::set_alpha(gl::colors::white, 0.5f);
+        gl::color selected_color = gl::set_alpha(gl::colors::white, 0.95f);
         blend_layer(layer.fill_color, selected_color, false, settings.multisamples);
     }
 
@@ -1604,10 +1645,10 @@ void gerber_explorer::on_render()
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
         GL_CHECK(glClearColor(0, 0, 0, 0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        selected_layer->drawer->fill(world_matrix, entity_flags_t::hovered, 0, entity_flags_t::active);
-        gl::color selected(gl::set_alpha(gl::colors::white, 0.5f));
-        gl::color active = gl::color_from_floats(1, 0.75f, 1, 0.5f);
-        blend_layer(active, selected, false, settings.multisamples);
+        selected_layer->drawer->fill(world_matrix, entity_flags_t::hovered, entity_flags_t::selected, entity_flags_t::active);
+        gl::color hovered(gl::set_alpha(gl::colors::white, 0.95f));
+        gl::color active = gl::color_from_floats(1, 0.75f, 1, 0.95f);
+        blend_layer(hovered, active, false, settings.multisamples);
 
         // Draw outline for hovered/selected entities in the selected layer
         if(settings.outline_width > 0.0f) {
@@ -1680,6 +1721,8 @@ void gerber_explorer::on_render()
     GL_CHECK(glUniformMatrix4fv(color_program.u_transform, 1, false, ortho_screen_matrix.m));
 
     overlay.draw();
+
+    last_frame_cpu_time = get_time() - t;
 
     if(zoom_anim) {
         glfwPostEmptyEvent();

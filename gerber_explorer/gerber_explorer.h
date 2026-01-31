@@ -48,6 +48,8 @@ struct gerber_explorer : gl_window
         gerber::gl_drawer *drawer{};
         gerber::gl_drawer drawers[2]{};
 
+        gerber_lib::gerber_file *file;
+
         int index;
         int current_drawer{ 0 };
         bool visible{ true };
@@ -200,7 +202,13 @@ struct gerber_explorer : gl_window
 
     bool retesselate{ false };
 
-    void tesselate_layer(gerber_layer *layer);
+    enum tesselation_options_t : int
+    {
+        tesselation_options_none = 0,
+        tesselation_options_force_outline = 1,
+    };
+
+    void tesselate_layer(gerber_layer *layer, tesselation_options_t options = tesselation_options_none);
 
     std::list<gerber_layer *> loaded_layers;
     std::mutex loaded_mutex;

@@ -1,4 +1,5 @@
 #include "job_pool.h"
+#include "gerber_log.h"
 
 //////////////////////////////////////////////////////////////////////
 
@@ -64,6 +65,8 @@ void job_pool::abort_jobs(uint32_t mask)
 
 void job_pool::worker_loop(std::stop_token pool_stoken)
 {
+    LOG_CONTEXT("worker", debug);
+
     while(!pool_stoken.stop_requested()) {
         std::shared_ptr<job_item> current_job;    // Use shared_ptr
         {
@@ -83,7 +86,9 @@ void job_pool::worker_loop(std::stop_token pool_stoken)
         }
 
         if(current_job->work) {
+            LOG_INFO("job begins");
             current_job->work(current_job->stop_src.get_token());
+            LOG_INFO("job complete");
         }
 
         {

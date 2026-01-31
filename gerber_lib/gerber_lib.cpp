@@ -284,6 +284,80 @@ namespace
 
 namespace gerber_lib
 {
+    char const *layer_type_name_friendly(layer::type_t t)
+    {
+        if(is_layer_type(t, layer::type_t::unknown)) {
+            return "Unknown";
+        }
+        if(is_layer_type(t, layer::type_t::other)) {
+            return "Other";
+        }
+        if(is_layer_type(t, layer::type_t::vcut)) {
+            return "V-Cut";
+        }
+        if(is_layer_type(t, layer::type_t::board)) {
+            return "Board";
+        }
+        if(is_layer_type(t, layer::type_t::outline)) {
+            return "Outline";
+        }
+        if(is_layer_type(t, layer::type_t::mechanical)) {
+            return "Mechanical";
+        }
+        if(is_layer_type(t, layer::type_t::info)) {
+            return "Info";
+        }
+        if(is_layer_type(t, layer::type_t::keepout)) {
+            return "Keep Out";
+        }
+        if(is_layer_type(t, layer::type_t::pads)) {
+            return "Pads";
+        }
+        if(is_layer_type(t, layer::type_t::drill)) {
+            return "Drill";
+        }
+        if(is_layer_type(t, layer::type_t::paste_top)) {
+            return "Top paste";
+        }
+        if(is_layer_type(t, layer::type_t::pads_top)) {
+            return "Top pads";
+        }
+        if(is_layer_type(t, layer::type_t::overlay_top)) {
+            return "Top overlay";
+        }
+        if(is_layer_type(t, layer::type_t::soldermask_top)) {
+            return "Top soldermask";
+        }
+        if(is_layer_type(t, layer::type_t::drill_top)) {
+            return "[Top drill]";
+        }
+        if(is_layer_type(t, layer::type_t::copper_top)) {
+            return "Top copper";
+        }
+        if(is_layer_type(t, layer::type_t::copper_inner)) {
+            return "Inner copper";
+        }
+        if(is_layer_type(t, layer::type_t::copper_bottom)) {
+            return "Bottom copper";
+        }
+        if(is_layer_type(t, layer::type_t::drill_bottom)) {
+            return "[Bottom drill]";
+        }
+        if(is_layer_type(t, layer::type_t::soldermask_bottom)) {
+            return "Bottom soldermask";
+        }
+        if(is_layer_type(t, layer::type_t::overlay_bottom)) {
+            return "Bottom overlay";
+        }
+        if(is_layer_type(t, layer::type_t::pads_bottom)) {
+            return "Bottom pads";
+        }
+        if(is_layer_type(t, layer::type_t::paste_bottom)) {
+            return "Bottom paste";
+        }
+        return "Unclassified";
+    }
+
     //////////////////////////////////////////////////////////////////////
 
     char const *layer_type_name(layer::type_t t)

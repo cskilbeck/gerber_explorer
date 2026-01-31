@@ -31,7 +31,7 @@ void settings_t::save(std::filesystem::path const &path)
 
 //////////////////////////////////////////////////////////////////////
 
-void settings_t::load(std::filesystem::path const &path)
+bool settings_t::load(std::filesystem::path const &path)
 {
     std::ifstream load(path);
     if(load.good()) {
@@ -39,6 +39,8 @@ void settings_t::load(std::filesystem::path const &path)
         load.close();
         if(json.is_object()) {
             from_json(json);
+            return true;
         }
     }
+    return false;
 }

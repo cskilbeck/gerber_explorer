@@ -6,6 +6,7 @@
 #include "gerber_2d.h"
 #include "gl_colors.h"
 
+#include "debug-trap.h"
 #include "cpptrace/cpptrace.hpp"
 
 //////////////////////////////////////////////////////////////////////
@@ -21,6 +22,7 @@ extern int gl_log;
         x;                                                                                                                             \
         GLenum __err = glGetError();                                                                                                   \
         if(__err != 0) {                                                                                                               \
+            psnip_trap();                                                                                                              \
             LOG_ERROR("ERROR {} from {} at line {} of {}\n{}", __err, #x, __LINE__, __FILE__, cpptrace::generate_trace().to_string()); \
             fflush(stdout);                                                                                                            \
         }                                                                                                                              \
@@ -93,7 +95,7 @@ namespace gl
 
     struct vertex_entity
     {
-        float x,y;
+        float x, y;
         uint32_t entity_id;
     };
 
@@ -410,7 +412,7 @@ namespace gl
         if(v != nullptr) {
             memcpy(v, elems.data(), total);
         }
-        glUnmapBuffer(X);
+        GL_CHECK(glUnmapBuffer(X));
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -517,4 +519,4 @@ namespace gl
         void draw();
     };
 
-}    // namespace gerber_3d
+}    // namespace gl

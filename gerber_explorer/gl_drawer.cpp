@@ -229,14 +229,10 @@ namespace gerber
         // create the lines index buffer and flags buffer
 
         int max_entity_id = 0;
-        for(auto const &e : entities) {
-            max_entity_id = std::max(max_entity_id, e.entity_id());
-        }
-
-        entity_flags.increase_size_to(max_entity_id + 1);
 
         for(auto &e : entities) {
             size_t id = e.entity_id();
+            max_entity_id = std::max(max_entity_id, e.entity_id());
             size_t s = e.outline_offset;
             size_t t = s + e.outline_size - 1;
             size_t u = t;
@@ -244,6 +240,7 @@ namespace gerber
                 outline_lines.emplace_back((uint32_t)s, (uint32_t)t, (uint32_t)id, 0);
             }
         }
+        entity_flags.increase_size_to(max_entity_id + 1);
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -659,6 +656,8 @@ namespace gerber
         tessDeleteTess(tess);
 
         LOG_INFO("Got outline mask for layer {}", gerber_file->filename);
+
+        // we need to notify that mask.vertex_array and mask.index_array need to be rebuilt
         got_mask = true;
     }
 

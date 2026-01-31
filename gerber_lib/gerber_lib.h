@@ -60,6 +60,7 @@ namespace gerber_lib
     }
 
     char const *layer_type_name(layer::type_t t);
+    char const *layer_type_name_friendly(layer::type_t t);
 
     //////////////////////////////////////////////////////////////////////
 

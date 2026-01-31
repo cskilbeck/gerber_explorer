@@ -216,7 +216,10 @@ endforeach()
 ######################################################################
 # main 3rd party library
 
-add_library(third_party INTERFACE)
+add_library(third_party INTERFACE
+        debug-trap/debug-trap.h)
+
+target_include_directories(third_party INTERFACE debug-trap)
 
 target_link_libraries(third_party INTERFACE
         gerber_gl

@@ -63,7 +63,7 @@ struct settings_t
 #undef X
 
     void save(std::filesystem::path const &path);
-    void load(std::filesystem::path const &path);
+    bool load(std::filesystem::path const &path);
 
     void to_json(nlohmann::json &j)
     {

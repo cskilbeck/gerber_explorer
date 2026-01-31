@@ -245,7 +245,7 @@ void gl_window::init()
         GL_CHECK(glDebugMessageCallbackARB(log_gl, nullptr));
         GL_CHECK(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB));
         GL_CHECK(glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, nullptr, GL_FALSE));
-        GL_CHECK(glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_MEDIUM_ARB, 0, nullptr, GL_FALSE));
+        // GL_CHECK(glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_MEDIUM_ARB, 0, nullptr, GL_FALSE));
         GL_CHECK(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB));
     }
 
@@ -361,7 +361,7 @@ bool gl_window::update()
     } else {
         glfwPollEvents();
     }
-    double frame_start_time = get_time();
+    frame_start_time = get_time();
     if(!glfwWindowShouldClose(window)) {
         on_frame();
         last_frame_elapsed_time = get_time() - frame_start_time;

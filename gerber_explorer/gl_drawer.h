@@ -15,6 +15,8 @@
 
 #include "tesselator.h"
 
+#include "gerber_log.h"
+
 namespace gerber
 {
     //////////////////////////////////////////////////////////////////////
@@ -23,14 +25,14 @@ namespace gerber
 
     namespace entity_flags_t
     {
-        int constexpr none = 0;
-        int constexpr clear = (1 << 0);       // remove material
-        int constexpr fill = (1 << 1);        // add material
-        int constexpr hovered = (1 << 2);     // mouse hovering over it
-        int constexpr selected = (1 << 3);    // it's selected
-        int constexpr active = (1 << 4);      // there can be only one active entity (click cycles through entities under the mouse position)
+        uint8_t constexpr none = 0;
+        uint8_t constexpr clear = (1 << 0);       // remove material
+        uint8_t constexpr fill = (1 << 1);        // add material
+        uint8_t constexpr hovered = (1 << 2);     // mouse hovering over it
+        uint8_t constexpr selected = (1 << 3);    // it's selected
+        uint8_t constexpr active = (1 << 4);      // there can be only one active entity (click cycles through entities under the mouse position)
 
-        int constexpr all_select = hovered | selected | active;
+        uint8_t constexpr all_select = hovered | selected | active;
     }    // namespace entity_flags_t
 
     //////////////////////////////////////////////////////////////////////
@@ -104,16 +106,20 @@ namespace gerber
 
     template <typename vertex_array_type> struct drawable_shape
     {
+        LOG_CONTEXT("drawable", debug);
+
         using vertex_type = typename vertex_array_type::vertex_type;
 
         typed_arena<vertex_type> vertices;
         typed_arena<GLuint> indices;
         vertex_array_type vertex_array;
         gl::index_buffer index_array;
+        bool ready_to_draw{ false };
 
         // init cpu buffers
         void init()
         {
+            LOG_INFO("init");
             vertices.init();
             indices.init();
         }
@@ -121,50 +127,57 @@ namespace gerber
         // release cpu buffers
         void release()
         {
+            LOG_INFO("release");
             vertices.release();
             indices.release();
+            ready_to_draw = false;
         }
 
         // setup GPU buffers
         void create_gpu_resources()
         {
-            if(!vertices.empty() && vertex_array.vao_id == 0) {
-                vertex_array.init(vertices.size());
-                vertex_array.alloc(vertices.size(), sizeof(vertex_type));
+            if(!ready_to_draw) {
+                LOG_INFO("create_gpu_resources");
+                cleanup();
+                if(!vertices.empty() && !indices.empty()) {
+                    GL_CHECK(vertex_array.init(vertices.size()));
+                    GL_CHECK(index_array.init(indices.size()));
+                    update();
+                }
             }
-            if(!indices.empty() && index_array.ibo_id == 0) {
-                index_array.init(indices.size());
-            }
-            update();
         }
 
         // release GPU buffers
         void cleanup()
         {
+            LOG_INFO("cleanup");
             vertex_array.cleanup();
             index_array.cleanup();
+            ready_to_draw = false;
         }
 
         // update cpu data -> GPU buffers
         void update()
         {
+            LOG_INFO("update, vertices.size() = {}", vertices.size());
             if(!vertices.empty()) {
-                vertex_array.activate();
-                gl::update_buffer<GL_ARRAY_BUFFER>(vertices);
+                GL_CHECK(vertex_array.activate());
+                GL_CHECK(gl::update_buffer<GL_ARRAY_BUFFER>(vertices));
             }
 
             if(!indices.empty()) {
-                index_array.activate();
-                gl::update_buffer<GL_ELEMENT_ARRAY_BUFFER>(indices);
+                GL_CHECK(index_array.activate());
+                GL_CHECK(gl::update_buffer<GL_ELEMENT_ARRAY_BUFFER>(indices));
             }
+            ready_to_draw = true;
         }
 
         // render it
         void draw()
         {
-            vertex_array.activate();
-            index_array.activate();
-            glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr);
+            GL_CHECK(vertex_array.activate());
+            GL_CHECK(index_array.activate());
+            GL_CHECK(glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr));
         }
     };
 
@@ -225,7 +238,7 @@ namespace gerber
         void release();
 
         void create_mask();
-        bool got_mask{false};
+        bool got_mask{ false };
 
         bool ready_to_draw{ false };
 
@@ -252,13 +265,13 @@ namespace gerber
         gl::vertex_array_entity vertex_array;
         gl::index_buffer index_array;
 
-        GLuint outline_lines_buffer;
-        GLuint outline_vertices_buffer;
-        GLuint flags_buffer;
+        GLuint outline_lines_buffer{};
+        GLuint outline_vertices_buffer{};
+        GLuint flags_buffer{};
 
-        GLuint outline_lines_texture;
-        GLuint outline_vertices_texture;
-        GLuint flags_texture;
+        GLuint outline_lines_texture{};
+        GLuint outline_vertices_texture{};
+        GLuint flags_texture{};
     };
 
-}    // namespace gerber_3d
+}    // namespace gerber

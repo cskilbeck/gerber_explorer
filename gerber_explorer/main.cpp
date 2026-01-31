@@ -28,21 +28,21 @@
 // X selected entity info
 // X isolate / unisolate layer
 // X tidy up the cmake
+// X reduce gpu usage - only draw frame when necessary
+// X fix blending / inverted layers / alpha
 //
 // \ detect & use board outline for inverted layers
 //
 // fix select/hover/active highlighting
+// allow user to specify board outline layer dynamically (e.g. ko from jlcpcb)
+// fix broken tesselation
 // fix job pool hang
 // don't save settings until all layers loaded
-// share arenas where possible in gl_drawer
 // make the gerber parser interruptible with stop_token
-// reduce gpu usage - only draw frame when necessary
+// share arenas where possible in gl_drawer
 // status bar
 // dynamic tesselation
-// fix blending / inverted layers / alpha
-//
 // measure tool
-//
 // fix the memory allocation - especially for tesselator and gerber::draw
 //
 // settings

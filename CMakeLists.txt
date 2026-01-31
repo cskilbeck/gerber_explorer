@@ -17,11 +17,12 @@ if(MSVC)
     endif()
 endif()
 
-if (MSVC_IDE OR DEFINED ENV{VisualStudioVersion} OR DEFINED ENV{VSAPPIDNAME})
-    message(STATUS "Environment: Visual Studio detected.")
-    add_definitions(-DLOG_USE_OUTPUT_DEBUG_STRING)
+if (${MSVC_IDE})
+    message(STATUS "Environment: Visual Studio detected: [${MSVC_IDE}],[$ENV{VisualStudioVersion}],[$ENV{VSAPPIDNAME}]")
+    set(USE_OUTPUT_DEBUG_STRING ON CACHE BOOL "" FORCE)
 else()
     message(STATUS "Environment: Standard Terminal or CLion detected.")
+    set(USE_OUTPUT_DEBUG_STRING OFF CACHE BOOL "" FORCE)
 endif()
 
 # LTO
