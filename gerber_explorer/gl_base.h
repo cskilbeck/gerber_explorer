@@ -22,7 +22,6 @@ extern int gl_log;
         x;                                                                                                                             \
         GLenum __err = glGetError();                                                                                                   \
         if(__err != 0) {                                                                                                               \
-            psnip_trap();                                                                                                              \
             LOG_ERROR("ERROR {} from {} at line {} of {}\n{}", __err, #x, __LINE__, __FILE__, cpptrace::generate_trace().to_string()); \
             fflush(stdout);                                                                                                            \
         }                                                                                                                              \
@@ -33,6 +32,13 @@ extern int gl_log;
         x;          \
     } while(0)
 #endif
+
+#define LOG_GL(...)                \
+    do {                           \
+        if(gl_log != 0) {          \
+            LOG_INFO(__VA_ARGS__); \
+        }                          \
+    } while(false)
 
 inline void set_uniform_1i(int id, int v)
 {

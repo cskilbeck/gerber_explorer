@@ -213,6 +213,7 @@ namespace gerber
 
         // setup anything that has to be done in the main thread
         void create_gl_resources();
+        void release_gl_resources();
 
         // callback to create draw calls from elements
         void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity,

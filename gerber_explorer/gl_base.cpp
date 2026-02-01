@@ -558,6 +558,7 @@ namespace gl
             GL_CHECK(glDeleteVertexArrays(1, &vao_id));
             vao_id = 0;
         }
+        num_verts = 0;
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -653,7 +654,7 @@ namespace gl
     void render_target::bind_framebuffer() const
     {
         bind_textures();
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
         for(GLuint slot = 0; slot < num_slots; ++slot) {
             GL_CHECK(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + slot, GL_TEXTURE_2D_MULTISAMPLE, texture_ids[slot], 0));
         }

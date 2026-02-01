@@ -874,10 +874,10 @@ void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t
         int d = 1 - layer->current_drawer;
         gl_drawer *other_drawer = &layer->drawers[d];
         using namespace gerber_lib;
-        other_drawer->tesselation_quality = settings.tesselation_quality;
-        other_drawer->set_gerber(layer->file);
         auto layer_type = layer->layer_type();
         layer->is_outline_layer = force_outline || is_layer_type(layer_type, layer::type_t::board) || is_layer_type(layer_type, layer::type_t::outline);
+        other_drawer->tesselation_quality = settings.tesselation_quality;
+        other_drawer->set_gerber(layer->file);
         if(layer->is_outline_layer) {
             other_drawer->create_mask();
         }
@@ -1328,7 +1328,7 @@ void gerber_explorer::ui()
             ImGui::Text("%s", active_entity_description.c_str());
         } else if(selected_layer != nullptr) {
             char const *layer_type_name = gerber_lib::layer_type_name_friendly(selected_layer->layer_type());
-            ImGui::Text("%s - %s (%llu entities) (outline: {}) (got_mask: {})", selected_layer->name.c_str(), layer_type_name, selected_layer->drawer->entities.size(), selected_layer->is_outline_layer, selected_layer->got_mask);
+            ImGui::Text("%s - %s (%llu entities) (outline: %d) (got_mask: %d)", selected_layer->name.c_str(), layer_type_name, selected_layer->drawer->entities.size(), selected_layer->is_outline_layer, selected_layer->got_mask);
         } else {
             ImGui::Text("Select a layer...");
         }
@@ -1530,8 +1530,12 @@ void gerber_explorer::on_render()
     {
         std::lock_guard l(layer_drawer_mutex);
         for(auto &layer : layers) {
+            gl_drawer *old_drawer = layer->drawer;
             layer->drawer = &layer->drawers[layer->current_drawer];
             layer->got_mask = layer->drawer->got_mask;
+            if(layer->drawer != old_drawer) {
+                old_drawer->release_gl_resources();
+            }
         }
     }
 
@@ -1600,9 +1604,9 @@ void gerber_explorer::on_render()
         layer.drawer->update_flags_buffer();
 
         if(settings.wireframe) {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            GL_CHECK(glPolygonMode(GL_FRONT_AND_BACK, GL_LINE));
         } else {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            GL_CHECK(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
         }
 
         layer_render_target.bind_framebuffer();

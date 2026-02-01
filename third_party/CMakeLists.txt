@@ -2,6 +2,12 @@ cmake_minimum_required(VERSION 3.10)
 include(../cmake/utils.cmake)
 include(FetchContent)
 
+# Remove default MSVC warning levels for all third-party code
+if(MSVC)
+    string(REGEX REPLACE "/W[0-4]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REGEX REPLACE "/W[0-4]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+endif()
+
 ######################################################################
 # OPENGL
 
@@ -193,6 +199,7 @@ set(CLIPPER2_UTILS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(Clipper2)
 
 target_silence_warnings(Clipper2)
+target_silence_warnings(Clipper2Z)
 target_silence_warnings(Clipper2utils)
 target_silence_warnings(Clipper2Zutils)
 
@@ -214,12 +221,18 @@ foreach(LIB ${IPO_LIBS})
 endforeach()
 
 ######################################################################
+# psnip debug-trap
+
+add_library(debug_trap INTERFACE
+        debug-trap/debug-trap.h
+)
+
+target_include_directories(debug_trap INTERFACE debug-trap)
+
+######################################################################
 # main 3rd party library
 
-add_library(third_party INTERFACE
-        debug-trap/debug-trap.h)
-
-target_include_directories(third_party INTERFACE debug-trap)
+add_library(third_party INTERFACE)
 
 target_link_libraries(third_party INTERFACE
         gerber_gl
@@ -230,4 +243,5 @@ target_link_libraries(third_party INTERFACE
         libtess2
         Clipper2
         stb_image
+        debug_trap
 )

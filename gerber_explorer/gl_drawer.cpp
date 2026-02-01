@@ -23,7 +23,7 @@ namespace
     void delete_texture(GLuint &texture_id)
     {
         if(texture_id != 0) {
-            glDeleteTextures(1, &texture_id);
+            GL_CHECK(glDeleteTextures(1, &texture_id));
             texture_id = 0;
         }
     }
@@ -31,7 +31,7 @@ namespace
     void delete_buffer(GLuint &buffer_id)
     {
         if(buffer_id != 0) {
-            glDeleteTextures(1, &buffer_id);
+            GL_CHECK(glDeleteBuffers(1, &buffer_id));
             buffer_id = 0;
         }
     }
@@ -87,8 +87,13 @@ namespace gerber
 
     void gl_drawer::release()
     {
+        ready_to_draw = false;
+
         // bin everything (including gl resources) for good and sure
-        tessDeleteTess(boundary_stesselator);
+        if(boundary_stesselator != nullptr) {
+            tessDeleteTess(boundary_stesselator);
+            boundary_stesselator = nullptr;
+        }
         boundary_arena.release();
         interior_arena.release();
         entities.release();
@@ -104,12 +109,10 @@ namespace gerber
 
         delete_texture(outline_lines_texture);
         delete_texture(outline_vertices_texture);
-        LOG_INFO("DELETE_TEXTURE {}", name());
         delete_texture(flags_texture);
 
         delete_buffer(outline_lines_buffer);
         delete_buffer(outline_vertices_buffer);
-        LOG_INFO("DELETE_BUFFER {}", name());
         delete_buffer(flags_buffer);
     }
 
@@ -225,10 +228,11 @@ namespace gerber
     // gl resources cannot be initialized here - that must happen on the
     // main thread so do that in create_gl_resources()
 
-    void gl_drawer::set_gerber(gerber_lib::gerber_file *g)
+    void gl_drawer::set_gerber(gerber_file *g)
     {
         ready_to_draw = false;
         current_entity_id = -1;
+
         clear();
         g->draw(*this);
         finish_entity();
@@ -449,6 +453,22 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
+    void gl_drawer::release_gl_resources()
+    {
+        vertex_array.cleanup();
+        index_array.cleanup();
+
+        delete_texture(outline_lines_texture);
+        delete_texture(outline_vertices_texture);
+        delete_texture(flags_texture);
+
+        delete_buffer(outline_lines_buffer);
+        delete_buffer(outline_vertices_buffer);
+        delete_buffer(flags_buffer);
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
     void gl_drawer::create_gl_resources()
     {
         if(ready_to_draw) {
@@ -463,18 +483,7 @@ namespace gerber
 
         // ditch existing gl resources before creating new ones
 
-        vertex_array.cleanup();
-        index_array.cleanup();
-
-        delete_texture(outline_lines_texture);
-        delete_texture(outline_vertices_texture);
-        LOG_INFO(">DELETE_TEXTURE {}", name());
-        delete_texture(flags_texture);
-
-        delete_buffer(outline_lines_buffer);
-        delete_buffer(outline_vertices_buffer);
-        LOG_INFO(">DELETE_BUFFER {}", name());
-        delete_buffer(flags_buffer);
+        release_gl_resources();
 
         GL_CHECK(glGenBuffers(1, &outline_lines_buffer));
         GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, outline_lines_buffer));
@@ -497,10 +506,8 @@ namespace gerber
         GL_CHECK(glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, outline_vertices_buffer));
 
         GL_CHECK(glGenTextures(1, &flags_texture));
-        LOG_INFO(">GEN_TEXTURE {} {}", flags_texture, name());
         GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, flags_texture));
         GL_CHECK(glTexBuffer(GL_TEXTURE_BUFFER, GL_R8UI, flags_buffer));
-        LOG_INFO(">TEX_BUFFER {} {}", flags_buffer, name());
 
         vertex_array.init(static_cast<GLsizei>(fill_vertices.size()));
         vertex_array.activate();
@@ -521,9 +528,9 @@ namespace gerber
             return;
         }
 
-        glEnable(GL_BLEND);
-        glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL_CHECK(glEnable(GL_BLEND));
+        GL_CHECK(glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD));
+        GL_CHECK(glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 
         gerber_explorer::layer_program.activate();
 
@@ -540,14 +547,14 @@ namespace gerber
 
         set_uniform_4f(gerber_explorer::layer_program.u_value, 1.0f, 1.0f, 1.0f, 1.0f);
 
-        if(flags_texture != (GLuint)-1) {
+        if(flags_texture != 0) {
             GL_CHECK(glActiveTexture(GL_TEXTURE0));
             GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, flags_texture));    // The Flags TBO (R8UI) in slot 0
         }
         GL_CHECK(glEnable(GL_BLEND));
         GL_CHECK(glBlendEquation(GL_FUNC_ADD));
         GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-        glDrawElements(GL_TRIANGLES, index_array.num_indices, GL_UNSIGNED_INT, nullptr);    // draw the whole layer
+        GL_CHECK(glDrawElements(GL_TRIANGLES, index_array.num_indices, GL_UNSIGNED_INT, nullptr));    // draw the whole layer
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -562,7 +569,7 @@ namespace gerber
                 entity_flags[id] = (uint8_t)e.flags;
             }
         }
-        GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, flags_buffer));
+        GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, flags_buffer)); //%a %b %d %H:%M:%S %Z
         gl::update_buffer<GL_TEXTURE_BUFFER>(entity_flags);
     }
 
@@ -574,10 +581,10 @@ namespace gerber
             return;
         }
 
-        glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL_CHECK(glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD));
+        GL_CHECK(glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 
-        glEnable(GL_BLEND);
+        GL_CHECK(glEnable(GL_BLEND));
 
         gl::colorf4 select_color(gl::colors::blue);
         gl::colorf4 hover_color(gl::colors::red);

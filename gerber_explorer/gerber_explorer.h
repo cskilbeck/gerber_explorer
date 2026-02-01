@@ -48,11 +48,11 @@ struct gerber_layer
 
     gerber::gl_drawer *drawer{};
     gerber::gl_drawer drawers[2]{};
+    int current_drawer{ 0 };
 
     gerber_lib::gerber_file *file;
 
     int index;
-    int current_drawer{ 0 };
     bool visible{ true };
     bool invert{ false };
     bool expanded{ false };

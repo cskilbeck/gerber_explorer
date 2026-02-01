@@ -120,9 +120,19 @@ namespace gerber_lib
         {
         }
 
+        //////////////////////////////////////////////////////////////////////
+
         void init()
         {
             gerber_arena<reserve_size, alignment, min_grow_size>::init();
+            count = 0;
+        }
+
+        //////////////////////////////////////////////////////////////////////
+
+        void release()
+        {
+            gerber_arena<reserve_size, alignment, min_grow_size>::release();
             count = 0;
         }
 
