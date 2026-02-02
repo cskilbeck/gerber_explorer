@@ -26,7 +26,6 @@ struct gl_window
 
     double frame_start_time{};
     double last_frame_elapsed_time{};
-    double last_frame_cpu_time{};
 
     virtual bool on_init() = 0;
     virtual void on_frame();

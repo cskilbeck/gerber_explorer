@@ -6,6 +6,12 @@
 
 namespace settings
 {
+    enum units_t
+    {
+        units_mm = 0,
+        units_inch = 1
+    };
+
     struct color_t
     {
         float r{ 0 };
@@ -54,6 +60,7 @@ namespace settings
     X(bool, dynamic_tesselation, false)        \
     X(bool, view_toolbar, true)                \
     X(int, board_view, 0)                      \
+    X(int, units, settings::units_mm)          \
     X(std::vector<settings::layer_t>, files, {})
 
 struct settings_t

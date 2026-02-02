@@ -129,6 +129,8 @@ struct gerber_explorer : gl_window
 
     void set_mouse_mode(mouse_drag_action action);
 
+    double last_frame_cpu_time{};
+
     mouse_drag_action mouse_mode{};
     vec2d drag_mouse_cur_pos{};
     vec2d drag_mouse_start_pos{};
@@ -176,6 +178,7 @@ struct gerber_explorer : gl_window
     bool mouse_did_move{ false };
     vec2d mouse_pos{};
     vec2d prev_mouse_pos{};
+    vec2d world_mouse_pos{};
 
     // glsl programs
     static gl::solid_program solid_program;

@@ -43,8 +43,6 @@ namespace
     using gerber_lib::vec2d;
     using gerber_lib::vec2f;
 
-    rect arc_extent;
-
     long long const zoom_lerp_time_ms = 700;
 
     double const drag_select_offset_start_distance = 16;
@@ -491,6 +489,8 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
 void gerber_explorer::handle_mouse()
 {
     if(!prev_mouse_pos.equal(mouse_pos)) {
+
+        world_mouse_pos = world_pos_from_viewport_pos(mouse_pos);
 
         prev_mouse_pos = mouse_pos;
 
@@ -1080,6 +1080,15 @@ void gerber_explorer::ui()
             ImGui::MenuItem("Wireframe", "W", &settings.wireframe);
             ImGui::MenuItem("Show Axes", "A", &settings.show_axes);
             ImGui::MenuItem("Show Extent", "E", &settings.show_extent);
+            if(ImGui::BeginMenu("Units")) {
+                if(ImGui::MenuItem("MM", "", settings.units == settings::units_mm)) {
+                    settings.units = settings::units_mm;
+                }
+                if(ImGui::MenuItem("Inch", "", settings.units == settings::units_inch)) {
+                    settings.units = settings::units_inch;
+                }
+                ImGui::EndMenu();
+            }
             if(ImGui::BeginMenu("Multisamples")) {
                 ImGui::SliderInt("##multisamples", &settings.multisamples, 1, max_multisamples, "%d");
                 ImGui::EndMenu();
@@ -1337,6 +1346,19 @@ void gerber_explorer::ui()
         } else {
             ImGui::Text("Select a layer...");
         }
+        ImGui::SameLine();
+        double scale = 1.0;
+        char const *units_str = "mm";
+        if(settings.units == settings::units_inch) {
+            scale = 1.0 / 2.54;
+            units_str = "in";
+        }
+        vec2d pos = world_mouse_pos.scale(scale);
+        std::string text = std::format("{:8.4f} {:8.4f} {}", pos.x, pos.y, units_str);
+        float text_width = ImGui::CalcTextSize(text.c_str()).x;
+        float posX = ImGui::GetWindowWidth() - text_width - ImGui::GetStyle().ItemSpacing.x;
+        ImGui::SetCursorPosX(posX);
+        ImGui::Text("%s", text.c_str());
     }
     ImGui::End();
 
@@ -1707,13 +1729,6 @@ void gerber_explorer::on_render()
                 overlay.add_outline_rect(s, extent_color);
             }
         }
-        // for(auto const &e : selected_layer->layer.entities) {
-        //     if(e.flags & entity_flags_t::selected) {
-        //         rect const &b = e.bounds;
-        //         rect w{ viewport_pos_from_board_pos(b.min_pos), viewport_pos_from_board_pos(b.max_pos) };
-        //         overlay.add_outline_rect(w, extent_color);
-        //     }
-        // }
     }
 
     if(mouse_mode == mouse_drag_select) {
@@ -1725,9 +1740,6 @@ void gerber_explorer::on_render()
         overlay.add_rect(f, color);
         overlay.add_outline_rect(f, 0xffffffff);
     }
-
-    rect ext{ viewport_pos_from_world_pos(arc_extent.min_pos), viewport_pos_from_world_pos(arc_extent.max_pos) };
-    overlay.add_outline_rect(ext, gl::colors::green);
 
     color_program.activate();
 
