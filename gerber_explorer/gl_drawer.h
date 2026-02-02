@@ -121,7 +121,6 @@ namespace gerber
         // init cpu buffers
         void init()
         {
-            LOG_INFO("init");
             vertices.init();
             indices.init();
         }
@@ -129,18 +128,16 @@ namespace gerber
         // release cpu buffers
         void release()
         {
-            LOG_INFO("release");
             vertices.release();
             indices.release();
             ready_to_draw = false;
         }
 
         // setup GPU buffers
-        void create_gpu_resources()
+        void create_gl_resources()
         {
             if(!ready_to_draw) {
-                LOG_INFO("create_gpu_resources");
-                cleanup();
+                release_gl_resources();
                 if(!vertices.empty() && !indices.empty()) {
                     GL_CHECK(vertex_array.init(vertices.size()));
                     GL_CHECK(index_array.init(indices.size()));
@@ -150,9 +147,8 @@ namespace gerber
         }
 
         // release GPU buffers
-        void cleanup()
+        void release_gl_resources()
         {
-            LOG_INFO("cleanup");
             vertex_array.cleanup();
             index_array.cleanup();
             ready_to_draw = false;
@@ -161,7 +157,6 @@ namespace gerber
         // update cpu data -> GPU buffers
         void update()
         {
-            LOG_INFO("update, vertices.size() = {}", vertices.size());
             if(!vertices.empty()) {
                 GL_CHECK(vertex_array.activate());
                 GL_CHECK(gl::update_buffer<GL_ARRAY_BUFFER>(vertices));

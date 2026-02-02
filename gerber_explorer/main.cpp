@@ -30,22 +30,24 @@
 // X tidy up the cmake
 // X reduce gpu usage - only draw frame when necessary
 // X fix blending / inverted layers / alpha
+// X allow user to specify board outline layer dynamically (e.g. ko from jlcpcb)
 //
 // \ detect & use board outline for inverted layers
 //
+// there can be only one outline layer
+// show icon for outline layer
 // fix select/hover/active highlighting
-// allow user to specify board outline layer dynamically (e.g. ko from jlcpcb)
 // fix broken tesselation
 // fix job pool hang
-// don't save settings until all layers loaded
+// don't save settings if layer loading in progress
 // make the gerber parser interruptible with stop_token
-// share arenas where possible in gl_drawer
-// status bar
+// share arenas where possible in gl_drawer (pool of arenas reused?)
+// make status bar more informative
 // dynamic tesselation
 // measure tool
 // fix the memory allocation - especially for tesselator and gerber::draw
 //
-// settings
+// settings window?
 // configurable mouse buttons (/keys?)
 // 3D view
 // high DPI

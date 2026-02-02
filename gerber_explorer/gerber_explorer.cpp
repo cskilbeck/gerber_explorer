@@ -1136,7 +1136,7 @@ void gerber_explorer::ui()
                 fit_to_viewport();
             }
             ImGui::SameLine();
-            ImGui::AlignTextToFramePadding();    // Aligns the text baseline with the center of the combo box
+            ImGui::AlignTextToFramePadding();
             ImGui::Text("View");
             ImGui::SameLine();
             float max_width = 0.0f;
@@ -1144,7 +1144,7 @@ void gerber_explorer::ui()
                 max_width = std::max(ImGui::CalcTextSize(board_view_names[n]).x, max_width);
             }
             float combo_width = max_width + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetFrameHeight();
-            ImGui::SetNextItemWidth(combo_width);    // This is the key line
+            ImGui::SetNextItemWidth(combo_width);
             if(ImGui::BeginCombo("##view_combo", board_view_names[settings.board_view], ImGuiComboFlags_PopupAlignLeft)) {
                 for(int n = 0; n < board_view_num_views; ++n) {
                     bool is_selected = settings.board_view == n;
@@ -1223,7 +1223,7 @@ void gerber_explorer::ui()
                         } else {
                             l->got_mask = false;
                             l->drawer->got_mask = false;
-                            l->drawer->mask.cleanup();
+                            l->drawer->mask.release_gl_resources();
                             l->drawer->mask.release();
                         }
                     }
@@ -1328,7 +1328,12 @@ void gerber_explorer::ui()
             ImGui::Text("%s", active_entity_description.c_str());
         } else if(selected_layer != nullptr) {
             char const *layer_type_name = gerber_lib::layer_type_name_friendly(selected_layer->layer_type());
-            ImGui::Text("%s - %s (%llu entities) (outline: %d) (got_mask: %d)", selected_layer->name.c_str(), layer_type_name, selected_layer->drawer->entities.size(), selected_layer->is_outline_layer, selected_layer->got_mask);
+            ImGui::Text("%s - %s (%llu entities) (outline: %d) (got_mask: %d)",
+                        selected_layer->name.c_str(),
+                        layer_type_name,
+                        selected_layer->drawer->entities.size(),
+                        selected_layer->is_outline_layer,
+                        selected_layer->got_mask);
         } else {
             ImGui::Text("Select a layer...");
         }
@@ -1552,7 +1557,7 @@ void gerber_explorer::on_render()
         // first valid outline layer is it
         if(outline_layer == nullptr && layer->is_outline_layer && layer->got_mask) {
             outline_layer = layer;
-            outline_layer->drawer->mask.create_gpu_resources();
+            outline_layer->drawer->mask.create_gl_resources();
         }
     }
 
