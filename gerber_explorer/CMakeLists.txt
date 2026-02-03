@@ -27,8 +27,8 @@ cmrc_add_resource_library(my_shaders
         "shaders/arc_fragment_shader.glsl"
         "shaders/arc_vertex_shader.glsl"
         "shaders/solid_vertex_shader.glsl"
-        "shaders/textured_fragment_shader.glsl"
-        "shaders/textured_vertex_shader.glsl")
+        "shaders/blit_fragment_shader.glsl"
+        "shaders/blit_vertex_shader.glsl")
 
 ######################################################################
 # MAIN

@@ -348,18 +348,17 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    int textured_program::init()
+    int blit_program::init()
     {
-        program_name = "textured";
-        vertex_shader_source = shader_src("textured_vertex_shader.glsl");
-        fragment_shader_source = shader_src("textured_fragment_shader.glsl");
+        program_name = "blit";
+        vertex_shader_source = shader_src("blit_vertex_shader.glsl");
+        fragment_shader_source = shader_src("blit_fragment_shader.glsl");
         int err = program_base::init();
         if(err != 0) {
             return err;
         }
         u_fill_color = get_uniform("fill_color");
         u_other_color = get_uniform("other_color");
-        u_inverted = get_uniform("inverted");
         u_cover_sampler = get_uniform("cover_sampler");
         u_num_samples = get_uniform("num_samples");
         return 0;

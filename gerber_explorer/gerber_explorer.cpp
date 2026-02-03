@@ -149,7 +149,7 @@ namespace
 gl::solid_program gerber_explorer::solid_program{};
 gl::color_program gerber_explorer::color_program{};
 gl::layer_program gerber_explorer::layer_program{};
-gl::textured_program gerber_explorer::textured_program{};
+gl::blit_program gerber_explorer::blit_program{};
 gl::arc_program gerber_explorer::arc_program{};
 gl::line2_program gerber_explorer::line2_program{};
 
@@ -760,7 +760,7 @@ bool gerber_explorer::on_init()
     solid_program.init();
     color_program.init();
     layer_program.init();
-    textured_program.init();
+    blit_program.init();
     arc_program.init();
     line2_program.init();
 
@@ -1391,25 +1391,24 @@ void gerber_explorer::update_board_extent()
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::blend_layer(gl::color color_fill, gl::color color_other, bool inverted, int num_samples)
+void gerber_explorer::blend_layer(gl::color color_fill, gl::color color_other, int num_samples)
 {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     GL_CHECK(glViewport(viewport_xpos, window_height - (viewport_height + viewport_ypos), viewport_width, viewport_height));
     GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
-    textured_program.activate();
+    blit_program.activate();
     layer_render_target.bind_textures();
 
     if(num_samples == 0) {
         num_samples = layer_render_target.num_samples;
     }
 
-    GL_CHECK(glUniform4fv(textured_program.u_fill_color, 1, gl::colorf4(color_fill).f));
-    GL_CHECK(glUniform4fv(textured_program.u_other_color, 1, gl::colorf4(color_other).f));
-    GL_CHECK(glUniform1ui(textured_program.u_inverted, inverted));
-    GL_CHECK(glUniform1i(textured_program.u_num_samples, num_samples));
-    GL_CHECK(glUniform1i(textured_program.u_cover_sampler, 0));
+    GL_CHECK(glUniform4fv(blit_program.u_fill_color, 1, gl::colorf4(color_fill).f));
+    GL_CHECK(glUniform4fv(blit_program.u_other_color, 1, gl::colorf4(color_other).f));
+    GL_CHECK(glUniform1i(blit_program.u_num_samples, num_samples));
+    GL_CHECK(glUniform1i(blit_program.u_cover_sampler, 0));
 
     GL_CHECK(glEnable(GL_BLEND));
     GL_CHECK(glBlendEquation(GL_FUNC_ADD));
@@ -1655,7 +1654,7 @@ void gerber_explorer::on_render()
                 GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
                 solid_program.activate();
                 GL_CHECK(glUniformMatrix4fv(solid_program.u_transform, 1, false, world_matrix.m));
-                set_uniform_4f(solid_program.u_color, 1, 0, 0, 0);
+                set_uniform_4f(solid_program.u_color, 1, 0, 0, 1);
                 outline_layer->drawer->mask.draw();
             }
             // either way, swap clear/fill flags
@@ -1666,10 +1665,10 @@ void gerber_explorer::on_render()
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         }
         uint8_t draw_flags = entity_flags_t::fill | entity_flags_t::clear | entity_flags_t::selected;
-        layer.drawer->fill(world_matrix, fill_flag, clear_flag, entity_flags_t::selected, draw_flags);
+        layer.drawer->fill(world_matrix, fill_flag, clear_flag, 0, draw_flags);
 
-        gl::color selected_color = gl::set_alpha(gl::colors::white, 0.95f);
-        blend_layer(layer.fill_color, selected_color, false, settings.multisamples);
+        gl::color hover_color = gl::colors::black;
+        blend_layer(layer.fill_color, hover_color, settings.multisamples);
     }
 
     // draw overlay/ouline of selected & hovered entities in selected layer on top of all other layers
@@ -1681,9 +1680,9 @@ void gerber_explorer::on_render()
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         uint8_t draw_flags = entity_flags_t::selected | entity_flags_t::active;
         selected_layer->drawer->fill(world_matrix, entity_flags_t::hovered, entity_flags_t::selected, entity_flags_t::active, draw_flags);
-        gl::color hovered(gl::set_alpha(gl::colors::white, 0.95f));
-        gl::color active = gl::color_from_floats(1, 0.75f, 1, 0.95f);
-        blend_layer(hovered, active, false, settings.multisamples);
+        gl::color hovered = gl::colors::white;
+        gl::color active = gl::color_from_floats(1, 0.75f, 1, 0.5f);
+        blend_layer(hovered, active, settings.multisamples);
 
         // Draw outline for hovered/selected entities in the selected layer
         if(settings.outline_width > 0.0f) {
@@ -1692,7 +1691,7 @@ void gerber_explorer::on_render()
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             selected_layer->drawer->outline(settings.outline_width, world_matrix, viewport_size);
-            blend_layer(gl::colors::black, gl::colors::white, false, settings.multisamples);
+            blend_layer(gl::colors::white, gl::colors::white, settings.multisamples);
         }
     }
 

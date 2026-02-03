@@ -307,11 +307,10 @@ namespace gl
     //////////////////////////////////////////////////////////////////////
     // textured, no color
 
-    struct textured_program : program_base
+    struct blit_program : program_base
     {
         GLuint u_fill_color;
         GLuint u_other_color;
-        GLuint u_inverted;
         GLuint u_cover_sampler;
         GLuint u_num_samples{};
 
