@@ -235,8 +235,12 @@ namespace gl
         u_transform = get_uniform("transform");
         u_thickness = get_uniform("thickness");
         u_viewport_size = get_uniform("viewport_size");
-        u_hover_color = get_uniform("hover_color");
-        u_select_color = get_uniform("select_color");
+        u_red_flag = get_uniform("red_flag");
+        u_green_flag = get_uniform("green_flag");
+        u_blue_flag = get_uniform("blue_flag");
+        u_red_color = get_uniform("red_color");
+        u_green_color = get_uniform("green_color");
+        u_blue_color = get_uniform("blue_color");
         u_lines_sampler = get_uniform("instance_sampler");
         u_vert_sampler = get_uniform("vert_sampler");
         u_flags_sampler = get_uniform("flags_sampler");
@@ -359,6 +363,25 @@ namespace gl
         }
         u_fill_color = get_uniform("fill_color");
         u_other_color = get_uniform("other_color");
+        u_cover_sampler = get_uniform("cover_sampler");
+        u_num_samples = get_uniform("num_samples");
+        return 0;
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    int selection_program::init()
+    {
+        program_name = "selection";
+        vertex_shader_source = shader_src("blit_vertex_shader.glsl");
+        fragment_shader_source = shader_src("selection_fragment_shader.glsl");
+        int err = program_base::init();
+        if(err != 0) {
+            return err;
+        }
+        u_red_color = get_uniform("red_color");
+        u_green_color = get_uniform("green_color");
+        u_blue_color = get_uniform("blue_color");
         u_cover_sampler = get_uniform("cover_sampler");
         u_num_samples = get_uniform("num_samples");
         return 0;

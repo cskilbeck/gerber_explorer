@@ -113,10 +113,11 @@ namespace gerber_lib
     struct typed_arena : gerber_arena<reserve_size, alignment, min_grow_size>
     {
         using value_type = U;
+        using arena_t = gerber_arena<reserve_size, alignment, min_grow_size>;
 
         //////////////////////////////////////////////////////////////////////
 
-        typed_arena() : gerber_arena<reserve_size, alignment, min_grow_size>::gerber_arena(), count(0)
+        typed_arena() : arena_t::gerber_arena(), count(0)
         {
         }
 
@@ -124,7 +125,7 @@ namespace gerber_lib
 
         void init()
         {
-            gerber_arena<reserve_size, alignment, min_grow_size>::init();
+            arena_t::init();
             count = 0;
         }
 
@@ -132,7 +133,7 @@ namespace gerber_lib
 
         void release()
         {
-            gerber_arena<reserve_size, alignment, min_grow_size>::release();
+            arena_t::release();
             count = 0;
         }
 

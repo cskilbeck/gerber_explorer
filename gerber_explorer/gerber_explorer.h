@@ -185,6 +185,7 @@ struct gerber_explorer : gl_window
     static gl::color_program color_program;
     static gl::layer_program layer_program;
     static gl::blit_program blit_program;
+    static gl::selection_program selection_program;
     static gl::arc_program arc_program;
     static gl::line2_program line2_program;
 
@@ -259,6 +260,7 @@ struct gerber_explorer : gl_window
     void next_view();
 
     void blend_layer(gl::color color_fill, gl::color color_other, int num_samples);
+    void blend_selection(gl::color red, gl::color green, gl::color blue, int num_samples);
 
     void add_gerber(settings::layer_t const &layer);
 

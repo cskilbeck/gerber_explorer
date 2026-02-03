@@ -48,6 +48,14 @@ inline void set_uniform_1i(int id, int v)
     }
 }
 
+inline void set_uniform_1ui(int id, GLuint v)
+{
+    LOG_CONTEXT("set_uniform_1i", error);
+    if(id != -1) {
+        GL_CHECK(glUniform1ui(id, v));
+    }
+}
+
 inline void set_uniform_1f(int id, float v)
 {
     LOG_CONTEXT("set_uniform_1f", error);
@@ -305,12 +313,26 @@ namespace gl
     };
 
     //////////////////////////////////////////////////////////////////////
-    // textured, no color
+    // draw a layer
 
     struct blit_program : program_base
     {
         GLuint u_fill_color;
         GLuint u_other_color;
+        GLuint u_cover_sampler;
+        GLuint u_num_samples{};
+
+        int init() override;
+    };
+
+    //////////////////////////////////////////////////////////////////////
+    // draw selections in a layer
+
+    struct selection_program : program_base
+    {
+        GLuint u_red_color;
+        GLuint u_green_color;
+        GLuint u_blue_color;
         GLuint u_cover_sampler;
         GLuint u_num_samples{};
 
@@ -348,8 +370,14 @@ namespace gl
         GLuint u_transform;
         GLuint u_thickness;        // global line thickness
         GLuint u_viewport_size;    // needed for pixel thickness
-        GLuint u_hover_color;      // coverage colors for hovered
-        GLuint u_select_color;     // and selected lines
+
+        GLuint u_red_flag;
+        GLuint u_green_flag;
+        GLuint u_blue_flag;
+
+        GLuint u_red_color;
+        GLuint u_green_color;
+        GLuint u_blue_color;
 
         GLuint u_lines_sampler;    // sampler for TBO of struct lines, fetch based on gl_InstanceId
         GLuint u_vert_sampler;     // sampler for the vertices

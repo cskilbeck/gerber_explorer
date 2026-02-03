@@ -150,6 +150,7 @@ gl::solid_program gerber_explorer::solid_program{};
 gl::color_program gerber_explorer::color_program{};
 gl::layer_program gerber_explorer::layer_program{};
 gl::blit_program gerber_explorer::blit_program{};
+gl::selection_program gerber_explorer::selection_program{};
 gl::arc_program gerber_explorer::arc_program{};
 gl::line2_program gerber_explorer::line2_program{};
 
@@ -761,6 +762,7 @@ bool gerber_explorer::on_init()
     color_program.init();
     layer_program.init();
     blit_program.init();
+    selection_program.init();
     arc_program.init();
     line2_program.init();
 
@@ -866,6 +868,8 @@ void gerber_explorer::select_layer(gerber_layer *layer)
 }
 
 //////////////////////////////////////////////////////////////////////
+// It's annoying that we retesselate the layer when all we want is
+// to generate the mask...
 
 void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t options)
 {
@@ -1418,6 +1422,34 @@ void gerber_explorer::blend_layer(gl::color color_fill, gl::color color_other, i
 
 //////////////////////////////////////////////////////////////////////
 
+void gerber_explorer::blend_selection(gl::color red, gl::color green, gl::color blue, int num_samples)
+{
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+    GL_CHECK(glViewport(viewport_xpos, window_height - (viewport_height + viewport_ypos), viewport_width, viewport_height));
+    GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+
+    selection_program.activate();
+    layer_render_target.bind_textures();
+
+    if(num_samples == 0) {
+        num_samples = layer_render_target.num_samples;
+    }
+
+    GL_CHECK(glUniform4fv(selection_program.u_red_color, 1, gl::colorf4(red).f));
+    GL_CHECK(glUniform4fv(selection_program.u_green_color, 1, gl::colorf4(green).f));
+    GL_CHECK(glUniform4fv(selection_program.u_blue_color, 1, gl::colorf4(blue).f));
+    GL_CHECK(glUniform1i(selection_program.u_num_samples, num_samples));
+    GL_CHECK(glUniform1i(selection_program.u_cover_sampler, 0));
+
+    GL_CHECK(glEnable(GL_BLEND));
+    GL_CHECK(glBlendEquation(GL_FUNC_ADD));
+    GL_CHECK(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+    GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
+}
+
+//////////////////////////////////////////////////////////////////////
+
 void gerber_explorer::on_render()
 {
     // gather up any layers which finished loading
@@ -1664,11 +1696,9 @@ void gerber_explorer::on_render()
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         }
-        uint8_t draw_flags = entity_flags_t::fill | entity_flags_t::clear | entity_flags_t::selected;
+        uint8_t draw_flags = entity_flags_t::fill | entity_flags_t::clear;
         layer.drawer->fill(world_matrix, fill_flag, clear_flag, 0, draw_flags);
-
-        gl::color hover_color = gl::colors::black;
-        blend_layer(layer.fill_color, hover_color, settings.multisamples);
+        blend_layer(layer.fill_color, gl::colors::black, settings.multisamples);
     }
 
     // draw overlay/ouline of selected & hovered entities in selected layer on top of all other layers
@@ -1678,20 +1708,21 @@ void gerber_explorer::on_render()
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
         GL_CHECK(glClearColor(0, 0, 0, 0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-        uint8_t draw_flags = entity_flags_t::selected | entity_flags_t::active;
+        uint8_t draw_flags = entity_flags_t::selected | entity_flags_t::active | entity_flags_t::hovered;
         selected_layer->drawer->fill(world_matrix, entity_flags_t::hovered, entity_flags_t::selected, entity_flags_t::active, draw_flags);
-        gl::color hovered = gl::colors::white;
-        gl::color active = gl::color_from_floats(1, 0.75f, 1, 0.5f);
-        blend_layer(hovered, active, settings.multisamples);
+        gl::color hovered = 0x40000080;
+        gl::color selected = 0x40008000;
+        gl::color active = 0x40800000;
+        blend_selection(hovered, selected, active, settings.multisamples);
 
-        // Draw outline for hovered/selected entities in the selected layer
+        // Draw outline for active/hovered/selected entities in the selected layer
         if(settings.outline_width > 0.0f) {
             layer_render_target.bind_framebuffer();
             GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
             selected_layer->drawer->outline(settings.outline_width, world_matrix, viewport_size);
-            blend_layer(gl::colors::white, gl::colors::white, settings.multisamples);
+            blend_selection(gl::colors::red, gl::colors::green, gl::colors::blue, settings.multisamples);
         }
     }
 

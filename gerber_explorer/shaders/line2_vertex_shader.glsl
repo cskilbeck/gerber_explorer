@@ -3,8 +3,10 @@ layout (location = 0) in vec2 position;// (-0.5, -0.5) to (0.5, 0.5)
 uniform mat4 transform;
 uniform float thickness;// global line thickness
 uniform vec2 viewport_size;// needed for pixel thickness
-uniform vec4 hover_color;// coverage colors for hovered
-uniform vec4 select_color;// and selected lines
+
+uniform uint red_flag;// eg active, hover, selected
+uniform uint green_flag;
+uniform uint blue_flag;
 
 uniform usamplerBuffer instance_sampler;// GL_TEXTURE0: sampler for TBO of struct lines, fetch based on gl_InstanceId (GL_RGB32UI)
 uniform samplerBuffer vert_sampler;// GL_TEXTURE1: sampler for the vertices (GL_RG32F) [start_index, end_index]
@@ -24,21 +26,22 @@ void main() {
 
     // get flags from flags_sampler via entity_id
     uint flags = texelFetch(flags_sampler, int(entity_id)).r;
-    if ((flags & 12u) == 0) {
+
+    if ((flags & (red_flag | green_flag | blue_flag)) == 0) {
         gl_Position = vec4(0.0);
         return;
     }
     // set color channels based on flags
-    float hover = 0;
-    float select = 0;
-    if((flags & 4u) != 0) {
-        hover = 1;
+    v_color = vec4(0);
+    if((flags & red_flag) != 0) {
+        v_color += vec4(1, 0, 0, 0);
     }
-    if((flags & 8u) != 0) {
-        select = 1;
+    if((flags & green_flag) != 0) {
+        v_color += vec4(0, 1, 0, 0);
     }
-    v_color = mix(vec4(0), hover_color, hover);
-    v_color = mix(v_color, select_color, select);
+    if((flags & blue_flag) != 0) {
+        v_color += vec4(0, 0, 1, 0);
+    }
 
     // get verts from vert_sampler via start/end index
     vec2 posA = texelFetch(vert_sampler, int(start_index)).rg;

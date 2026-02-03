@@ -182,9 +182,6 @@ namespace gerber
             if(e.bounds.contains(point) && point_in_poly(outline_vertices.data() + e.outline_offset, e.outline_size, pos)) {
                 e.flags |= set_flags;
                 n += 1;
-                if(set_flags & entity_flags_t::selected) {
-                    LOG_INFO("SELECT {}", e.entity_id());
-                }
             }
         }
         return n;
@@ -588,8 +585,9 @@ namespace gerber
 
         GL_CHECK(glEnable(GL_BLEND));
 
-        gl::colorf4 select_color(gl::colors::blue);
-        gl::colorf4 hover_color(gl::colors::red);
+        gl::colorf4 active_color(gl::colors::red);
+        gl::colorf4 select_color(gl::colors::green);
+        gl::colorf4 hover_color(gl::colors::blue);
 
         gerber_explorer::line2_program.activate();
         gerber_explorer::line2_program.quad_points_array.activate();
@@ -605,10 +603,13 @@ namespace gerber
         set_uniform_1i(gerber_explorer::line2_program.u_flags_sampler, 2);    // flags_sampler    -> GL_TEXTURE2
         set_uniform_1f(gerber_explorer::line2_program.u_thickness, outline_thickness);
         set_uniform_2f(gerber_explorer::line2_program.u_viewport_size, (float)viewport_size.x, (float)viewport_size.y);
-
         GL_CHECK(glUniformMatrix4fv(gerber_explorer::line2_program.u_transform, 1, false, matrix.m));
-        set_uniform_4fv(gerber_explorer::line2_program.u_select_color, 1, select_color.f);
-        set_uniform_4fv(gerber_explorer::line2_program.u_hover_color, 1, hover_color.f);
+        set_uniform_1ui(gerber_explorer::line2_program.u_red_flag, entity_flags_t::active);
+        set_uniform_1ui(gerber_explorer::line2_program.u_green_flag, entity_flags_t::selected);
+        set_uniform_1ui(gerber_explorer::line2_program.u_blue_flag, entity_flags_t::hovered);
+        set_uniform_4fv(gerber_explorer::line2_program.u_red_color, 1, active_color.f);
+        set_uniform_4fv(gerber_explorer::line2_program.u_green_color, 1, select_color.f);
+        set_uniform_4fv(gerber_explorer::line2_program.u_blue_color, 1, hover_color.f);
         GL_CHECK(glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)outline_lines.size()));
     }
 

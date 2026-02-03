@@ -206,10 +206,6 @@ namespace gerber
         // setup from a parsed gerber file
         void set_gerber(gerber_lib::gerber_file *g) override;
 
-        // setup anything that has to be done in the main thread
-        void create_gl_resources();
-        void release_gl_resources();
-
         // callback to create draw calls from elements
         void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity,
                            gerber_lib::gerber_net *gnet) override;
@@ -221,9 +217,11 @@ namespace gerber
         void finish_entity();
         void finalize();
 
-        // for actually drawing it
-        void fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, uint8_t draw_flags);
+        // setup/teardown anything GL related that has to be done in the main thread
+        void create_gl_resources();
+        void release_gl_resources();
 
+        void fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, uint8_t draw_flags);
         void outline(float outline_thickness, gl::matrix const &matrix, gerber_lib::vec2d const &viewport_size);
 
         // picking/selection
@@ -235,20 +233,16 @@ namespace gerber
         void select_hovered_entities();
 
         void release();
-
         void create_mask();
-        bool got_mask{ false };
-
-        bool ready_to_draw{ false };
-
         void update_flags_buffer();
 
+        gerber_layer const *layer{};
+        bool got_mask{ false };
+        bool ready_to_draw{ false };
         std::string const &name() const;
+        solid_shape mask{};    // only used if it's an outline layer
 
-        // only used if it's an outline layer
-        solid_shape mask{};
-
-        gerber_layer const * layer{};
+        // ===== TESSELATION =====
         tesselation_quality_t tesselation_quality;
         int current_flag{ entity_flags_t::none };
         int base_vert{};
@@ -263,13 +257,13 @@ namespace gerber
         typed_arena<uint8_t> entity_flags;    // one byte per entity
         typed_arena<gl::vertex_entity> fill_vertices;
         typed_arena<GLuint> fill_indices;
+
+        // ===== GL: RENDERING =====
         gl::vertex_array_entity vertex_array;
         gl::index_buffer index_array;
-
         GLuint outline_lines_buffer{};
         GLuint outline_vertices_buffer{};
         GLuint flags_buffer{};
-
         GLuint outline_lines_texture{};
         GLuint outline_vertices_texture{};
         GLuint flags_texture{};
