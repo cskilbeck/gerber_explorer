@@ -6,10 +6,6 @@ function(target_enable_ipo TARGET_NAME)
         return()
     endif()
 
-    if(NOT CMAKE_BUILD_TYPE MATCHES "^(Release|RelWithDebInfo)$")
-        return()
-    endif()
-
     set(REAL_TARGET ${TARGET_NAME})
     get_target_property(ALIAS_CHECK ${REAL_TARGET} ALIAS_FOR)
     while(ALIAS_CHECK)
@@ -27,8 +23,15 @@ function(target_enable_ipo TARGET_NAME)
         return()
     endif()
 
-    if(IPO_SUPPORTED)
-        set_target_properties(${REAL_TARGET} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ON)
+    # Use per-config properties for multi-config generators (Visual Studio)
+    # CMAKE_BUILD_TYPE is empty for multi-config generators at configure time
+    # Skip CMake's IPO for Clang - we handle LTO manually in compile_options.cmake
+    # because CMake uses thin LTO by default but we want full LTO
+    if(IPO_SUPPORTED AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set_target_properties(${REAL_TARGET} PROPERTIES
+            INTERPROCEDURAL_OPTIMIZATION_RELEASE ON
+            INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO ON
+        )
         message(STATUS "IPO enabled for ${REAL_TARGET}")
     endif()
 endfunction()

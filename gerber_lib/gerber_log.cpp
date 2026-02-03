@@ -10,15 +10,15 @@ namespace
 
     time_point log_startup_timestamp{ system_clock::now() };
 
-    constexpr char const *black = "\x1b[30m";
-    constexpr char const *red = "\x1b[31m";
-    constexpr char const *green = "\x1b[32m";
-    constexpr char const *yellow = "\x1b[33m";
-    constexpr char const *blue = "\x1b[34m";
-    constexpr char const *magenta = "\x1b[35m";
-    constexpr char const *cyan = "\x1b[36m";
-    constexpr char const *white = "\x1b[37m";
-    constexpr char const *default_color = "\x1b[39m";
+    [[maybe_unused]] constexpr char const *black = "\x1b[30m";
+    [[maybe_unused]] constexpr char const *red = "\x1b[31m";
+    [[maybe_unused]] constexpr char const *green = "\x1b[32m";
+    [[maybe_unused]] constexpr char const *yellow = "\x1b[33m";
+    [[maybe_unused]] constexpr char const *blue = "\x1b[34m";
+    [[maybe_unused]] constexpr char const *magenta = "\x1b[35m";
+    [[maybe_unused]] constexpr char const *cyan = "\x1b[36m";
+    [[maybe_unused]] constexpr char const *white = "\x1b[37m";
+    [[maybe_unused]] constexpr char const *default_color = "\x1b[39m";
 
 #if defined(LOG_USE_OUTPUT_DEBUG_STRING)
     constexpr char const *reset_color = "";

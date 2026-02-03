@@ -234,6 +234,11 @@ target_include_directories(debug_trap INTERFACE debug-trap)
 
 add_library(third_party INTERFACE)
 
+if(WIN32)
+    set_target_properties(Clipper2 PROPERTIES INTERFACE_LINK_LIBRARIES "")
+    set_target_properties(libtess2 PROPERTIES INTERFACE_LINK_LIBRARIES "")
+endif()
+
 target_link_libraries(third_party INTERFACE
         gerber_gl
         cpptrace::cpptrace

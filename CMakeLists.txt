@@ -25,6 +25,21 @@ else()
     set(USE_OUTPUT_DEBUG_STRING OFF CACHE BOOL "" FORCE)
 endif()
 
+# TSAN
+
+option(ENABLE_TSAN "Enable Thread Sanitizer" OFF)
+
+if(ENABLE_TSAN)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(STATUS "Thread Sanitizer enabled")
+        add_compile_options(-fsanitize=thread)
+        add_link_options(-fsanitize=thread)
+        add_compile_options(-g -fno-omit-frame-pointer)
+    else()
+        message(WARNING "TSan requested but compiler is ${CMAKE_CXX_COMPILER_ID}. TSan is only supported on Clang.")
+    endif()
+endif()
+
 # LTO
 
 include(CheckIPOSupported)

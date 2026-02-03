@@ -76,9 +76,23 @@ target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets my_sha
 
 target_enable_ipo(${PROJECT})
 
-if (MSVC)
-    set_target_properties(${PROJECT} PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
-endif ()
+if (WIN32)
+    # Debug: Console application (for debug output)
+    # Release/RelWithDebInfo: Windows application (no console)
+    set_target_properties(${PROJECT} PROPERTIES
+        WIN32_EXECUTABLE $<NOT:$<CONFIG:Debug>>
+    )
+    if (MSVC)
+        target_link_options(${PROJECT} PRIVATE
+            $<$<NOT:$<CONFIG:Debug>>:/ENTRY:mainCRTStartup>
+        )
+    elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_link_options(${PROJECT} PRIVATE
+            $<$<NOT:$<CONFIG:Debug>>:-Xlinker>
+            $<$<NOT:$<CONFIG:Debug>>:/ENTRY:mainCRTStartup>
+        )
+    endif()
+endif()
 
 add_custom_command(TARGET ${PROJECT} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/cmake/print_size.cmake" "$<TARGET_FILE:${PROJECT}>"

@@ -539,16 +539,18 @@ namespace gerber
         vertex_array.activate();
         index_array.activate();
 
+        int const flags_texture_slot = 0;
+
         set_uniform_1i(gerber_explorer::layer_program.u_red_flags, r_flags);
         set_uniform_1i(gerber_explorer::layer_program.u_green_flags, g_flags);
         set_uniform_1i(gerber_explorer::layer_program.u_blue_flags, b_flags);
-        set_uniform_1i(gerber_explorer::layer_program.u_flags_sampler, 0);    // flags_sampler    -> GL_TEXTURE0
+        set_uniform_1i(gerber_explorer::layer_program.u_flags_sampler, flags_texture_slot);
         set_uniform_1i(gerber_explorer::layer_program.u_draw_flags, draw_flags);
 
         set_uniform_4f(gerber_explorer::layer_program.u_value, 1.0f, 1.0f, 1.0f, 1.0f);
 
         if(flags_texture != 0) {
-            GL_CHECK(glActiveTexture(GL_TEXTURE0));
+            GL_CHECK(glActiveTexture(GL_TEXTURE0 + flags_texture_slot));
             GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, flags_texture));    // The Flags TBO (R8UI) in slot 0
         }
         GL_CHECK(glEnable(GL_BLEND));
