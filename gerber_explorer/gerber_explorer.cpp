@@ -309,8 +309,30 @@ void gerber_explorer::zoom_to_rect(rect const &zoom_rect, double border_ratio)
 
 void gerber_explorer::zoom_at_point(vec2d const &zoom_pos, double zoom_scale)
 {
+    double const min_dimension = 0.00254;    // min view w/h is 2.54 microns (= 0.0001 inches = 0.1 thousandths)
+    double const max_dimension = 10000.0;    // max view w/h is 10 meters
+
     vec2d bl = view_rect.min_pos.subtract(zoom_pos).multiply(zoom_scale).add(zoom_pos);
     vec2d tr = view_rect.max_pos.subtract(zoom_pos).multiply(zoom_scale).add(zoom_pos);
+
+    vec2d size = tr.subtract(bl);
+
+    double aspect_ratio = view_rect.width() / view_rect.height();
+
+    if(size.x < min_dimension) {
+        size.y = min_dimension / aspect_ratio;
+    } else if(size.x > max_dimension) {
+        size.y = max_dimension / aspect_ratio;
+    } else if(size.y < min_dimension) {
+        size.y = min_dimension;
+    } else if(size.y > max_dimension) {
+        size.y = max_dimension;
+    }
+    size.x = size.y * aspect_ratio;
+
+    vec2d ratio = zoom_pos.subtract(view_rect.min_pos).divide(view_rect.size());
+    bl = zoom_pos.subtract(size.multiply(ratio));
+    tr = bl.add(size);
     view_rect = { bl, tr };
 }
 
@@ -1647,13 +1669,12 @@ void gerber_explorer::on_render()
 
     GL_CHECK(glDisable(GL_DEPTH_TEST));
     GL_CHECK(glDisable(GL_CULL_FACE));
-    GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
 
     if(ordered_layers.empty()) {
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
-        GL_CHECK(glClearColor(0, 0, 0, 0));
-        GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
     }
+
+    GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
 
     // 4. draw them in order
     for(auto it : ordered_layers) {
