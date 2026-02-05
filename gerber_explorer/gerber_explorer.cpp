@@ -281,7 +281,7 @@ void gerber_explorer::fit_to_viewport()
             extent = selected_layer->extent();
         }
         zoom_to_rect(board_rect_from_world_rect(extent));
-    } else {
+    } else if(!layers.empty()) {
         should_fit_to_viewport = true;
         update_board_extent();
         zoom_to_rect(board_extent);
@@ -641,7 +641,6 @@ void gerber_explorer::close_all_layers()
         layers.pop_front();
         delete l;
     }
-    select_layer(nullptr);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1405,14 +1404,18 @@ void gerber_explorer::ui()
 
 void gerber_explorer::update_board_extent()
 {
-    rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
-    for(auto layer : layers) {
-        if(layer_is_visible(layer)) {
-            all = all.union_with(layer->extent());
+    if(layers.empty()) {
+        board_extent = view_rect;
+    } else {
+        rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
+        for(auto layer : layers) {
+            if(layer_is_visible(layer)) {
+                all = all.union_with(layer->extent());
+            }
         }
+        board_extent = all;
     }
-    board_extent = all;
-    board_center = all.center();
+    board_center = board_extent.center();
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1544,10 +1547,6 @@ void gerber_explorer::on_render()
     glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
 
     handle_mouse();
-
-    glLineWidth(1.0f);
-
-    ui();
 
     if(retesselate) {
         retesselate = false;
@@ -1794,9 +1793,12 @@ void gerber_explorer::on_render()
 
     color_program.activate();
 
+    GL_CHECK(glViewport(viewport_xpos, window_height - (viewport_height + viewport_ypos), viewport_width, viewport_height));
     GL_CHECK(glUniformMatrix4fv(color_program.u_transform, 1, false, ortho_screen_matrix.m));
 
     overlay.draw();
+
+    ui();
 
     last_frame_cpu_time = get_time() - t;
 
