@@ -93,6 +93,8 @@ struct job_pool
 
     void worker_loop(std::stop_token pool_stoken);
 
+    bool get_active_job_count(uint32_t mask);
+
     template <typename F> void add_job(uint32_t flags, F &&func)
     {
         {

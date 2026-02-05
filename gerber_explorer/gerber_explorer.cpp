@@ -428,7 +428,7 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
             case GLFW_KEY_S: {
                 auto save_path = save_file_dialog();
                 if(save_path.has_value()) {
-                    save_settings(save_path.value());
+                    save_settings(save_path.value(), true);
                 }
             } break;
             case GLFW_KEY_L: {
@@ -587,9 +587,10 @@ void gerber_explorer::handle_mouse()
 
 void gerber_explorer::on_closed()
 {
+    bool should_save_files = pool.get_active_job_count(job_type_load_gerber) == 0;
     pool.shut_down();
     NFD_Quit();
-    save_settings(config_path(app_name, settings_filename));
+    save_settings(config_path(app_name, settings_filename), should_save_files);
     gl_window::on_closed();
 }
 
@@ -664,8 +665,9 @@ bool gerber_explorer::layer_is_visible(gerber_layer const *layer) const
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::save_settings(std::filesystem::path const &path)
+void gerber_explorer::save_settings(std::filesystem::path const &path, bool save_files)
 {
+    LOG_INFO("save settings");
     window_state = get_window_state();
     settings.window_width = window_state.width;
     settings.window_height = window_state.height;
@@ -673,13 +675,17 @@ void gerber_explorer::save_settings(std::filesystem::path const &path)
     settings.window_ypos = window_state.y;
     settings.window_maximized = window_state.isMaximized;
 
-    settings.files.clear();
-    int index = 1;
-    for(auto it = layers.crbegin(); it != layers.crend(); ++it) {
-        gerber_layer *layer = *it;
-        if(layer->is_valid()) {
-            settings.files.emplace_back(layer->filename(), gl::color_to_string(layer->fill_color), layer->visible, layer->invert, index);
-            index += 1;
+    if(save_files) {
+        LOG_INFO("saving files:");
+        settings.files.clear();
+        int index = 1;
+        for(auto it = layers.crbegin(); it != layers.crend(); ++it) {
+            gerber_layer *layer = *it;
+            if(layer->is_valid()) {
+                settings.files.emplace_back(layer->filename(), gl::color_to_string(layer->fill_color), layer->visible, layer->invert, index);
+                LOG_INFO("> {}", layer->filename());
+                index += 1;
+            }
         }
     }
     settings.save(path);
@@ -965,7 +971,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
                 loaded_layers.push_back(layer);
             }
             bool loaded = false;
-            while(!loaded) {
+            while(!loaded && !st.stop_requested()) {
                 {
                     std::lock_guard loaded_lock(loaded_mutex);
                     loaded = loaded_layers.empty();
@@ -1056,7 +1062,7 @@ void gerber_explorer::ui()
             if(ImGui::MenuItem("Save Settings", "Ctrl-S", nullptr)) {
                 auto save_path = save_file_dialog();
                 if(save_path.has_value()) {
-                    save_settings(save_path.value());
+                    save_settings(save_path.value(), true);
                 }
             }
             if(ImGui::MenuItem("Load Settings", "Ctrl-L", nullptr)) {

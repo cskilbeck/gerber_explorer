@@ -33,6 +33,24 @@ void job_pool::start_workers(size_t thread_count)
 
 //////////////////////////////////////////////////////////////////////
 
+bool job_pool::get_active_job_count(uint32_t mask)
+{
+    std::lock_guard lock(queue_mutex);
+    for(auto &task : tasks) {
+        if((task.flags & mask) != 0) {
+            return true;
+        }
+    }
+    for(auto *active : active_jobs) {
+        if((active->flags & mask) != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+//////////////////////////////////////////////////////////////////////
+
 job_pool::pool_info job_pool::get_info()
 {
     std::lock_guard lock(queue_mutex);

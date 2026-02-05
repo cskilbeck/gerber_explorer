@@ -273,7 +273,7 @@ struct gerber_explorer : gl_window
     std::expected<std::filesystem::path, std::error_code> save_file_dialog();
     std::expected<std::filesystem::path, std::error_code> load_file_dialog();
 
-    void save_settings(std::filesystem::path const &path);
+    void save_settings(std::filesystem::path const &path, bool save_files);
     void load_settings(std::filesystem::path const &path);
 
     void on_window_size(int w, int h) override;
