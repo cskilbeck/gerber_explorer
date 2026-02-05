@@ -123,6 +123,7 @@ struct gerber_explorer : gl_window
     {
         job_type_load_gerber = 1,
         job_type_tesselate = 2,
+        job_type_create_mask = 4,
     };
 
     gerber::tesselation_quality_t tesselate_quality{ gerber::tesselation_quality::medium };
@@ -235,6 +236,9 @@ struct gerber_explorer : gl_window
 
     // scale window to view rect
     vec2d view_scale;
+
+    gerber_layer *get_outline_layer() const;
+    void set_outline_layer(gerber_layer *new_outline_layer);
 
     vec2d world_pos_from_viewport_pos(vec2d const &p) const;
     rect world_rect_from_viewport_rect(rect const &r) const;

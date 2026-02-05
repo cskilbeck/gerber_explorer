@@ -646,6 +646,18 @@ void gerber_explorer::close_all_layers()
 
 //////////////////////////////////////////////////////////////////////
 
+gerber_layer *gerber_explorer::get_outline_layer() const
+{
+    for(auto *l : layers) {
+        if(l->is_outline_layer) {
+            return l;
+        }
+    }
+    return nullptr;
+}
+
+//////////////////////////////////////////////////////////////////////
+
 bool gerber_explorer::layer_is_visible(gerber_layer const *layer) const
 {
     if(selected_layer != nullptr && isolate_selected_layer) {
@@ -1242,29 +1254,26 @@ void gerber_explorer::ui()
                 }
                 ImGui::PushStyleColor(ImGuiCol_Text, color);
 
-                if(ImGui::Selectable(l->name.c_str(), is_selected, flags, ImVec2(0, row_height))) {
+                std::string text = std::format("{} {}", l->name, l->is_outline_layer ? MATSYM_check_box_outline_blank : "");
+
+                if(ImGui::Selectable(text.c_str(), is_selected, flags, ImVec2(0, row_height))) {
                     select_layer(l);
                     // what to do if they select a hidden layer and isolation is on?
                     // if layer is visible, just make it active and keep isolation
                     // if layer is invisible...?
                 }
-
                 ImGui::PopStyleColor();
 
                 if(ImGui::BeginPopupContextItem("##popup")) {
                     select_layer(l);
                     ImGui::MenuItem(isolate_selected_layer ? "UnIsolate" : "Isolate", nullptr, &isolate_selected_layer);
                     ImGui::MenuItem("Invert", nullptr, &l->invert);
-                    bool was_outline = l->is_outline_layer;
-                    ImGui::MenuItem("Outline", nullptr, &l->is_outline_layer);
-                    if(was_outline != l->is_outline_layer) {
-                        if(l->is_outline_layer) {
-                            tesselate_layer(l, tesselation_options_force_outline);
+                    bool is_outline = l->is_outline_layer;
+                    if(ImGui::MenuItem("Outline", nullptr, &is_outline)) {
+                        if(is_outline) {
+                            set_outline_layer(l);
                         } else {
-                            l->got_mask = false;
-                            l->drawer->got_mask = false;
-                            l->drawer->mask.release_gl_resources();
-                            l->drawer->mask.release();
+                            set_outline_layer(nullptr);
                         }
                     }
                     ImGui::EndPopup();
@@ -1481,6 +1490,29 @@ void gerber_explorer::blend_selection(gl::color red, gl::color green, gl::color 
 
 //////////////////////////////////////////////////////////////////////
 
+void gerber_explorer::set_outline_layer(gerber_layer *new_outline_layer)
+{
+    for(auto *l : layers) {
+        if(l->is_outline_layer && l != new_outline_layer) {
+            l->is_outline_layer = false;
+            l->got_mask = false;
+            l->drawer->got_mask = false;
+            l->drawer->mask.release_gl_resources();
+            l->drawer->mask.release();
+        }
+    }
+    if(new_outline_layer != nullptr) {
+        new_outline_layer->is_outline_layer = true;
+        pool.add_job(job_type_create_mask, [new_outline_layer](std::stop_token st) {
+            if(!st.stop_requested()) {
+                new_outline_layer->drawer->create_mask();
+            }
+        });
+    }
+}
+
+//////////////////////////////////////////////////////////////////////
+
 void gerber_explorer::on_render()
 {
     // gather up any layers which finished loading
@@ -1491,6 +1523,16 @@ void gerber_explorer::on_render()
             gerber_layer *loaded_layer = loaded_layers.front();
             loaded_layers.pop_front();
             layers.push_front(loaded_layer);
+
+            // Auto-detect outline layer (only if none exists)
+            if(get_outline_layer() == nullptr) {
+                auto layer_type = loaded_layer->layer_type();
+                if(gerber_lib::is_layer_type(layer_type, gerber_lib::layer::type_t::board) ||
+                   gerber_lib::is_layer_type(layer_type, gerber_lib::layer::type_t::outline)) {
+                    set_outline_layer(loaded_layer);
+                }
+            }
+
             layers.sort([](gerber_layer const *a, gerber_layer const *b) { return a->index > b->index; });
             LOG_INFO("Loaded layer \"{}\"", loaded_layer->filename());
             if(loaded_layers.empty()) {

@@ -33,14 +33,14 @@
 // X allow user to specify board outline layer dynamically (e.g. ko from jlcpcb)
 // X fix broken tesselation
 // X mm/inches
+// X fix job pool hang
+// X don't save settings if layer loading in progress
 //
 // \ detect & use board outline for inverted layers
 //
 // there can be only one outline layer
 // show icon for outline layer
 // fix select/hover/active highlighting
-// fix job pool hang
-// don't save settings if layer loading in progress
 // make the gerber parser interruptible with stop_token
 // share arenas where possible in gl_drawer (pool of arenas reused?)
 // make status bar more informative
