@@ -116,7 +116,8 @@ struct gerber_explorer : gl_window
         mouse_drag_zoom,
         mouse_drag_zoom_select,
         mouse_drag_maybe_select,
-        mouse_drag_select
+        mouse_drag_select,
+        mouse_measure
     };
 
     enum job_type_t
@@ -138,6 +139,14 @@ struct gerber_explorer : gl_window
     vec2d mouse_world_pos{};
     rect drag_rect{};
     int ignore_mouse_moves{};
+
+    // measurement tool
+    bool measure_mode{false};
+    bool measure_dragging{false};
+    bool measure_line_visible{false};
+    vec2d measure_start_world{};
+    vec2d measure_end_world{};
+    GLFWcursor *crosshair_cursor{nullptr};
 
     // view rect in world coordinates
     rect view_rect{};

@@ -35,11 +35,10 @@
 // X mm/inches
 // X fix job pool hang
 // X don't save settings if layer loading in progress
+// X there can be only one outline layer
+// X detect & use board outline for inverted layers
+// X show icon for outline layer
 //
-// \ detect & use board outline for inverted layers
-//
-// there can be only one outline layer
-// show icon for outline layer
 // fix select/hover/active highlighting
 // make the gerber parser interruptible with stop_token
 // share arenas where possible in gl_drawer (pool of arenas reused?)

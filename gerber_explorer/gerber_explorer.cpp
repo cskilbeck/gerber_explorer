@@ -2,6 +2,7 @@
 #include <windows.h>
 #endif
 
+#include <cmath>
 #include <filesystem>
 #include <expected>
 
@@ -397,7 +398,7 @@ void gerber_explorer::next_view()
 
 void gerber_explorer::on_key(int key, int scancode, int action, int mods)
 {
-    if((action == GLFW_PRESS || action == GLFW_REPEAT)) {
+    if((action == GLFW_PRESS)) {
         if(mods == 0) {
             switch(key) {
             case GLFW_KEY_ESCAPE:
@@ -443,6 +444,26 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
                 }
             } break;
             }
+        } else if(mods & GLFW_MOD_ALT) {
+            switch(key) {
+            case GLFW_KEY_LEFT_ALT:
+            case GLFW_KEY_RIGHT_ALT:
+                measure_mode = true;
+                glfwSetCursor(window, crosshair_cursor);
+                if(selected_layer != nullptr) {
+                    selected_layer->drawer->clear_entity_flags(entity_flags_t::hovered);
+                }
+                set_mouse_mode(mouse_drag_none);
+                break;
+            }
+        }
+    } else if(action == GLFW_RELEASE) {
+        switch(key) {
+        case  GLFW_KEY_LEFT_ALT:
+        case GLFW_KEY_RIGHT_ALT:
+            measure_mode = false;
+            glfwSetCursor(window, nullptr);
+            break;
         }
     }
 }
@@ -463,7 +484,13 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
     case GLFW_PRESS:
         switch(button) {
         case GLFW_MOUSE_BUTTON_LEFT:
-            if((mods & GLFW_MOD_CONTROL) != 0) {
+            if(measure_mode) {
+                // Start measuring (orthogonal to mouse_mode)
+                measure_start_world = world_pos_from_viewport_pos(mouse_pos);
+                measure_end_world = measure_start_world;
+                measure_dragging = true;
+                measure_line_visible = false;
+            } else if((mods & GLFW_MOD_CONTROL) != 0) {
                 set_mouse_mode(mouse_drag_zoom_select);
             } else {
                 set_mouse_mode(mouse_drag_maybe_select);
@@ -480,7 +507,12 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
     case GLFW_RELEASE:
         switch(button) {
         case GLFW_MOUSE_BUTTON_LEFT:
-            if(mouse_mode == mouse_drag_zoom_select) {
+            if(measure_dragging) {
+                // Finalize measurement
+                measure_end_world = world_pos_from_viewport_pos(mouse_pos);
+                measure_line_visible = true;
+                measure_dragging = false;
+            } else if(mouse_mode == mouse_drag_zoom_select) {
                 rect drag_rect_corrected = correct_aspect_ratio(viewport_rect.aspect_ratio(), drag_rect, aspect_expand);
                 vec2d mn = drag_rect_corrected.min_pos;
                 vec2d mx = drag_rect_corrected.max_pos;
@@ -489,10 +521,13 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
                     zoom_to_rect(world_rect_from_viewport_rect({ mn, mx }));
                     should_fit_to_viewport = false;
                 }
+                set_mouse_mode(mouse_drag_none);
             } else if(mouse_mode == mouse_drag_select && selected_layer != nullptr) {
                 selected_layer->drawer->select_hovered_entities();
+                set_mouse_mode(mouse_drag_none);
+            } else {
+                set_mouse_mode(mouse_drag_none);
             }
-            set_mouse_mode(mouse_drag_none);
             break;
         case GLFW_MOUSE_BUTTON_RIGHT:
             set_mouse_mode(mouse_drag_none);
@@ -577,8 +612,12 @@ void gerber_explorer::handle_mouse()
 
         default:
         case mouse_drag_none: {
+            // Update measurement end point while dragging (not during zoom/pan)
+            if(measure_dragging) {
+                measure_end_world = world_pos_from_viewport_pos(mouse_pos);
+            }
             // Just hovering, highlight entities under the mouse if selected_layer != nullptr
-            if(selected_layer != nullptr) {
+            if(selected_layer != nullptr && !measure_mode) {
                 vec2d pos = board_pos_from_viewport_pos(mouse_pos);
                 selected_layer->drawer->flag_entities_at_point(pos, entity_flags_t::hovered, entity_flags_t::hovered);
             }
@@ -595,6 +634,9 @@ void gerber_explorer::on_closed()
     bool should_save_files = pool.get_active_job_count(job_type_load_gerber) == 0;
     pool.shut_down();
     NFD_Quit();
+    if(crosshair_cursor != nullptr) {
+        glfwDestroyCursor(crosshair_cursor);
+    }
     save_settings(config_path(app_name, settings_filename), should_save_files);
     gl_window::on_closed();
 }
@@ -717,6 +759,7 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
     case mouse_drag_none:
         zoom_anim = mouse_mode == mouse_drag_zoom_select;
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        glfwSetCursor(window, measure_mode ? crosshair_cursor : nullptr);
         break;
 
     case mouse_drag_pan:
@@ -811,6 +854,8 @@ bool gerber_explorer::on_init()
     line2_program.init();
 
     overlay.init();
+
+    crosshair_cursor = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
 
     glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &max_multisamples);
 
@@ -1398,12 +1443,21 @@ void gerber_explorer::ui()
             scale = 1.0 / 2.54;
             units_str = "in";
         }
+        // Show measurement distance
+        if(measure_dragging || measure_line_visible) {
+            double dx = (measure_end_world.x - measure_start_world.x) * scale;
+            double dy = (measure_end_world.y - measure_start_world.y) * scale;
+            double distance = std::sqrt(dx * dx + dy * dy);
+            ImGui::Text("Distance: %.4f %s (dx: %.4f, dy: %.4f)", distance, units_str, dx, dy);
+            ImGui::SameLine();
+        }
         vec2d pos = world_mouse_pos.scale(scale);
         std::string text = std::format("{:8.4f} {:8.4f} {}", pos.x, pos.y, units_str);
         float text_width = ImGui::CalcTextSize(text.c_str()).x;
         float posX = ImGui::GetWindowWidth() - text_width - ImGui::GetStyle().ItemSpacing.x;
         ImGui::SetCursorPosX(posX);
         ImGui::Text("%s", text.c_str());
+
     }
     ImGui::End();
 
@@ -1520,6 +1574,15 @@ void gerber_explorer::set_outline_layer(gerber_layer *new_outline_layer)
 
 void gerber_explorer::on_render()
 {
+    // Tell ImGui not to manage cursor when we're in measure mode
+    ImGuiIO &io = ImGui::GetIO();
+    if(measure_mode) {
+        io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+        glfwSetCursor(window, crosshair_cursor);
+    } else {
+        io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
+    }
+
     // gather up any layers which finished loading
     // if we just got the last one loaded, fit to viewport
     {
@@ -1842,6 +1905,14 @@ void gerber_explorer::on_render()
         }
         overlay.add_rect(f, color);
         overlay.add_outline_rect(f, 0xffffffff);
+    }
+
+    // Draw measurement line
+    if(measure_dragging || measure_line_visible) {
+        vec2d start_screen = viewport_pos_from_world_pos(measure_start_world);
+        vec2d end_screen = viewport_pos_from_world_pos(measure_end_world);
+        overlay.lines();
+        overlay.add_line(start_screen, end_screen, gl::colors::yellow);
     }
 
     color_program.activate();
