@@ -5,12 +5,25 @@
 #include "gerber_level.h"
 #include "gerber_image.h"
 
+#include "gerber_lib.h"
+
+LOG_CONTEXT("gerber_image", info);
+
 namespace gerber_lib
 {
     //////////////////////////////////////////////////////////////////////
 
     void gerber_image::cleanup()
     {
+        LOG_INFO("cleanup {}", this->info.image_name);
+
+        stats.cleanup();
+
+        for(auto p : aperture_macros) {
+            delete p;
+        }
+        aperture_macros.clear();
+
         for(auto p : apertures) {
             delete p.second;
         }

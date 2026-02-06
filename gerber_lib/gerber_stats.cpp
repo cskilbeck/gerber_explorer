@@ -12,7 +12,14 @@ namespace gerber_lib
     void gerber_stats::cleanup()
     {
         errors.clear();
+        for(auto a: apertures) {
+            delete a;
+        }
         apertures.clear();
+
+        for(auto d: d_codes) {
+            delete d;
+        }
         d_codes.clear();
     }
 

@@ -8,6 +8,7 @@
 
 #if defined(WIN32)
 #define GLFW_EXPOSE_NATIVE_WIN32
+#include "GLFW/glfw3native.h"
 #endif
 
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -26,8 +27,6 @@
 #include "util.h"
 
 #include "assets/matsym_codepoints_utf8.h"
-
-#include "GLFW/glfw3native.h"
 
 LOG_CONTEXT("gerber_explorer", debug);
 
@@ -425,6 +424,8 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
             case GLFW_KEY_E:
                 settings.show_extent = !settings.show_extent;
                 break;
+            default:
+                break;
             }
         } else if(mods & GLFW_MOD_CONTROL) {
             switch(key) {
@@ -443,6 +444,8 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
                     load_settings(load_path.value());
                 }
             } break;
+            default:
+                break;
             }
         } else if(mods & GLFW_MOD_ALT) {
             switch(key) {
@@ -455,14 +458,18 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
                 }
                 set_mouse_mode(mouse_drag_none);
                 break;
+            default:
+                break;
             }
         }
     } else if(action == GLFW_RELEASE) {
         switch(key) {
-        case  GLFW_KEY_LEFT_ALT:
+        case GLFW_KEY_LEFT_ALT:
         case GLFW_KEY_RIGHT_ALT:
             measure_mode = false;
             glfwSetCursor(window, nullptr);
+            break;
+        default:
             break;
         }
     }
@@ -502,6 +509,8 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
         case GLFW_MOUSE_BUTTON_MIDDLE:
             set_mouse_mode(mouse_drag_zoom);
             break;
+        default:
+            break;
         }
         break;
     case GLFW_RELEASE:
@@ -535,7 +544,11 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
         case GLFW_MOUSE_BUTTON_MIDDLE:
             set_mouse_mode(mouse_drag_none);
             break;
+        default:
+            break;
         }
+        break;
+    default:
         break;
     }
 }
@@ -689,6 +702,13 @@ void gerber_explorer::close_all_layers()
         layers.pop_front();
         delete l;
     }
+}
+
+//////////////////////////////////////////////////////////////////////
+
+gerber_layer::~gerber_layer()
+{
+    delete file;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1458,7 +1478,6 @@ void gerber_explorer::ui()
         float posX = ImGui::GetWindowWidth() - text_width - ImGui::GetStyle().ItemSpacing.x;
         ImGui::SetCursorPosX(posX);
         ImGui::Text("%s", text.c_str());
-
     }
     ImGui::End();
 

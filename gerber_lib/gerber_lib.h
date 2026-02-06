@@ -150,7 +150,10 @@ namespace gerber_lib
 
         gerber_file() = default;
 
-        ~gerber_file() = default;
+        ~gerber_file()
+        {
+            cleanup();
+        }
     };
 
 }    // namespace gerber_lib

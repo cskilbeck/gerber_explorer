@@ -37,6 +37,8 @@ struct gerber_layer
     using vec2d = gerber_lib::vec2d;
     using matrix = gerber_lib::matrix;
 
+    ~gerber_layer();
+
     void init()
     {
         drawers[0].init(this);
