@@ -76,7 +76,7 @@ namespace gerber_lib
         void add_aperture(int level, int number, gerber_aperture_type type, double parameter[5]);
         void add_to_d_list(int number);
         void add_new_d_list(int number);
-        gerber_error_code increment_d_list_count(int number, int count, int line);
+        gerber_error_code increment_d_list_count(int number, int count, int line) const;
 
         //////////////////////////////////////////////////////////////////////
 

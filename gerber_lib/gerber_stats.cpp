@@ -12,12 +12,12 @@ namespace gerber_lib
     void gerber_stats::cleanup()
     {
         errors.clear();
-        for(auto a: apertures) {
+        for(auto a : apertures) {
             delete a;
         }
         apertures.clear();
 
-        for(auto d: d_codes) {
+        for(auto d : d_codes) {
             delete d;
         }
         d_codes.clear();
@@ -66,11 +66,8 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber_stats::increment_d_list_count(int number, int count, int line)
+    gerber_error_code gerber_stats::increment_d_list_count(int number, [[maybe_unused]] int count, [[maybe_unused]] int line) const
     {
-        (void)count;
-        (void)line;
-
         for(auto d : d_codes) {
             if(d->number == number) {
                 d->count += 1;

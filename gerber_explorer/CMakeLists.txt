@@ -66,6 +66,27 @@ endif ()
 
 add_executable(${PROJECT} ${PROJECT_SOURCES})
 
+# Debug: Terminal application (for debug output)
+# Release/RelWithDebInfo: App (with icon, no console etc)
+if (APPLE AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_MACOSX_BUNDLE TRUE)
+    set(ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/application.icns")
+
+    set_source_files_properties(${ICON_PATH} PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources"
+    )
+    set_target_properties(${PROJECT} PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_ICON_FILE "application.icns"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.chs.gerber-explorer"
+        MACOSX_BUNDLE_BUNDLE_NAME "Gerber Explorer"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION_MAJOR}"
+        MACOSX_BUNDLE_COPYRIGHT "Copyright © 2026 Charlie Skilbeck. All rights reserved."
+    )
+    target_sources(${PROJECT} PRIVATE ${ICON_PATH})
+endif()
+
 if(USE_OUTPUT_DEBUG_STRING)
     message("Using OutputDebugString for logging")
     target_compile_definitions(${PROJECT} PRIVATE LOG_USE_OUTPUT_DEBUG_STRING=1)
@@ -78,8 +99,6 @@ target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets my_sha
 target_enable_ipo(${PROJECT})
 
 if (WIN32)
-    # Debug: Console application (for debug output)
-    # Release/RelWithDebInfo: Windows application (no console)
     set_target_properties(${PROJECT} PROPERTIES
         WIN32_EXECUTABLE $<NOT:$<CONFIG:Debug>>
     )
