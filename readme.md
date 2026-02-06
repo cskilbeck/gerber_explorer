@@ -8,6 +8,13 @@ There's a lot left to do.
 
 ## Build Instructions
 
+### Install CMake and Ninja
+
+- Get CMake from [here](https://cmake.org/download/)
+- Get Ninja from [here](https://ninja-build.org/)
+
+Or you can use `make` instead of `ninja`, in which case... install that.
+
 ### Windows/MSVC
 
 #### Get to a 64 bit developer Command Prompt
@@ -52,3 +59,23 @@ I've tested building it with these toolchains on Windows via CLion.
 - gcc
 
 ### MacOS
+
+Open a terminal, and make sure you have the XCode Command Line tools installed:
+
+```
+$ xcode-select --install
+```
+
+Then, to build it:
+
+```
+$ cd <your dev folder>
+$ git clone https://github.com/cskilbeck/gerber_explorer
+$ cd gerber_explorer
+$ cmake -G Ninja -B build
+$ cmake --build build
+```
+
+The result should be in `build/gerber_explorer`
+
+Presumably there's a way to get CMake to generate an XCode project but I haven't looked into that.
