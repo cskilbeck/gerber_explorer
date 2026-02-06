@@ -86,12 +86,14 @@ int flushed_puts(char const *s)
     return x;
 }
 
+#ifdef _WIN32
 int output_debug_string(char const *s)
 {
     OutputDebugStringA(s);
     OutputDebugStringA("\n");
     return 0;
 }
+#endif
 
 int main(int, char **)
 {

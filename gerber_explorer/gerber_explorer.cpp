@@ -1,9 +1,14 @@
+#if defined(_WIN32)
 #include <windows.h>
+#endif
 
 #include <filesystem>
 #include <expected>
 
+#if defined(WIN32)
 #define GLFW_EXPOSE_NATIVE_WIN32
+#endif
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 
 #include "imgui.h"
@@ -1377,7 +1382,7 @@ void gerber_explorer::ui()
             ImGui::Text("%s", active_entity_description.c_str());
         } else if(selected_layer != nullptr) {
             char const *layer_type_name = gerber_lib::layer_type_name_friendly(selected_layer->layer_type());
-            ImGui::Text("%s - %s (%llu entities) (outline: %d) (got_mask: %d)",
+            ImGui::Text("%s - %s (%zu entities) (outline: %d) (got_mask: %d)",
                         selected_layer->name.c_str(),
                         layer_type_name,
                         selected_layer->drawer->entities.size(),
@@ -1408,7 +1413,7 @@ void gerber_explorer::ui()
 
     ImGui::Begin("Job Pool");
     {
-        ImGui::Text("Active: %5llu, Queued: %5llu", info.active, info.queued);
+        ImGui::Text("Active: %5zu, Queued: %5zu", info.active, info.queued);
     }
     ImGui::End();
 

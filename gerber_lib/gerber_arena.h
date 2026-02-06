@@ -12,7 +12,7 @@ namespace gerber_lib
 
     bool commit_address_space(void *addr, size_t size);
     std::byte *allocate_address_space(size_t size);
-    void deallocate_address_space(void *p);
+    void deallocate_address_space(void *p, size_t size);
 
     extern size_t system_page_size;
 
@@ -86,7 +86,7 @@ namespace gerber_lib
 
         void release()
         {
-            deallocate_address_space(base_address);
+            deallocate_address_space(base_address, reserve_size);
             base_address = nullptr;
             used_size = 0;
             committed_size = 0;

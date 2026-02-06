@@ -16,6 +16,7 @@ set(SUPPRESSED_WARNINGS
         -Wno-nan-infinity-disabled
         -Wno-microsoft-anon-tag
         -Wno-defaulted-function-deleted
+        -Wno-deprecated-declarations
         -Wno-missing-braces
         -Wno-unused-const-variable
         -Wno-multichar
@@ -55,13 +56,12 @@ if (MSVC)
 
 else ()
     set(DESIRED_FLAGS
-            -mavx2
-            -mfma
             -Wall
             -Wextra
             -Werror
             ${SUPPRESSED_WARNINGS}
     )
+
     set(RELEASE_ONLY_FLAGS
             -O3
             -ffast-math
@@ -82,6 +82,16 @@ foreach (flag ${DESIRED_FLAGS})
         target_compile_options(project_options INTERFACE "${flag}")
     endif ()
 endforeach ()
+
+target_compile_definitions(project_options INTERFACE
+    $<$<CONFIG:Debug>:_DEBUG>
+)
+
+# special x64 options
+target_compile_options(project_options INTERFACE
+    $<$<STREQUAL:"${CMAKE_SYSTEM_PROCESSOR}","x86_64">:-mavx2>
+    $<$<STREQUAL:"${CMAKE_SYSTEM_PROCESSOR}","x86_64">:-mfma>
+)
 
 foreach (flag ${RELEASE_ONLY_FLAGS})
     string(REGEX REPLACE "[^a-zA-Z0-9]" "_" SAFE_NAME "HAS_${flag}")

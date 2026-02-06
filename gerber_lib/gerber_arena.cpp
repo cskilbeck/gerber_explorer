@@ -48,7 +48,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    void deallocate_address_space(void *p)
+    void deallocate_address_space(void *p, [[maybe_unused]] size_t size)
     {
         if(p != nullptr) {
             LOG_DEBUG("VirtualFree({})", p);
@@ -76,15 +76,15 @@ namespace gerber_lib
 
     std::byte *allocate_address_space(size_t size)
     {
-        return (std::byte *)mmap(nullptr, reserve_size_, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        return (std::byte *)mmap(nullptr, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void deallocate_address_space(void *p)
+    void deallocate_address_space(void *p, size_t size)
     {
         if(p != nullptr) {
-            munmap(p, reserve_size_);
+            munmap(p, size);
         }
     }
 #endif

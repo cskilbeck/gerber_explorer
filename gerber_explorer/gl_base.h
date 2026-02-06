@@ -6,7 +6,6 @@
 #include "gerber_2d.h"
 #include "gl_colors.h"
 
-#include "debug-trap.h"
 #include "cpptrace/cpptrace.hpp"
 
 //////////////////////////////////////////////////////////////////////

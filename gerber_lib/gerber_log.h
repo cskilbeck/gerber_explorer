@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "gerber_util.h"
+
+
 #include <chrono>
 #include <format>
 
@@ -62,7 +65,7 @@ namespace gerber_lib
             gerber_log(level, context.context, fmt, std::make_format_args(arguments...));
         }
         if(level == log_level_fatal) {
-            __debugbreak();
+            SAFE_TRAP();
         }
     }
 

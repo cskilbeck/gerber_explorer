@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.24)
+
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
 project(gerber_explorer VERSION 1.0)
 

@@ -53,9 +53,8 @@ namespace gerber_lib
         std::ifstream in_stream(file_path, std::ios::binary);
 
         if(!in_stream.is_open()) {
-            char error_msg[256];
-            strerror_s(error_msg, errno);
-            LOG_ERROR("Error opening file {}: {}", file_path, error_msg);
+            std::error_code const ec(errno, std::generic_category());
+            LOG_ERROR("Error opening file {}: {}", file_path, ec.message());
             return error_cant_open_file;
         }
 

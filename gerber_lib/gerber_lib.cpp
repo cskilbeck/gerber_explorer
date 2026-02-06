@@ -21,6 +21,8 @@
 #include "gerber_image.h"
 #include "gerber_reader.h"
 
+#include <charconv>
+
 LOG_CONTEXT("gerber_lib", info);
 
 //////////////////////////////////////////////////////////////////////

@@ -66,7 +66,7 @@ namespace gl
         GL_CHECK(glShaderSource(id, std::size(sources), sources, NULL));
         GL_CHECK(glCompileShader(id));
 
-        GLint result;
+        int result;
         GL_CHECK(glGetShaderiv(id, GL_COMPILE_STATUS, &result));
         if(result) {
             return id;
@@ -129,13 +129,6 @@ namespace gl
         if(rc != 0) {
             cleanup();
             LOG_ERROR("validate error for init() {}", program_name);
-            return rc;
-        }
-        GL_CHECK(glValidateProgram(program_id));
-        rc = validate(GL_VALIDATE_STATUS);
-        if(rc != 0) {
-            cleanup();
-            LOG_ERROR("glValidateProgram error for {}", program_name);
             return rc;
         }
         activate();

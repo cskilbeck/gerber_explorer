@@ -12,6 +12,8 @@
 
 #include "util.h"
 
+#include <unistd.h>
+
 //////////////////////////////////////////////////////////////////////
 
 char const *app_name{ "gerber_explorer" };

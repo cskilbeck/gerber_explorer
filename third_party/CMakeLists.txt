@@ -141,27 +141,25 @@ FetchContent_Declare(
         libtess2
         GIT_REPOSITORY https://github.com/memononen/libtess2.git
         GIT_TAG v1.0.2
+        SOURCE_SUBDIR .dummy
 )
 
-FetchContent_GetProperties(libtess2)
-if (NOT libtess2_POPULATED)
-    FetchContent_Populate(libtess2)
+FetchContent_MakeAvailable(libtess2)
 
-    file(GLOB TESS2_SOURCES
-            "${libtess2_SOURCE_DIR}/Source/*.c"
-            "${libtess2_SOURCE_DIR}/Source/*.h"
-    )
+file(GLOB TESS2_SOURCES
+        "${libtess2_SOURCE_DIR}/Source/*.c"
+        "${libtess2_SOURCE_DIR}/Source/*.h"
+)
 
-    add_library(libtess2 STATIC ${TESS2_SOURCES})
+add_library(libtess2 STATIC ${TESS2_SOURCES})
 
-    target_include_directories(libtess2 PUBLIC
-            "${libtess2_SOURCE_DIR}/Include"
-    )
+target_include_directories(libtess2 PUBLIC
+        "${libtess2_SOURCE_DIR}/Include"
+)
 
-    target_include_directories(libtess2 PRIVATE "${libtess2_SOURCE_DIR}/Contrib")
+target_include_directories(libtess2 PRIVATE "${libtess2_SOURCE_DIR}/Contrib")
 
-    target_silence_warnings(libtess2)
-endif ()
+target_silence_warnings(libtess2)
 
 ######################################################################
 # stb_image
@@ -221,15 +219,6 @@ foreach(LIB ${IPO_LIBS})
 endforeach()
 
 ######################################################################
-# psnip debug-trap
-
-add_library(debug_trap INTERFACE
-        debug-trap/debug-trap.h
-)
-
-target_include_directories(debug_trap INTERFACE debug-trap)
-
-######################################################################
 # main 3rd party library
 
 add_library(third_party INTERFACE)
@@ -237,6 +226,9 @@ add_library(third_party INTERFACE)
 if(WIN32)
     set_target_properties(Clipper2 PROPERTIES INTERFACE_LINK_LIBRARIES "")
     set_target_properties(libtess2 PROPERTIES INTERFACE_LINK_LIBRARIES "")
+else()
+    target_include_directories(third_party INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_definitions(third_party INTERFACE _XM_ARM_NEON_INTRINSICS_)
 endif()
 
 target_link_libraries(third_party INTERFACE
@@ -248,5 +240,5 @@ target_link_libraries(third_party INTERFACE
         libtess2
         Clipper2
         stb_image
-        debug_trap
 )
+
