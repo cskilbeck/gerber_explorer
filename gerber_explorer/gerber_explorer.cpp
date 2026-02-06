@@ -6,11 +6,6 @@
 #include <filesystem>
 #include <expected>
 
-#if defined(WIN32)
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include "GLFW/glfw3native.h"
-#endif
-
 #define IMGUI_DEFINE_MATH_OPERATORS
 
 #include "imgui.h"
@@ -27,6 +22,11 @@
 #include "util.h"
 
 #include "assets/matsym_codepoints_utf8.h"
+
+#if defined(WIN32)
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include "GLFW/glfw3native.h"
+#endif
 
 LOG_CONTEXT("gerber_explorer", debug);
 
