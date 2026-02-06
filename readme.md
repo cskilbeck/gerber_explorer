@@ -2,6 +2,8 @@
 
 Based on GerbV originally. This is a work in progress.
 
+![](screenshot.png "screenshot")
+
 ## TODO
 
 There's a lot left to do.
@@ -79,3 +81,7 @@ $ cmake --build build
 The result should be in `build/gerber_explorer`
 
 Presumably there's a way to get CMake to generate an XCode project but I haven't looked into that.
+
+### Linux
+
+In theory it _should_ build on Linux but I expect some changes will be required, I haven't tried that yet.

@@ -6,6 +6,7 @@
 #include <locale>
 #include <map>
 #include <chrono>
+#include <expected>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -75,6 +76,13 @@ namespace gerber_util
     {
         return N;
     }
+
+    enum class ParseError {
+        InvalidInput,
+        OutOfRange
+    };
+
+    std::expected<double, ParseError> double_from_string_view(std::string_view sv);
 
     namespace util
     {

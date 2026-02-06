@@ -1781,15 +1781,15 @@ namespace gerber_lib
             std::vector<std::string> parameters;
             tokenize(tokens[token_index], parameters, "Xx", tokenize_remove_empty);
             for(std::string const &s : parameters) {
-                double value = strtod(s.c_str(), nullptr);
-                if(errno != 0) {
-                    LOG_ERROR("Invalid number in aperture parameters: {}", s);
+                auto value = gerber_util::double_from_string_view(s);
+                if(!value.has_value()) {
+                    LOG_ERROR("Invalid number in aperture parameters: \"{}\" ({})", s, (int)value.error());
                     return error_invalid_number;
                 }
                 if(aperture->parameters.size() <= static_cast<size_t>(parameter_index)) {
                     aperture->parameters.resize(static_cast<size_t>(parameter_index) + 1);
                 }
-                aperture->parameters[parameter_index] = value;
+                aperture->parameters[parameter_index] = value.value();
                 parameter_index += 1;
             }
         }
