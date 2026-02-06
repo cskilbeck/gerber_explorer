@@ -398,7 +398,7 @@ void gerber_explorer::next_view()
 
 void gerber_explorer::on_key(int key, int scancode, int action, int mods)
 {
-    if((action == GLFW_PRESS)) {
+    if(action == GLFW_PRESS) {
         if(mods == 0) {
             switch(key) {
             case GLFW_KEY_ESCAPE:
@@ -818,6 +818,7 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
         drag_rect = rect{ drag_mouse_start_pos, drag_mouse_cur_pos };
         break;
     }
+
     mouse_mode = action;
 }
 

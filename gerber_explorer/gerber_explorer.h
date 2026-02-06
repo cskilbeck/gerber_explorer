@@ -117,7 +117,6 @@ struct gerber_explorer : gl_window
         mouse_drag_zoom_select,
         mouse_drag_maybe_select,
         mouse_drag_select,
-        mouse_measure
     };
 
     enum job_type_t

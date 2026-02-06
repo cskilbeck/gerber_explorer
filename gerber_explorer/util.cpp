@@ -12,7 +12,9 @@
 
 #include "util.h"
 
+#if !defined(_MSC_VER)
 #include <unistd.h>
+#endif
 
 //////////////////////////////////////////////////////////////////////
 
@@ -28,13 +30,13 @@ char const *settings_filename{ "settings.json" };
 
 std::optional<std::string> get_env_var(const std::string &key)
 {
-#if defined(MSVC)
+#if defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable : 4996)
 #endif
     // ReSharper disable once CppDeprecatedEntity
     const char *val = std::getenv(key.c_str());
-#if defined(MSVC)
+#if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
     if(val == nullptr) {
