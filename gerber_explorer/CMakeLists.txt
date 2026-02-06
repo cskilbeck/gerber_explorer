@@ -57,7 +57,6 @@ set(PROJECT_SOURCES
         settings.h
         job_pool.h
         job_pool.cpp
-        force_inline.h
 )
 
 if (WIN32)
