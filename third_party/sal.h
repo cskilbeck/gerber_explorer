@@ -1,20 +1,4 @@
-#ifndef SAL_H_SHIM
-#define SAL_H_SHIM
-
-// SAL 1 / Legacy Macros
-#define __in
-#define __out
-#define __in_opt
-#define __out_opt
-#define __inout
-#define __inout_opt
-#define __in_ecount(x)
-#define __out_ecount(x)
-#define __in_bcount(x)
-#define __out_bcount(x)
-#define __deref_out
-#define __deref_inout
-#define __checkReturn
+#pragma once
 
 // SAL 2 Macros
 #define _In_
@@ -38,5 +22,3 @@
 #define _Success_(x)
 #define _Return_type_success_(x)
 #define _On_failure_(x)
-
-#endif // SAL_H_SHIM
