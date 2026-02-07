@@ -4,6 +4,7 @@
 #include <stack>
 #include <map>
 #include <cmath>
+#include <limits>
 
 #include "gerber_error.h"
 #include "gerber_util.h"

@@ -344,7 +344,7 @@ namespace gerber
     {
         finish_entity();
 
-        entities.emplace_back(net, 0, (int)outline_vertices.size(), 0, flags);
+        entities.emplace_back(net, (int)outline_vertices.size(), 0, flags);
 
         boundary_stesselator = tessNewTess(&boundary_arena.tess_alloc);
 
@@ -361,7 +361,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::fill_elements(gerber_draw_element const *elements, size_t num_elements, gerber_polarity polarity, gerber_net *gnet)
+    gerber_error_code gl_drawer::fill_elements(gerber_draw_element const *elements, size_t num_elements, gerber_polarity polarity, gerber_net *gnet)
     {
         using gerber_lib::gerber_draw_element;
 
@@ -431,7 +431,7 @@ namespace gerber
 
         if(temp_points.size() < 3) {
             LOG_INFO("CULLED SECTION OF ENTITY {} in {}", gnet->entity_id, name());
-            return;
+            return ok;
         }
 
         // if last point == first point, bin it
@@ -446,6 +446,7 @@ namespace gerber
             std::reverse(temp_points.begin() + offset, temp_points.end());
         }
         append_points(offset);
+        return ok;
     }
 
     //////////////////////////////////////////////////////////////////////

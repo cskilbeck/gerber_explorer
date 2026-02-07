@@ -92,7 +92,6 @@ namespace gerber
     struct tesselator_entity
     {
         gerber_lib::gerber_net *net{};
-        int fill_index;               // offset into fills spans
         int outline_offset;           // offset into outline lines
         int outline_size{};           // # of lines in the outline
         int flags;                    // see entity_flags_t
@@ -207,8 +206,8 @@ namespace gerber
         void set_gerber(gerber_lib::gerber_file *g) override;
 
         // callback to create draw calls from elements
-        void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity,
-                           gerber_lib::gerber_net *gnet) override;
+        gerber_lib::gerber_error_code fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity,
+                                                    gerber_lib::gerber_net *gnet) override;
 
         // admin for tesselation etc
         void clear();

@@ -15,7 +15,7 @@ namespace gl
         log_drawer() = default;
 
         void set_gerber(gerber_lib::gerber_file *g) override;
-        void fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, gerber_lib::gerber_net *gnet) override;
+        gerber_lib::gerber_error_code fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, gerber_lib::gerber_net *gnet) override;
 
         gerber_lib::gerber_file *gerber_file{ nullptr };
     };

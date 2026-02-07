@@ -80,7 +80,7 @@ namespace
         if(sv.empty()) {
             return false;
         }
-        for(auto const &c :sv) {
+        for(auto const &c : sv) {
             if(!isdigit(c)) {
                 return false;
             }
@@ -271,11 +271,12 @@ namespace
 
     //////////////////////////////////////////////////////////////////////
 
-    std::optional<unsigned> get_uint(std::string_view sv) {
-        if (!sv.empty()) {
+    std::optional<unsigned> get_uint(std::string_view sv)
+    {
+        if(!sv.empty()) {
             unsigned value = 0;
             auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
-            if (ec == std::errc{} && ptr == sv.data() + sv.size()) {
+            if(ec == std::errc{} && ptr == sv.data() + sv.size()) {
                 return value;
             }
         }
@@ -461,7 +462,7 @@ namespace gerber_lib
                     // Find the L## bit
                     std::vector<std::string_view> tokens;
                     tokenize(v, tokens, ",", tokenize_remove_empty);
-                    for(auto token: tokens) {
+                    for(auto token : tokens) {
                         if(tolower(token[0]) == 'l') {
                             auto n = get_uint(token.substr(1));
                             if(n.has_value()) {
@@ -1781,7 +1782,7 @@ namespace gerber_lib
             std::vector<std::string> parameters;
             tokenize(tokens[token_index], parameters, "Xx", tokenize_remove_empty);
             for(std::string const &s : parameters) {
-                auto value = gerber_util::double_from_string_view(s);
+                auto value = double_from_string_view(s);
                 if(!value.has_value()) {
                     LOG_ERROR("Invalid number in aperture parameters: \"{}\" ({})", s, (int)value.error());
                     return error_invalid_number;
@@ -2549,8 +2550,7 @@ namespace gerber_lib
                 }
             }
         }
-        drawer.fill_elements(elements.data(), elements.size(), polarity, gnet);
-        return ok;
+        return drawer.fill_elements(elements.data(), elements.size(), polarity, gnet);
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -2591,8 +2591,8 @@ namespace gerber_lib
                 mat = matrix::multiply(mat, matrix::translate(net->end));
                 pos = transform_point(mat, pos);
                 gerber_draw_element e(pos, 0, 360, diameter / 2);
-                drawer.fill_elements(&e, 1, polarity, net);
-            } break;
+                return drawer.fill_elements(&e, 1, polarity, net);
+            }
 
             case aperture_type_macro_moire: {
                 FAIL_IF(m->parameters.size() < moire_num_parameters, error_bad_parameter_count);
@@ -2612,8 +2612,8 @@ namespace gerber_lib
                 for(size_t i = 0; i < points.size() - 1; ++i) {
                     e.emplace_back(points[i], points[i + 1]);
                 }
-                drawer.fill_elements(e.data(), e.size(), polarity_dark, net);
-            } break;
+                return drawer.fill_elements(e.data(), e.size(), polarity_dark, net);
+            }
 
             case aperture_type_macro_polygon: {
                 FAIL_IF(m->parameters.size() < polygon_num_parameters, error_bad_parameter_count);
@@ -2624,28 +2624,29 @@ namespace gerber_lib
                 vec2d start{ m->parameters[line_20_start_x], m->parameters[line_20_start_y] };
                 vec2d end{ m->parameters[line_20_end_x], m->parameters[line_20_end_y] };
                 double width = m->parameters[line_20_line_width];
-                if(width != 0) {
-                    double w2 = width / 2;
-                    double rotation = m->parameters[line_20_rotation];
-
-                    matrix mat = matrix::rotate(rotation);
-                    mat = matrix::multiply(mat, matrix::translate(net->end));
-                    // transform_points(mat, points);
-
-                    std::array points = { vec2d{ start.x, start.y - w2, mat },    //
-                                          vec2d{ end.x, start.y - w2, mat },      //
-                                          vec2d{ end.x, start.y + w2, mat },      //
-                                          vec2d{ start.x, start.y + w2, mat } };
-
-
-                    gerber_draw_element e[4];
-                    e[0] = gerber_draw_element(points[0], points[3]);
-                    e[1] = gerber_draw_element(points[3], points[2]);
-                    e[2] = gerber_draw_element(points[2], points[1]);
-                    e[3] = gerber_draw_element(points[1], points[0]);
-                    drawer.fill_elements(e, 4, polarity_dark, net);
+                if(width == 0) {
+                    return error_invalid_number;
                 }
-            } break;
+                double w2 = width / 2;
+                double rotation = m->parameters[line_20_rotation];
+
+                matrix mat = matrix::rotate(rotation);
+                mat = matrix::multiply(mat, matrix::translate(net->end));
+                // transform_points(mat, points);
+
+                std::array points = { vec2d{ start.x, start.y - w2, mat },    //
+                                      vec2d{ end.x, start.y - w2, mat },      //
+                                      vec2d{ end.x, start.y + w2, mat },      //
+                                      vec2d{ start.x, start.y + w2, mat } };
+
+
+                gerber_draw_element e[4];
+                e[0] = gerber_draw_element(points[0], points[3]);
+                e[1] = gerber_draw_element(points[3], points[2]);
+                e[2] = gerber_draw_element(points[2], points[1]);
+                e[3] = gerber_draw_element(points[1], points[0]);
+                return drawer.fill_elements(e, 4, polarity_dark, net);
+            }
 
             case aperture_type_macro_line21: {
                 FAIL_IF(m->parameters.size() < line_21_num_parameters, error_bad_parameter_count);
@@ -2653,28 +2654,29 @@ namespace gerber_lib
                 double y = m->parameters[line_21_centre_y];
                 double w = m->parameters[line_21_line_width];
                 double h = m->parameters[line_21_line_height];
-                if(w != 0 && h != 0) {
-
-                    double rotation = m->parameters[line_21_rotation];
-                    double w2 = w / 2;
-                    double h2 = h / 2;
-
-                    matrix mat = matrix::rotate(rotation);
-                    mat = matrix::multiply(mat, matrix::translate(net->end));
-
-                    std::array points = { vec2d({ x - w2, y - h2 }, mat),      //
-                                          vec2d({ x + w2, y - h2 }, mat),      //
-                                          vec2d({ x + w2, y + h2 }, mat),      //
-                                          vec2d({ x - w2, y + h2 }, mat) };    //
-
-                    gerber_draw_element e[4];
-                    e[0] = gerber_draw_element(points[0], points[3]);
-                    e[1] = gerber_draw_element(points[3], points[2]);
-                    e[2] = gerber_draw_element(points[2], points[1]);
-                    e[3] = gerber_draw_element(points[1], points[0]);
-                    drawer.fill_elements(e, 4, polarity_dark, net);
+                if(w == 0 || h == 0) {
+                    return error_invalid_number;
                 }
-            } break;
+
+                double rotation = m->parameters[line_21_rotation];
+                double w2 = w / 2;
+                double h2 = h / 2;
+
+                matrix mat = matrix::rotate(rotation);
+                mat = matrix::multiply(mat, matrix::translate(net->end));
+
+                std::array points = { vec2d({ x - w2, y - h2 }, mat),      //
+                                      vec2d({ x + w2, y - h2 }, mat),      //
+                                      vec2d({ x + w2, y + h2 }, mat),      //
+                                      vec2d({ x - w2, y + h2 }, mat) };    //
+
+                gerber_draw_element e[4];
+                e[0] = gerber_draw_element(points[0], points[3]);
+                e[1] = gerber_draw_element(points[3], points[2]);
+                e[2] = gerber_draw_element(points[2], points[1]);
+                e[3] = gerber_draw_element(points[1], points[0]);
+                return drawer.fill_elements(e, 4, polarity_dark, net);
+            }
 
             case aperture_type_macro_line22: {
                 FAIL_IF(m->parameters.size() < line_22_num_parameters, error_bad_parameter_count);
@@ -2684,7 +2686,7 @@ namespace gerber_lib
                 break;
             }
         }
-        return ok;
+        return error_invalid_aperture_type;
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -2722,8 +2724,7 @@ namespace gerber_lib
                                      gerber_draw_element(p4, p3),                                     //
                                      gerber_draw_element(start, deg + 90, deg + 270, thickness) };    //
 
-        drawer.fill_elements(e, 4, net->level->polarity, net);
-        return ok;
+        return drawer.fill_elements(e, 4, net->level->polarity, net);
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -2743,22 +2744,23 @@ namespace gerber_lib
             el[1] = gerber_draw_element(el[0].line.end, top_right);
             el[2] = gerber_draw_element(el[1].line.end, { bottom_left.x, top_right.y });
             el[3] = gerber_draw_element(el[2].line.end, el[0].line.start);
-            drawer.fill_elements(el, 4, net->level->polarity, net);
+            return drawer.fill_elements(el, 4, net->level->polarity, net);
         };
 
         if(diff.length() < 1e-6) {
             // just draw a rectangle at start pos
-            draw_rectangle(start.subtract(size), start.add(size));
-        } else if(start.x == end.x) {
-            // draw vertical
-            draw_rectangle({ start.x - w, std::min(start.y, end.y) - h }, { start.x + w, std::max(start.y, end.y) + h });
-        } else if(start.y == end.y) {
-            // draw horizontal
-            draw_rectangle({ std::min(start.x, end.x) - w, start.y - h }, { std::max(start.x, end.x) + w, start.y + h });
-        } else {
-            // draw 6 sided shape
-            LOG_ERROR("Say wha?");
+            return draw_rectangle(start.subtract(size), start.add(size));
         }
+        if(start.x == end.x) {
+            // draw vertical
+            return draw_rectangle({ start.x - w, std::min(start.y, end.y) - h }, { start.x + w, std::max(start.y, end.y) + h });
+        }
+        if(start.y == end.y) {
+            // draw horizontal
+            return draw_rectangle({ std::min(start.x, end.x) - w, start.y - h }, { std::max(start.x, end.x) + w, start.y + h });
+        }
+        // draw 6 sided shape
+        LOG_ERROR("Say wha?");
         return ok;
     }
 
@@ -2785,8 +2787,7 @@ namespace gerber_lib
     gerber_error_code gerber_file::draw_circle(gerber_draw_interface &drawer, gerber_net *net, vec2d const &pos, double radius) const
     {
         gerber_draw_element e(pos, 0.0, 360.0, radius);
-        drawer.fill_elements(&e, 1, net->level->polarity, net);
-        return ok;
+        return drawer.fill_elements(&e, 1, net->level->polarity, net);
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -2891,7 +2892,7 @@ namespace gerber_lib
             }
         }
         if(n != 0) {
-            drawer.fill_elements(draw_elements, n, net->level->polarity, net);
+            return drawer.fill_elements(draw_elements, n, net->level->polarity, net);
         }
         return ok;
     }
@@ -2910,25 +2911,24 @@ namespace gerber_lib
         vec2d br1{ center.x + w2, center.y + h2 };
 
         if(fabs(width - height) < 1e-6) {
-            draw_circle(drawer, net, center, w2);
-        } else if(width > height) {
+            return draw_circle(drawer, net, center, w2);
+        }
+        if(width > height) {
             vec2d tl2{ tl1.x + h2, tl1.y };
             vec2d br2{ br1.x - h2, br1.y };
             el[0] = gerber_draw_element({ tl2.x, center.y }, 90, 270, h2);
             el[1] = gerber_draw_element(tl2, { br2.x, tl1.y });
             el[2] = gerber_draw_element({ br2.x, center.y }, 270, 450, h2);
             el[3] = gerber_draw_element(br2, { tl2.x, br1.y });
-            drawer.fill_elements(el, 4, net->level->polarity, net);
-        } else {
-            vec2d tl2{ tl1.x, tl1.y + w2 };
-            vec2d br2{ br1.x, br1.y - w2 };
-            el[0] = gerber_draw_element({ center.x, tl2.y }, 180, 360, w2);
-            el[1] = gerber_draw_element({ br2.x, tl2.y }, br2);
-            el[2] = gerber_draw_element({ center.x, br2.y }, 0, 180, w2);
-            el[3] = gerber_draw_element({ tl2.x, br2.y }, tl2);
-            drawer.fill_elements(el, 4, net->level->polarity, net);
+            return drawer.fill_elements(el, 4, net->level->polarity, net);
         }
-        return ok;
+        vec2d tl2{ tl1.x, tl1.y + w2 };
+        vec2d br2{ br1.x, br1.y - w2 };
+        el[0] = gerber_draw_element({ center.x, tl2.y }, 180, 360, w2);
+        el[1] = gerber_draw_element({ br2.x, tl2.y }, br2);
+        el[2] = gerber_draw_element({ center.x, br2.y }, 0, 180, w2);
+        el[3] = gerber_draw_element({ tl2.x, br2.y }, tl2);
+        return drawer.fill_elements(el, 4, net->level->polarity, net);
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -2943,8 +2943,7 @@ namespace gerber_lib
         el[1] = gerber_draw_element(bottom_right, r.max_pos);
         el[2] = gerber_draw_element(r.max_pos, top_left);
         el[3] = gerber_draw_element(top_left, r.min_pos);
-        drawer.fill_elements(el, 4, net->level->polarity, net);
-        return ok;
+        return drawer.fill_elements(el, 4, net->level->polarity, net);
     }
 
     //////////////////////////////////////////////////////////////////////
