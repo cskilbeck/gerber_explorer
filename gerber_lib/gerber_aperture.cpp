@@ -481,7 +481,7 @@ namespace gerber_lib
                 case 4:
                     type = aperture_type_macro_outline;
                     num_of_parameters = (static_cast<int>(macro_stack[1]) + 1llu) * 2 + 3;
-                    if(num_of_parameters < 0 || num_of_parameters >= INT_MAX / 4) {
+                    if(num_of_parameters < 0 || num_of_parameters >= std::numeric_limits<int>::max() / 4) {
                         return error_bad_parameter_count;
                     }
                     break;

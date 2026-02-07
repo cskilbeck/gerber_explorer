@@ -10,6 +10,7 @@ endif()
 
 ######################################################################
 # OPENGL
+set(OpenGL_GL_PREFERENCE GLVND)
 
 find_package(OpenGL REQUIRED)
 
@@ -57,6 +58,11 @@ set(IMGUI_BACKEND_SOURCES
 add_library(imgui_lib STATIC ${IMGUI_CORE_SOURCES} ${IMGUI_BACKEND_SOURCES})
 
 target_link_libraries(imgui_lib PUBLIC glfw OpenGL::GL)
+
+if(UNIX AND NOT APPLE)
+    find_package(X11 REQUIRED)
+    target_link_libraries(imgui_lib PUBLIC X11::X11)
+endif()
 
 target_include_directories(imgui_lib PUBLIC
         ${imgui_SOURCE_DIR}
@@ -228,7 +234,9 @@ if(WIN32)
     set_target_properties(libtess2 PROPERTIES INTERFACE_LINK_LIBRARIES "")
 else()
     target_include_directories(third_party INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
-    target_compile_definitions(third_party INTERFACE _XM_ARM_NEON_INTRINSICS_)
+    if(APPLE)
+        target_compile_definitions(third_party INTERFACE _XM_ARM_NEON_INTRINSICS_)
+    endif()
 endif()
 
 target_link_libraries(third_party INTERFACE

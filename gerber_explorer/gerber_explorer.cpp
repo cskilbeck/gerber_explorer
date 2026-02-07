@@ -28,7 +28,7 @@
 #include "GLFW/glfw3native.h"
 #endif
 
-LOG_CONTEXT("gerber_explorer", debug);
+LOG_CONTEXT("gerber_explorer", info);
 
 namespace
 {
@@ -908,7 +908,7 @@ void gerber_explorer::file_open()
                     next_layer_color %= std::size(layer_colors);
                     // index -1 means try to determine from layer classification
                     add_gerber(settings::layer_t{ outPath, gl::colorf4(layer_colors[next_layer_color]).to_string(), true, false, -1 });
-                    NFD_FreePathU8(outPath);
+                    // NFD_FreePathU8(outPath);
                 }
             }
         }

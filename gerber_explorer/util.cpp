@@ -91,7 +91,7 @@ std::filesystem::path config_path(std::string const &application_name, std::stri
         base_path = fs::path(xdg_config) / application_name;
     } else {
         const char *home = std::getenv("HOME");
-        base_path = home ? (fs::path(home) / ".config" / application_name) : fs::temp_directory_path() / application_name);
+        base_path = home ? (fs::path(home) / ".config" / application_name) : fs::temp_directory_path() / application_name;
     }
 #endif
 

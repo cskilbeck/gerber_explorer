@@ -1,6 +1,7 @@
-#include "dx_math.h"
 
 #include "gl_matrix.h"
+
+#include "dx_math.h"
 
 namespace gl
 {
