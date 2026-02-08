@@ -109,7 +109,4 @@ if (WIN32)
     list(APPEND DEFINITIONS WIN32_LEAN_AND_MEAN NOMINMAX)
 endif ()
 
-message("COMPILER OPTIONS: ${FINAL_FLAGS}")
-message("COMPILER DEFINITIONS: ${DEFINITIONS}")
-
 target_compile_definitions(project_options INTERFACE ${DEFINITIONS})

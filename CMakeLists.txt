@@ -11,20 +11,35 @@ include(utils)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(MSVC)
-    if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-        string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
-    endif()
-endif()
-
 if (${MSVC_IDE})
     message(STATUS "Environment: Visual Studio detected: [${MSVC_IDE}],[$ENV{VisualStudioVersion}],[$ENV{VSAPPIDNAME}]")
     set(USE_OUTPUT_DEBUG_STRING ON CACHE BOOL "" FORCE)
 else()
     message(STATUS "Environment: Standard Terminal or CLion detected.")
     set(USE_OUTPUT_DEBUG_STRING OFF CACHE BOOL "" FORCE)
+endif()
+
+# ASAN
+
+option(ENABLE_ASAN "Enable Address Sanitizer" OFF)
+
+if(ENABLE_ASAN)
+    if(MSVC)
+        # MSVC flags
+        add_compile_options(/fsanitize=address)
+        add_link_options(/fsanitize=address)
+
+        # Consistent with your preference:
+        # Default USE_STATIC_RUNTIME to ON (unless on APPLE)
+        if(NOT APPLE)
+            set(USE_STATIC_RUNTIME ON)
+        endif()
+
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        # Clang flags
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address)
+    endif()
 endif()
 
 # TSAN

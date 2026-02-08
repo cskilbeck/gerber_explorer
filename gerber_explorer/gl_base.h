@@ -204,10 +204,10 @@ namespace gl
 
         vertex_array() = default;
 
-        int alloc(size_t vert_count, size_t vertex_size);
+        void alloc(size_t vert_count, size_t vertex_size);
 
-        virtual int init(size_t vert_count);
-        virtual int activate() const;
+        virtual void init(size_t vert_count);
+        virtual void activate() const;
 
         void cleanup();
     };
@@ -220,8 +220,8 @@ namespace gl
 
         vertex_array_solid() = default;
 
-        int init(size_t vert_count) override;
-        int activate() const override;
+        void  init(size_t vert_count) override;
+        void activate() const override;
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -233,8 +233,8 @@ namespace gl
 
         vertex_array_quad_points() = default;
 
-        int init(size_t vert_count) override;
-        int activate() const override;
+        void init(size_t vert_count) override;
+        void activate() const override;
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -246,8 +246,8 @@ namespace gl
 
         vertex_array_entity() = default;
 
-        int init(size_t vert_count) override;
-        int activate() const override;
+        void init(size_t vert_count) override;
+        void activate() const override;
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -258,8 +258,8 @@ namespace gl
 
         vertex_array_color() = default;
 
-        int init(size_t vert_count) override;
-        int activate() const override;
+        void init(size_t vert_count) override;
+        void activate() const override;
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -438,7 +438,7 @@ namespace gl
     template <int X, typename T> void update_buffer(T const &elems)
     {
         LOG_CONTEXT("update_buffer", debug);
-        using V = typename T::value_type;
+        using V = T::value_type;
         auto total = sizeof(V) * elems.size();
         void *v;
         GL_CHECK(v = glMapBufferRange(X, 0, total, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT));
@@ -485,14 +485,10 @@ namespace gl
         std::vector<vertex_color> verts;
         std::vector<drawlist_entry> drawlist_entries;
 
-        int init()
+        void init()
         {
-            int err = vertex_array.init(max_verts);
-            if(err != 0) {
-                return err;
-            }
+            vertex_array.init(max_verts);
             reset();
-            return 0;
         }
 
         void reset()

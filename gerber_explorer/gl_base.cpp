@@ -434,15 +434,14 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array::init(size_t vert_count)
+    void vertex_array::init(size_t vert_count)
     {
         GL_CHECK(glGenVertexArrays(1, &vao_id));
-        return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array::alloc(size_t vert_count, size_t vertex_size)
+    void vertex_array::alloc(size_t vert_count, size_t vertex_size)
     {
         GL_CHECK(glGenBuffers(1, &vbo_id));
 
@@ -450,116 +449,93 @@ namespace gl
 
         GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vbo_id));
         GL_CHECK(glBufferData(GL_ARRAY_BUFFER, vertex_size * num_verts, nullptr, GL_DYNAMIC_DRAW));
-
-        return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array_solid::init(size_t vert_count)
+    void vertex_array_solid::init(size_t vert_count)
     {
         vertex_array::init(vert_count);
-        int err = alloc(vert_count, sizeof(vertex_solid));
-        if(err != 0) {
-            return err;
-        }
-        return 0;
+        alloc(vert_count, sizeof(vertex_solid));
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array_color::init(size_t vert_count)
+    void vertex_array_color::init(size_t vert_count)
     {
         vertex_array::init(vert_count);
-        int err = alloc(vert_count, sizeof(vertex_color));
-        if(err != 0) {
-            return err;
-        }
-        return 0;
+        alloc(vert_count, sizeof(vertex_color));
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array::activate() const
+    void vertex_array::activate() const
     {
         GL_CHECK(glBindVertexArray(vao_id));
         GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vbo_id));
-        return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array_solid::activate() const
+    void vertex_array_solid::activate() const
     {
         vertex_array::activate();
         GL_CHECK(glEnableVertexAttribArray(solid_program::position_location));
         GL_CHECK(glVertexAttribPointer(solid_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_solid), (void *)(offsetof(vertex_solid, x))));
-        return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array_entity::init(size_t vert_count)
+    void vertex_array_entity::init(size_t vert_count)
     {
         vertex_array::init(vert_count);
-        int err = alloc(vert_count, sizeof(vertex_entity));
-        if(err != 0) {
-            return err;
-        }
-        return 0;
+        alloc(vert_count, sizeof(vertex_entity));
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array_entity::activate() const
+    void vertex_array_entity::activate() const
     {
         vertex_array::activate();
-        glEnableVertexAttribArray(layer_program::position_location);
-        glVertexAttribPointer(layer_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_entity), (void *)(offsetof(vertex_entity, x)));
-        glEnableVertexAttribArray(layer_program::entity_id_location);
-        glVertexAttribIPointer(
-            layer_program::entity_id_location, 1, GL_UNSIGNED_INT, sizeof(vertex_entity), (void *)(offsetof(vertex_entity, entity_id)));
-        return 0;
+        GL_CHECK(glEnableVertexAttribArray(layer_program::position_location));
+        GL_CHECK(glVertexAttribPointer(layer_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_entity), (void *)(offsetof(vertex_entity, x))));
+        GL_CHECK(glEnableVertexAttribArray(layer_program::entity_id_location));
+        GL_CHECK(glVertexAttribIPointer(
+            layer_program::entity_id_location, 1, GL_UNSIGNED_INT, sizeof(vertex_entity), (void *)(offsetof(vertex_entity, entity_id))));
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array_quad_points::init(size_t vert_count)
+    void vertex_array_quad_points::init(size_t vert_count)
     {
         // this is for the quad verts
         vertex_array::init(vert_count);
-        int err = alloc(vert_count, sizeof(vertex_solid));
-        if(err != 0) {
-            return err;
-        }
-        return 0;
+        alloc(vert_count, sizeof(vertex_solid));
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array_quad_points::activate() const
+    void vertex_array_quad_points::activate() const
     {
         vertex_array::activate();
-        glEnableVertexAttribArray(line_program::position_location);
-        glVertexAttribPointer(line_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_solid), (void *)(offsetof(vertex_solid, x)));
-        return 0;
+        GL_CHECK(glEnableVertexAttribArray(line_program::position_location));
+        GL_CHECK(glVertexAttribPointer(line_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_solid), (void *)(offsetof(vertex_solid, x))));
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int vertex_array_color::activate() const
+    void vertex_array_color::activate() const
     {
         vertex_array::activate();
-        glEnableVertexAttribArray(color_program::position_location);
-        glEnableVertexAttribArray(color_program::vert_color_location);
-        glVertexAttribPointer(color_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_color), (void *)(offsetof(vertex_color, x)));
-        glVertexAttribPointer(color_program::vert_color_location,
+        GL_CHECK(glEnableVertexAttribArray(color_program::position_location));
+        GL_CHECK(glEnableVertexAttribArray(color_program::vert_color_location));
+        GL_CHECK(glVertexAttribPointer(color_program::position_location, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_color), (void *)(offsetof(vertex_color, x))));
+        GL_CHECK(glVertexAttribPointer(color_program::vert_color_location,
                               4,
                               GL_UNSIGNED_BYTE,
                               GL_TRUE,
                               sizeof(vertex_color),
-                              reinterpret_cast<void *>(offsetof(vertex_color, color)));
-        return 0;
+                              reinterpret_cast<void *>(offsetof(vertex_color, color))));
     }
 
     //////////////////////////////////////////////////////////////////////

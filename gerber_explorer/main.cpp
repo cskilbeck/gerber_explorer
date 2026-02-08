@@ -66,12 +66,10 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#include <io.h>
 #include <fcntl.h>
 #endif
 
 #include "gerber_explorer.h"
-#include "gerber_arena.h"
 #include "settings.h"
 
 LOG_CONTEXT("main", info);
@@ -96,6 +94,7 @@ int output_debug_string(char const *s)
 
 int main(int, char **)
 {
+
 #ifdef _DEBUG
     log_set_level(gerber_lib::log_level_debug);
 #else
