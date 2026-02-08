@@ -23,7 +23,7 @@
 
 #include <charconv>
 
-LOG_CONTEXT("gerber_lib", info);
+LOG_CONTEXT("gerber_lib", debug);
 
 //////////////////////////////////////////////////////////////////////
 
@@ -875,7 +875,7 @@ namespace gerber_lib
 
     gerber_error_code gerber_file::parse_rs274x(gerber_net *net)
     {
-        LOG_CONTEXT("RS274X", info);
+        LOG_CONTEXT("RS274X", debug);
 
         double unit_scale{ 1.0 };
 
@@ -886,7 +886,7 @@ namespace gerber_lib
         uint32_t command;
         CHECK(reader.read_short(&command, 2));
 
-        // LOG_DEBUG("command {}", string_from_uint32(command));
+        LOG_DEBUG("command {}", string_from_uint32(command));
 
         // If it falls out of this switch/case statement, then
         // the trailing * and % need to be eaten
@@ -1005,6 +1005,7 @@ namespace gerber_lib
                     attributes.erase(attribute_to_clear);
                 }
             }
+            reader.rewind(1);
         } break;
 
             //////////////////////////////////////////////////////////////////////
@@ -1187,6 +1188,7 @@ namespace gerber_lib
             }
             state.net_state->mirror_state = mirror;
             LOG_DEBUG("Mirror state: {}", mirror);
+            reader.rewind(1);
         } break;
 
             //////////////////////////////////////////////////////////////////////
@@ -1251,6 +1253,7 @@ namespace gerber_lib
                 CHECK(reader.read_char(&c));
             }
             LOG_DEBUG("Image offset: {},{}", state.net_state->offset.x, state.net_state->offset.y);
+            reader.rewind(1);
         } break;
 
             //////////////////////////////////////////////////////////////////////
@@ -1290,6 +1293,7 @@ namespace gerber_lib
                 CHECK(reader.read_char(&c));
             }
             LOG_DEBUG("Image scale factor: {},{}", state.net_state->scale.x, state.net_state->scale.y);
+            reader.rewind(1);
         } break;
 
             //////////////////////////////////////////////////////////////////////
@@ -1322,6 +1326,7 @@ namespace gerber_lib
                 CHECK(reader.read_char(&c));
             }
             LOG_DEBUG("Image offset: A:{}, B:{}", image.info.offset_a, image.info.offset_b);
+            reader.rewind(1);
         } break;
 
             //////////////////////////////////////////////////////////////////////
@@ -1379,6 +1384,7 @@ namespace gerber_lib
                       image.info.image_justify_offset_a,
                       image.info.justify_b,
                       image.info.image_justify_offset_b);
+            reader.rewind(1);
         } break;
 
             //////////////////////////////////////////////////////////////////////
@@ -1453,6 +1459,7 @@ namespace gerber_lib
             state.level = new gerber_level(&image);
             state.level->name = name;
             LOG_DEBUG("Level name: {}", state.level->name);
+            reader.rewind(1);
         } break;
 
             //////////////////////////////////////////////////////////////////////
@@ -1497,6 +1504,7 @@ namespace gerber_lib
 
             case '*':
                 state.level->knockout.knockout_type = knockout_type_no_knockout;
+                reader.rewind(1);
                 break;
 
             case 'C':
@@ -1564,6 +1572,7 @@ namespace gerber_lib
                 }
                 CHECK(reader.read_char(&c));
             }
+            reader.rewind(1);
         } break;
 
             //////////////////////////////////////////////////////////////////////
@@ -1622,6 +1631,7 @@ namespace gerber_lib
                       state.level->step_and_repeat.pos.y,
                       state.level->step_and_repeat.distance.x,
                       state.level->step_and_repeat.distance.y);
+            reader.rewind(1);
         } break;
 
             //////////////////////////////////////////////////////////////////////
@@ -1719,7 +1729,7 @@ namespace gerber_lib
 
     gerber_error_code gerber_file::parse_aperture_definition(gerber_aperture *aperture, gerber_image *cur_image, double unit_scale)
     {
-        LOG_CONTEXT("parse_aperture", info);
+        LOG_CONTEXT("parse_aperture", debug);
 
         char c;
         CHECK(reader.read_char(&c));
@@ -1791,6 +1801,7 @@ namespace gerber_lib
                     aperture->parameters.resize(static_cast<size_t>(parameter_index) + 1);
                 }
                 aperture->parameters[parameter_index] = value.value();
+                LOG_DEBUG("parameter[{}] = {}", parameter_index, value.value());
                 parameter_index += 1;
             }
         }
@@ -2020,7 +2031,7 @@ namespace gerber_lib
 
     gerber_error_code gerber_file::parse_gerber_segment(gerber_net *net)
     {
-        LOG_CONTEXT("parse_segment", info);
+        LOG_CONTEXT("parse_segment", debug);
 
         rect whole_box{ DBL_MAX, DBL_MAX, -DBL_MAX, -DBL_MAX };
 

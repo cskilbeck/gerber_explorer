@@ -864,7 +864,9 @@ bool gerber_explorer::on_init()
     glfwGetWindowSize(window, &window_width, &window_height);
     window_size.x = window_width;
     window_size.y = window_height;
-    view_rect = { { 0, 0 }, { 10, 10 } };
+    viewport_rect = { { 0, 0 }, { (double)window_width, (double)window_height } };
+    view_rect = viewport_rect;
+    viewport_size = viewport_rect.size();
 
     solid_program.init();
     color_program.init();
@@ -887,6 +889,7 @@ bool gerber_explorer::on_init()
     if(settings.multisamples > max_multisamples) {
         settings.multisamples = max_multisamples;
     }
+
     return true;
 }
 
@@ -1498,15 +1501,16 @@ void gerber_explorer::ui()
 
 void gerber_explorer::update_board_extent()
 {
-    if(layers.empty()) {
-        board_extent = view_rect;
-    } else {
-        rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
-        for(auto layer : layers) {
-            if(layer_is_visible(layer)) {
-                all = all.union_with(layer->extent());
-            }
+    board_extent = view_rect;
+    rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
+    int visible_layers = 0;
+    for(auto layer : layers) {
+        if(layer_is_visible(layer)) {
+            all = all.union_with(layer->extent());
+            visible_layers += 1;
         }
+    }
+    if(visible_layers != 0) {
         board_extent = all;
     }
     board_center = board_extent.center();
