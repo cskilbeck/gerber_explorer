@@ -83,9 +83,13 @@ foreach (flag ${DESIRED_FLAGS})
     endif ()
 endforeach ()
 
-target_compile_definitions(project_options INTERFACE
-    $<$<CONFIG:Debug>:_DEBUG>
-)
+# Clang-CL ASAN requires non-debug CRT; defining _DEBUG causes clang-cl to
+# embed debug CRT metadata (MTd_StaticDebug) even with /MT, breaking the link.
+if(NOT (ENABLE_ASAN AND IS_CLANG_CL))
+    target_compile_definitions(project_options INTERFACE
+        $<$<CONFIG:Debug>:_DEBUG>
+    )
+endif()
 
 # special x64 options
 target_compile_options(project_options INTERFACE

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.24)
 include(../cmake/utils.cmake)
 include(FetchContent)
 
@@ -35,6 +35,9 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+# Always ON: prevents GLFW from overriding CMAKE_MSVC_RUNTIME_LIBRARY in its scope.
+# The runtime is controlled globally by CMAKE_MSVC_RUNTIME_LIBRARY in the root CMakeLists.txt.
+set(USE_MSVC_RUNTIME_LIBRARY_DLL ON CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(glfw)
 
@@ -249,4 +252,3 @@ target_link_libraries(third_party INTERFACE
         Clipper2
         stb_image
 )
-
