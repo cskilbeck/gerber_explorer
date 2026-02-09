@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            compiler: msvc
+            arch: x64
+            static_runtime: "ON"
+          - os: macos-latest
+            compiler: clang
+            arch: arm64
+            static_runtime: "OFF"
+          - os: ubuntu-latest
+            compiler: gcc
+            arch: x64
+            static_runtime: "ON"
+
+            runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        # We pass the matrix-defined variable into the CMake command
+        run: >
+          cmake -B build 
+          -DCMAKE_BUILD_TYPE=Release 
+          -DUSE_STATIC_RUNTIME=${{ matrix.static_runtime }}
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.os }}-${{ matrix.arch }}
+          path: build/  # Adjust this to point to your actual executable path
