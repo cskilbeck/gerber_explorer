@@ -2,7 +2,6 @@
 #include <windows.h>
 #endif
 
-#include <cmath>
 #include <filesystem>
 #include <expected>
 
@@ -1537,9 +1536,6 @@ void gerber_explorer::blend_layer(gl::color color_fill, gl::color color_other, i
     GL_CHECK(glUniform1i(blit_program.u_num_samples, num_samples));
     GL_CHECK(glUniform1i(blit_program.u_cover_sampler, 0));
 
-    GL_CHECK(glEnable(GL_BLEND));
-    GL_CHECK(glBlendEquation(GL_FUNC_ADD));
-    GL_CHECK(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
     GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
 }
 
@@ -1565,9 +1561,6 @@ void gerber_explorer::blend_selection(gl::color red, gl::color green, gl::color 
     GL_CHECK(glUniform1i(selection_program.u_num_samples, num_samples));
     GL_CHECK(glUniform1i(selection_program.u_cover_sampler, 0));
 
-    GL_CHECK(glEnable(GL_BLEND));
-    GL_CHECK(glBlendEquation(GL_FUNC_ADD));
-    GL_CHECK(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
     GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
 }
 
@@ -1815,6 +1808,9 @@ void gerber_explorer::on_render()
 
     GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
 
+    GL_CHECK(glEnable(GL_BLEND));
+    GL_CHECK(glBlendEquation(GL_FUNC_ADD));
+
     // 4. draw them in order
     for(auto it : ordered_layers) {
         gerber_layer &layer = *it;
@@ -1857,7 +1853,9 @@ void gerber_explorer::on_render()
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
         }
         uint8_t draw_flags = entity_flags_t::fill | entity_flags_t::clear;
+        GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         layer.drawer->fill(world_matrix, fill_flag, clear_flag, 0, draw_flags);
+        GL_CHECK(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
         blend_layer(layer.fill_color, gl::colors::black, settings.multisamples);
     }
 
@@ -1868,11 +1866,13 @@ void gerber_explorer::on_render()
         GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
         GL_CHECK(glClearColor(0, 0, 0, 0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
+        GL_CHECK(glBlendFunc(GL_ONE, GL_ONE));
         uint8_t draw_flags = entity_flags_t::selected | entity_flags_t::active | entity_flags_t::hovered;
         selected_layer->drawer->fill(world_matrix, entity_flags_t::hovered, entity_flags_t::selected, entity_flags_t::active, draw_flags);
-        gl::color hovered = 0x40000080;
-        gl::color selected = 0x40008000;
-        gl::color active = 0x40800000;
+        gl::color hovered = 0x80ffffff;
+        gl::color selected = 0x90ffffff;
+        gl::color active = 0xb0ffffff;
+        GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         blend_selection(hovered, selected, active, settings.multisamples);
 
         // Draw outline for active/hovered/selected entities in the selected layer
@@ -1881,8 +1881,14 @@ void gerber_explorer::on_render()
             GL_CHECK(glViewport(0, 0, viewport_width, viewport_height));
             GL_CHECK(glClearColor(0, 0, 0, 0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
+            GL_CHECK(glBlendFunc(GL_ONE, GL_ONE));
             selected_layer->drawer->outline(settings.outline_width, world_matrix, viewport_size);
-            blend_selection(gl::colors::red, gl::colors::green, gl::colors::blue, settings.multisamples);
+            GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+            gl::color outline_color = 0x00000000;
+            gl::color selected_color = gl::set_alpha(outline_color, 0.75f);
+            gl::color active_color = gl::set_alpha(outline_color, 0.9f);
+            gl::color hover_color = gl::set_alpha(outline_color, 0.5f);
+            blend_selection(active_color, selected_color, hover_color, settings.multisamples);
         }
     }
 

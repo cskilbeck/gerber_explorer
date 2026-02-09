@@ -526,10 +526,6 @@ namespace gerber
             return;
         }
 
-        GL_CHECK(glEnable(GL_BLEND));
-        GL_CHECK(glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD));
-        GL_CHECK(glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-
         gerber_explorer::layer_program.activate();
 
         GL_CHECK(glUniformMatrix4fv(gerber_explorer::layer_program.u_transform, 1, false, matrix.m));
@@ -551,9 +547,6 @@ namespace gerber
             GL_CHECK(glActiveTexture(GL_TEXTURE0 + flags_texture_slot));
             GL_CHECK(glBindTexture(GL_TEXTURE_BUFFER, flags_texture));    // The Flags TBO (R8UI) in slot 0
         }
-        GL_CHECK(glEnable(GL_BLEND));
-        GL_CHECK(glBlendEquation(GL_FUNC_ADD));
-        GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         GL_CHECK(glDrawElements(GL_TRIANGLES, index_array.num_indices, GL_UNSIGNED_INT, nullptr));    // draw the whole layer
     }
 
@@ -580,11 +573,6 @@ namespace gerber
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
         }
-
-        GL_CHECK(glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD));
-        GL_CHECK(glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-
-        GL_CHECK(glEnable(GL_BLEND));
 
         gl::colorf4 active_color(gl::colors::red);
         gl::colorf4 select_color(gl::colors::green);
