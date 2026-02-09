@@ -22,7 +22,7 @@ jobs:
             arch: x64
             static_runtime: "ON"
 
-            runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code
