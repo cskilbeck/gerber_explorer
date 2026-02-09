@@ -12,7 +12,7 @@ jobs:
           - os: windows-latest
             artifact_name: windows
             static_runtime: "ON"
-            binary_path: build/Release/gerber_explorer/gerber_explorer.exe
+            binary_path: build/gerber_explorer/Release/gerber_explorer.exe
           - os: macos-latest
             artifact_name: macos
             static_runtime: "OFF"
