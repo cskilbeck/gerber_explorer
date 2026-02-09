@@ -350,6 +350,7 @@ void gl_window::on_frame()
         glfwMakeContextCurrent(backup_current_context);
     }
     glfwSwapBuffers(window);
+    frames += 1;
 }
 
 //////////////////////////////////////////////////////////////////////

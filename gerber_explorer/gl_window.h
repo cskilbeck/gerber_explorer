@@ -78,5 +78,7 @@ struct gl_window
     window_state_t window_state;
     bool window_focused{false};
 
+    int64_t frames{};
+
     window_state_t get_window_state();
 };

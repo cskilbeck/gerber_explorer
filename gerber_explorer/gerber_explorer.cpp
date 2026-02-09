@@ -1628,6 +1628,47 @@ void gerber_explorer::on_render()
     }
 
     ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
+    // On first run (no imgui.ini), set up a default docking layout
+    if(frames == 0 && !std::filesystem::exists(ImGui::GetIO().IniFilename)) {
+
+        ImGui::DockBuilderRemoveNodeChildNodes(dockspace_id);
+
+        // Top toolbar (full width)
+        ImGuiID dock_top_id;
+        ImGuiID dock_rest_id;
+        ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Up, 0.04f, &dock_top_id, &dock_rest_id);
+
+        // Bottom info bar (full width)
+        ImGuiID dock_bottom_id;
+        ImGuiID dock_middle_id;
+        ImGui::DockBuilderSplitNode(dock_rest_id, ImGuiDir_Down, 0.06f, &dock_bottom_id, &dock_middle_id);
+
+        // Left files panel (sandwiched between toolbar and info)
+        ImGuiID dock_left_id;
+        ImGuiID dock_center_id;
+        ImGui::DockBuilderSplitNode(dock_middle_id, ImGuiDir_Left, 0.2f, &dock_left_id, &dock_center_id);
+
+        ImGui::DockBuilderDockWindow("Toolbar", dock_top_id);
+        ImGui::DockBuilderDockWindow("Info", dock_bottom_id);
+        ImGui::DockBuilderDockWindow("Files", dock_left_id);
+#ifdef _DEBUG
+        ImGui::DockBuilderDockWindow("Job Pool", dock_left_id);
+#endif
+        // Hide tab bars on nodes with a single window
+        auto hide_tab_bar = [](ImGuiID id) {
+            ImGuiDockNode *n = ImGui::DockBuilderGetNode(id);
+            if(n) {
+                n->SetLocalFlags(n->LocalFlags | ImGuiDockNodeFlags_AutoHideTabBar);
+            }
+        };
+        hide_tab_bar(dock_top_id);
+        hide_tab_bar(dock_bottom_id);
+        hide_tab_bar(dock_left_id);
+
+        ImGui::DockBuilderFinish(dockspace_id);
+    }
+
     ImGuiDockNode *central_node = ImGui::DockBuilderGetCentralNode(dockspace_id);
 
     rect old_viewport_rect = viewport_rect;
