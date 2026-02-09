@@ -1,7 +1,7 @@
 name: Multi-Platform Build
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Allows you to trigger manually from the Actions tab
 
 jobs:
   build:
@@ -12,7 +12,7 @@ jobs:
           - os: windows-latest
             artifact_name: windows
             static_runtime: "ON"
-            # Updated per your discovery
+            # Updated to your specific path finding
             binary_path: build/gerber_explorer/Release/gerber_explorer.exe
           - os: macos-latest
             artifact_name: macos
@@ -29,6 +29,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # --- LINUX DEPENDENCIES ---
       - name: Install Dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -38,15 +39,21 @@ jobs:
             libxcursor-dev libxi-dev libxkbcommon-dev \
             libwayland-dev libgtk-3-dev pkg-config
 
+      # --- MACOS LLVM SETUP (Fixes C++23 / Tahoe-level features) ---
       - name: Install LLVM (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           brew install llvm
-          echo "CC=$(brew --prefix llvm)/bin/clang" >> $GITHUB_ENV
-          echo "CXX=$(brew --prefix llvm)/bin/clang++" >> $GITHUB_ENV
-          # Store the SDK path for the config step
+          LLVM_PREFIX=$(brew --prefix llvm)
+          echo "CC=$LLVM_PREFIX/bin/clang" >> $GITHUB_ENV
+          echo "CXX=$LLVM_PREFIX/bin/clang++" >> $GITHUB_ENV
           echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
+          
+          # Linking against Homebrew's libc++ instead of Apple's to get from_chars(double)
+          echo "LDFLAGS=-L$LLVM_PREFIX/lib/c++ -Wl,-rpath,$LLVM_PREFIX/lib/c++ -L$LLVM_PREFIX/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I$LLVM_PREFIX/include" >> $GITHUB_ENV
 
+      # --- BUILD PHASE ---
       - name: Configure CMake
         run: >
           cmake -B build 
@@ -58,12 +65,18 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
+      # --- ARTIFACT STAGING (Cleans up extra Windows files) ---
       - name: Prepare Artifacts
         shell: bash
         run: |
           mkdir staging
           cp -r ${{ matrix.binary_path }} staging/
 
+      - name: Strip Binaries (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: strip staging/gerber_explorer
+
+      # --- UPLOAD ---
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
