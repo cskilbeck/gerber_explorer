@@ -44,6 +44,12 @@ else()
     message(STATUS "Runtime: dynamic (default)")
 endif()
 
+if(APPLE)
+    # This ensures the C++23 library is embedded in the binary
+    # without breaking the initial CMake C-compiler tests.
+    add_link_options("-stdlib=libc++" "-static-libc++")
+endif()
+
 # ASAN
 
 option(ENABLE_ASAN "Enable Address Sanitizer" OFF)
