@@ -15,7 +15,7 @@ jobs:
             binary_path: build/gerber_explorer/Release/gerber_explorer.exe
           - os: macos-latest
             artifact_name: macos
-            static_runtime: "OFF"
+            static_runtime: "OFF" # Keeping your default preference
             binary_path: build/gerber_explorer/gerber_explorer.app
           - os: ubuntu-latest
             artifact_name: ubuntu
@@ -45,7 +45,9 @@ jobs:
           echo "CC=$LLVM_PREFIX/bin/clang" >> $GITHUB_ENV
           echo "CXX=$LLVM_PREFIX/bin/clang++" >> $GITHUB_ENV
           echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
-          echo "LDFLAGS=-L$LLVM_PREFIX/lib/c++ -Wl,-rpath,$LLVM_PREFIX/lib/c++ -L$LLVM_PREFIX/lib" >> $GITHUB_ENV
+          
+          # FORCE STATIC LIBC++: This embeds the C++23 logic inside your app
+          echo "LDFLAGS=-L$LLVM_PREFIX/lib -Wl,-rpath,$LLVM_PREFIX/lib -static-libc++" >> $GITHUB_ENV
           echo "CPPFLAGS=-I$LLVM_PREFIX/include" >> $GITHUB_ENV
 
       - name: Configure CMake
@@ -65,10 +67,10 @@ jobs:
           mkdir staging
           cp -r ${{ matrix.binary_path }} staging/
 
-      # NEW: Ad-hoc signing for macOS to prevent "Damaged" error
       - name: Ad-hoc Sign (macOS)
         if: matrix.os == 'macos-latest'
         run: |
+          # We sign the binary inside the app bundle
           codesign --force --deep --sign - staging/gerber_explorer.app
 
       - name: Strip Binaries (Ubuntu)
