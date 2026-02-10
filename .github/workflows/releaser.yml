@@ -15,7 +15,7 @@ jobs:
             binary_path: build/gerber_explorer/Release/gerber_explorer.exe
           - os: macos-latest
             artifact_name: macos
-            static_runtime: "OFF" # Keeping your default preference
+            static_runtime: "OFF"
             binary_path: build/gerber_explorer/gerber_explorer.app
           - os: ubuntu-latest
             artifact_name: ubuntu
@@ -28,6 +28,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # --- LINUX DEPENDENCIES ---
       - name: Install Dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -37,6 +38,7 @@ jobs:
             libxcursor-dev libxi-dev libxkbcommon-dev \
             libwayland-dev libgtk-3-dev pkg-config
 
+      # --- MACOS LLVM SETUP (Fixes C++23 & Portable Library Linking) ---
       - name: Install LLVM (macOS)
         if: matrix.os == 'macos-latest'
         run: |
@@ -46,21 +48,24 @@ jobs:
           echo "CXX=$LLVM_PREFIX/bin/clang++" >> $GITHUB_ENV
           echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
           
-          # FORCE STATIC LIBC++: This embeds the C++23 logic inside your app
-          echo "LDFLAGS=-L$LLVM_PREFIX/lib -Wl,-rpath,$LLVM_PREFIX/lib -static-libc++" >> $GITHUB_ENV
+          # These flags ensure the C++23 library is bundled into the app
+          # We use a custom env var to avoid breaking the CMake C-compiler test
+          echo "MAC_EXE_FLAGS=-L$LLVM_PREFIX/lib -Wl,-rpath,$LLVM_PREFIX/lib -stdlib=libc++ -static-libc++" >> $GITHUB_ENV
           echo "CPPFLAGS=-I$LLVM_PREFIX/include" >> $GITHUB_ENV
 
+      # --- BUILD PHASE ---
       - name: Configure CMake
         run: >
           cmake -B build 
           -DCMAKE_BUILD_TYPE=Release 
           -DUSE_STATIC_RUNTIME=${{ matrix.static_runtime }}
           -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
-          ${{ matrix.os == 'macos-latest' && format('-DCMAKE_SYSROOT={0}', env.SDKROOT) || '' }}
+          ${{ matrix.os == 'macos-latest' && format('-DCMAKE_SYSROOT={0} -DCMAKE_EXE_LINKER_FLAGS="{1}"', env.SDKROOT, env.MAC_EXE_FLAGS) || '' }}
 
       - name: Build
         run: cmake --build build --config Release
 
+      # --- ARTIFACT STAGING ---
       - name: Prepare Artifacts
         shell: bash
         run: |
@@ -70,13 +75,13 @@ jobs:
       - name: Ad-hoc Sign (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          # We sign the binary inside the app bundle
           codesign --force --deep --sign - staging/gerber_explorer.app
 
       - name: Strip Binaries (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: strip staging/gerber_explorer
 
+      # --- UPLOAD ---
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
