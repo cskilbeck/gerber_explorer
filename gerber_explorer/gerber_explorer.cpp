@@ -170,7 +170,7 @@ void gerber_explorer::set_active()
 bool gerber_explorer::is_idle()
 {
     // call glfwPollEvents for this much time after last call to set_active()
-    double constexpr idle_timer = 0.5;
+    double constexpr idle_timer = 0.1f;
     return get_time() - idle_timestamp > idle_timer;
 }
 
@@ -1145,6 +1145,9 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
 void gerber_explorer::ui()
 {
     auto io = ImGui::GetIO();
+    if(io.Ctx->DimBgRatio != 0.0f && io.Ctx->DimBgRatio != 1.0f) {
+        set_active();
+    }
     for(int i=0; i<5; ++i) {
         if(io.MouseClicked[i] || io.MouseReleased[i]) {
             set_active();
