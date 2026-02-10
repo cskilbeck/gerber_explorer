@@ -44,13 +44,14 @@ jobs:
         run: |
           brew install llvm
           LLVM_PREFIX=$(brew --prefix llvm)
-          # Set compilers and search paths
           echo "CC=$LLVM_PREFIX/bin/clang" >> $GITHUB_ENV
           echo "CXX=$LLVM_PREFIX/bin/clang++" >> $GITHUB_ENV
           echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
           
-          # Provide hints for headers/libs, but let CMake handle the linking flags
-          echo "LDFLAGS=-L$LLVM_PREFIX/lib -Wl,-rpath,$LLVM_PREFIX/lib" >> $GITHUB_ENV
+          # DIRECT LINKING: We pass the actual static archives (.a files)
+          # This embeds the C++23 logic directly into your binary.
+          # Note: we also include libc++abi.a which libc++.a depends on.
+          echo "MAC_EXE_FLAGS=$LLVM_PREFIX/lib/libc++.a $LLVM_PREFIX/lib/libc++abi.a -Wl,-rpath,$LLVM_PREFIX/lib" >> $GITHUB_ENV
           echo "CPPFLAGS=-I$LLVM_PREFIX/include" >> $GITHUB_ENV
 
       # --- BUILD PHASE ---
@@ -60,7 +61,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release 
           -DUSE_STATIC_RUNTIME=${{ matrix.static_runtime }}
           -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
-          ${{ matrix.os == 'macos-latest' && format('-DCMAKE_SYSROOT={0}', env.SDKROOT) || '' }}
+          ${{ matrix.os == 'macos-latest' && format('-DCMAKE_SYSROOT={0} -DCMAKE_EXE_LINKER_FLAGS="{1}"', env.SDKROOT, env.MAC_EXE_FLAGS) || '' }}
 
       - name: Build
         run: cmake --build build --config Release
@@ -75,7 +76,7 @@ jobs:
       - name: Ad-hoc Sign (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          # Ad-hoc sign the bundle to satisfy Gatekeeper checks on Tahoe
+          # Ad-hoc sign the bundle so Tahoe doesn't flag it as 'Damaged'
           codesign --force --deep --sign - staging/gerber_explorer.app
 
       - name: Strip Binaries (Ubuntu)
