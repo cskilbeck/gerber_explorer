@@ -306,7 +306,13 @@ struct gerber_explorer : gl_window
     void on_mouse_move(double xpos, double ypos) override;
     void on_drop(int count, const char **paths) override;
 
+    // whenever mouse moved or clicked or key pressed, call this
+    void set_active();
+
+    // call this to decide whether to call glfwPollEvents() or glfwWaitEvents()
     bool is_idle() override;
+
+    double idle_timestamp{};
 
     void handle_mouse();
 

@@ -162,16 +162,16 @@ gl::line2_program gerber_explorer::line2_program{};
 // If zoom_anim or any jobs in the pool, it's not idle
 // But also... suppress idleness for a couple of frames
 
+void gerber_explorer::set_active()
+{
+    idle_timestamp = get_time();
+}
+
 bool gerber_explorer::is_idle()
 {
-    static int idle_frames = 0;
-    job_pool::pool_info info = pool.get_info();
-    if(info.active == 0 && info.queued == 0 && !zoom_anim) {
-        idle_frames += 1;
-    } else {
-        idle_frames = 0;
-    }
-    return idle_frames > 3;
+    // call glfwPollEvents for this much time after last call to set_active()
+    double constexpr idle_timer = 0.5;
+    return get_time() - idle_timestamp > idle_timer;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -346,6 +346,8 @@ void gerber_explorer::update_view_rect()
 {
     if(zoom_anim) {
 
+        set_active();
+
         auto lerp = [](double d) {
             double p = 10;
             double x = d;
@@ -396,6 +398,7 @@ void gerber_explorer::next_view()
 
 void gerber_explorer::on_key(int key, int scancode, int action, int mods)
 {
+    set_active();
     if(action == GLFW_PRESS) {
         if(mods == 0) {
             switch(key) {
@@ -478,6 +481,7 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
 
 void gerber_explorer::on_scroll(double xoffset, double yoffset)
 {
+    set_active();
     double scale_factor = (yoffset > 0) ? 0.9 : 1.1;
     zoom_at_point(world_pos_from_viewport_pos(mouse_pos), scale_factor);
 }
@@ -486,6 +490,8 @@ void gerber_explorer::on_scroll(double xoffset, double yoffset)
 
 void gerber_explorer::on_mouse_button(int button, int action, int mods)
 {
+    set_active();
+
     switch(action) {
     case GLFW_PRESS:
         switch(button) {
@@ -557,6 +563,7 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
 void gerber_explorer::on_mouse_move(double xpos, double ypos)
 {
     mouse_pos = { xpos - viewport_xpos, viewport_height - (ypos - viewport_ypos) };
+    set_active();
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1137,6 +1144,15 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
 
 void gerber_explorer::ui()
 {
+    auto io = ImGui::GetIO();
+    for(int i=0; i<5; ++i) {
+        if(io.MouseClicked[i] || io.MouseReleased[i]) {
+            set_active();
+        }
+    }
+    if(io.MouseDelta.x != 0 || io.MouseDelta.y != 0) {
+        set_active();
+    }
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     if(ImGui::BeginMainMenuBar()) {
         if(ImGui::BeginMenu("File")) {
@@ -1236,7 +1252,7 @@ void gerber_explorer::ui()
 #if defined(_DEBUG)
         static int frames = 0;
         frames += 1;
-        std::string text = std::format("Frame {:07d} {:5.2f}ms {:5.2f}ms", frames, last_frame_elapsed_time * 1000.0, last_frame_cpu_time * 1000.0);
+        std::string text = std::format("Frame {:07d} {:06.2f}ms {:06.2f}ms", frames, last_frame_elapsed_time * 1000.0, last_frame_cpu_time * 1000.0);
         float text_width = ImGui::CalcTextSize(text.c_str()).x;
         float posX = ImGui::GetWindowWidth() - text_width - ImGui::GetStyle().ItemSpacing.x;
         ImGui::SetCursorPosX(posX);
