@@ -159,8 +159,8 @@ gl::arc_program gerber_explorer::arc_program{};
 gl::line2_program gerber_explorer::line2_program{};
 
 //////////////////////////////////////////////////////////////////////
-// If zoom_anim or any jobs in the pool, it's not idle
-// But also... suppress idleness for a couple of frames
+// If zoom_anim or any jobs in the pool, or user interacting, it's not idle
+// But also... suppress idleness for a short while
 
 void gerber_explorer::set_active()
 {
@@ -1144,18 +1144,26 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
 
 void gerber_explorer::ui()
 {
-    auto io = ImGui::GetIO();
-    if(io.Ctx->DimBgRatio != 0.0f && io.Ctx->DimBgRatio != 1.0f) {
-        set_active();
-    }
-    for(int i=0; i<5; ++i) {
-        if(io.MouseClicked[i] || io.MouseReleased[i]) {
-            set_active();
+    auto is_active = []() {
+        ImGuiIO &io = ImGui::GetIO();
+        if(io.Ctx->DimBgRatio != 0.0f && io.Ctx->DimBgRatio != 1.0f) {
+            return true;
         }
-    }
-    if(io.MouseDelta.x != 0 || io.MouseDelta.y != 0) {
+        if(io.MouseDelta.x != 0 || io.MouseDelta.y != 0) {
+            return true;
+        }
+        for(int i = 0; i < 5; ++i) {
+            if(io.MouseClicked[i] || io.MouseReleased[i]) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    if(is_active()) {
         set_active();
     }
+
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     if(ImGui::BeginMainMenuBar()) {
         if(ImGui::BeginMenu("File")) {
@@ -1541,7 +1549,7 @@ void gerber_explorer::update_board_extent()
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::blend_layer(gl::color color_fill, gl::color color_other, int num_samples)
+void gerber_explorer::blend_layer(gl::color color_fill, gl::color color_other, int num_samples) const
 {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
@@ -1565,7 +1573,7 @@ void gerber_explorer::blend_layer(gl::color color_fill, gl::color color_other, i
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::blend_selection(gl::color red, gl::color green, gl::color blue, int num_samples)
+void gerber_explorer::blend_selection(gl::color red, gl::color green, gl::color blue, int num_samples) const
 {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 

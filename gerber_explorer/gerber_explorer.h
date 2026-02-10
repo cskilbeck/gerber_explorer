@@ -277,8 +277,8 @@ struct gerber_explorer : gl_window
     bool layer_is_visible(gerber_layer const *layer) const;
     void next_view();
 
-    void blend_layer(gl::color color_fill, gl::color color_other, int num_samples);
-    void blend_selection(gl::color red, gl::color green, gl::color blue, int num_samples);
+    void blend_layer(gl::color color_fill, gl::color color_other, int num_samples) const;
+    void blend_selection(gl::color red, gl::color green, gl::color blue, int num_samples) const;
 
     void add_gerber(settings::layer_t const &layer);
 
@@ -288,8 +288,8 @@ struct gerber_explorer : gl_window
 
     void close_all_layers();
 
-    std::expected<std::filesystem::path, std::error_code> save_file_dialog();
-    std::expected<std::filesystem::path, std::error_code> load_file_dialog();
+    static std::expected<std::filesystem::path, std::error_code> save_file_dialog();
+    static std::expected<std::filesystem::path, std::error_code> load_file_dialog();
 
     void save_settings(std::filesystem::path const &path, bool save_files);
     void load_settings(std::filesystem::path const &path);
