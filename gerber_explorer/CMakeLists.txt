@@ -113,6 +113,12 @@ if (WIN32)
     endif()
 endif()
 
+if(APPLE)
+    # This finds the actual static library files in the Homebrew LLVM directory
+    # passed in from the GitHub Environment
+    target_link_libraries(${PROJECT} PRIVATE "$ENV{LIBCXX_PATH}" "$ENV{LIBCXXABI_PATH}")
+endif()
+
 add_custom_command(TARGET ${PROJECT} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/cmake/print_size.cmake" "$<TARGET_FILE:${PROJECT}>"
         COMMENT "Calculating binary size..."

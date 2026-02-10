@@ -28,7 +28,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # --- LINUX DEPENDENCIES ---
       - name: Install Dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -38,7 +37,6 @@ jobs:
             libxcursor-dev libxi-dev libxkbcommon-dev \
             libwayland-dev libgtk-3-dev pkg-config
 
-      # --- MACOS LLVM SETUP ---
       - name: Install LLVM (macOS)
         if: matrix.os == 'macos-latest'
         run: |
@@ -48,25 +46,25 @@ jobs:
           echo "CXX=$LLVM_PREFIX/bin/clang++" >> $GITHUB_ENV
           echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
           
-          # DIRECT LINKING: We pass the actual static archives (.a files)
-          # This embeds the C++23 logic directly into your binary.
-          # Note: we also include libc++abi.a which libc++.a depends on.
-          echo "MAC_EXE_FLAGS=$LLVM_PREFIX/lib/libc++.a $LLVM_PREFIX/lib/libc++abi.a -Wl,-rpath,$LLVM_PREFIX/lib" >> $GITHUB_ENV
+          # We define the paths for the CMakeLists.txt to use
+          # This avoids passing them as "flags" which break the C-compiler test
+          echo "LIBCXX_PATH=$LLVM_PREFIX/lib/libc++.a" >> $GITHUB_ENV
+          echo "LIBCXXABI_PATH=$LLVM_PREFIX/lib/libc++abi.a" >> $GITHUB_ENV
+          
+          echo "LDFLAGS=-L$LLVM_PREFIX/lib" >> $GITHUB_ENV
           echo "CPPFLAGS=-I$LLVM_PREFIX/include" >> $GITHUB_ENV
 
-      # --- BUILD PHASE ---
       - name: Configure CMake
         run: >
           cmake -B build 
           -DCMAKE_BUILD_TYPE=Release 
           -DUSE_STATIC_RUNTIME=${{ matrix.static_runtime }}
           -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
-          ${{ matrix.os == 'macos-latest' && format('-DCMAKE_SYSROOT={0} -DCMAKE_EXE_LINKER_FLAGS="{1}"', env.SDKROOT, env.MAC_EXE_FLAGS) || '' }}
+          ${{ matrix.os == 'macos-latest' && format('-DCMAKE_SYSROOT={0}', env.SDKROOT) || '' }}
 
       - name: Build
         run: cmake --build build --config Release
 
-      # --- ARTIFACT STAGING ---
       - name: Prepare Artifacts
         shell: bash
         run: |
@@ -76,14 +74,12 @@ jobs:
       - name: Ad-hoc Sign (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          # Ad-hoc sign the bundle so Tahoe doesn't flag it as 'Damaged'
           codesign --force --deep --sign - staging/gerber_explorer.app
 
       - name: Strip Binaries (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: strip staging/gerber_explorer
 
-      # --- UPLOAD ---
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
