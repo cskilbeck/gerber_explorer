@@ -208,9 +208,13 @@ struct gerber_explorer : gl_window
     // when window size changes, zoom to fit (cleared if they pan/zoom etc manually)
     bool should_fit_to_viewport{ false };
 
-    // bounding rect of all layers
+    // bounding rect/center of all layers, used for flip x,y
     rect board_extent;
     vec2d board_center;
+
+    // bounding rect/center of visible layers, used for zoom to view
+    rect visible_board_extent;
+    vec2d visible_board_center;
 
     // active entity admin
     std::vector<int> active_entities;

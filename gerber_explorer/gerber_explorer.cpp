@@ -288,7 +288,7 @@ void gerber_explorer::fit_to_viewport()
     } else if(!layers.empty()) {
         should_fit_to_viewport = true;
         update_board_extent();
-        zoom_to_rect(board_extent);
+        zoom_to_rect(visible_board_extent);
     }
 }
 
@@ -1463,7 +1463,7 @@ void gerber_explorer::ui()
         double scale = 1.0;
         char const *units_str = "mm";
         if(settings.units == settings::units_inch) {
-            scale = 1.0 / 2.54;
+            scale = 1.0 / 25.4;
             units_str = "in";
         }
         // Show measurement distance
@@ -1501,18 +1501,23 @@ void gerber_explorer::ui()
 void gerber_explorer::update_board_extent()
 {
     board_extent = view_rect;
+    visible_board_extent = view_rect;
+
     rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
-    int visible_layers = 0;
+    rect visible_all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
+
     for(auto layer : layers) {
+        all = all.union_with(layer->extent());
         if(layer_is_visible(layer)) {
-            all = all.union_with(layer->extent());
-            visible_layers += 1;
+            visible_all = visible_all.union_with(layer->extent());
         }
     }
-    if(visible_layers != 0) {
-        board_extent = all;
-    }
+
+    board_extent = all;
     board_center = board_extent.center();
+
+    visible_board_extent = visible_all;
+    visible_board_center = visible_board_extent.center();
 }
 
 //////////////////////////////////////////////////////////////////////
