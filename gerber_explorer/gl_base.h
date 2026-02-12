@@ -187,7 +187,7 @@ namespace gl
         index_buffer() = default;
 
         int init(size_t index_count);
-        int activate() const;
+        void activate() const;
 
         void cleanup();
     };
@@ -458,7 +458,7 @@ namespace gl
 
         texture() = default;
 
-        int init(GLuint w, GLuint h, uint32_t *data = nullptr);
+        int init(GLuint w, GLuint h, uint32_t const *data = nullptr);
         int bind() const;
         int update(uint32_t *data);
         void cleanup();
@@ -545,7 +545,7 @@ namespace gl
             add_vertex({ r.min_pos.x, r.max_pos.y }, color);
         }
 
-        void draw();
+        void draw() const;
     };
 
 }    // namespace gl

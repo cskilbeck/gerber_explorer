@@ -35,13 +35,13 @@ namespace gerber_util
 
         auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
 
-        if (ec == std::errc::invalid_argument) {
+        if(ec == std::errc::invalid_argument) {
             return std::unexpected(ParseError::InvalidInput);
         }
-        if (ec == std::errc::result_out_of_range) {
+        if(ec == std::errc::result_out_of_range) {
             return std::unexpected(ParseError::OutOfRange);
         }
-        if (ptr != sv.data() + sv.size()) {
+        if(ptr != sv.data() + sv.size()) {
             return std::unexpected(ParseError::InvalidInput);
         }
         return value;

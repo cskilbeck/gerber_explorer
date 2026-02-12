@@ -77,7 +77,8 @@ namespace gerber_util
         return N;
     }
 
-    enum class ParseError {
+    enum class ParseError
+    {
         InvalidInput,
         OutOfRange
     };
@@ -169,13 +170,17 @@ namespace gerber_util
 // if there's a `to_string()` member function, you can use this
 // to make a type formattable. If there's no to_string() method, compile fails
 
-#define GERBER_MAKE_FORMATTER(GERBER_TYPE)                                       \
-    template <> struct std::formatter<GERBER_TYPE> : std::formatter<std::string> \
-    {                                                                            \
-        auto format(GERBER_TYPE const &e, std::format_context &ctx) const        \
-        {                                                                        \
-            return std::format_to(ctx.out(), "{}", e.to_string());               \
-        }                                                                        \
+#define GERBER_MAKE_FORMATTER(GERBER_TYPE)                                                            \
+    template <> struct std::formatter<GERBER_TYPE>                                                    \
+    {                                                                                                 \
+        constexpr auto parse(std::format_parse_context &ctx) const                                    \
+        {                                                                                             \
+            return ctx.begin();                                                                       \
+        }                                                                                             \
+        template <typename FormatContext> auto format(GERBER_TYPE const &e, FormatContext &ctx) const \
+        {                                                                                             \
+            return std::format_to(ctx.out(), "{}", e.to_string());                                    \
+        }                                                                                             \
     }
 
 //////////////////////////////////////////////////////////////////////

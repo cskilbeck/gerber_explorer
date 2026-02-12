@@ -279,9 +279,13 @@ namespace gerber_lib
     {                                                                                                                       \
         extern std::map<GERBER_ENUM, char const *> GERBER_ENUM##_names_map;                                                 \
     }                                                                                                                       \
-    template <> struct std::formatter<::gerber_lib::GERBER_ENUM> : std::formatter<std::string>                              \
+    template <> struct std::formatter<::gerber_lib::GERBER_ENUM>                                                            \
     {                                                                                                                       \
-        auto format(::gerber_lib::GERBER_ENUM const &e, std::format_context &ctx) const                                     \
+        constexpr auto parse(std::format_parse_context &ctx) const                                                          \
+        {                                                                                                                   \
+            return ctx.begin();                                                                                             \
+        }                                                                                                                   \
+        template <typename FormatContext> auto format(::gerber_lib::GERBER_ENUM const &e, FormatContext &ctx) const         \
         {                                                                                                                   \
             auto f = ::gerber_lib::gerber_enum_names::GERBER_ENUM##_names_map.find(e);                                      \
             if(f != ::gerber_lib::gerber_enum_names::GERBER_ENUM##_names_map.end()) {                                       \

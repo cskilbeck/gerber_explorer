@@ -98,7 +98,7 @@ struct gerber_layer
         return file->image.info.extent;
     }
 
-    bool operator<(gerber_layer const &other)
+    bool operator<(gerber_layer const &other) const
     {
         return index < other.index;
     }

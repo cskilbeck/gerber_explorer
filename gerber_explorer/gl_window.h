@@ -21,7 +21,7 @@ struct gl_window
     void init();
     bool update();
 
-    void set_icon(uint8_t const *png_data, size_t png_size);
+    void set_icon(uint8_t const *png_data, size_t png_size) const;
 
 
     double frame_start_time{};

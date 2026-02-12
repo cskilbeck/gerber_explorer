@@ -6,7 +6,6 @@
 #include <stop_token>
 #include <thread>
 #include <vector>
-#include <algorithm>
 #include <memory>
 #include <unordered_set>
 
@@ -47,7 +46,7 @@ struct job_pool
         {
         }
 
-        void operator()(std::stop_token st)
+        void operator()(std::stop_token st) const
         {
             if(ptr) {
                 ptr->call(st);

@@ -141,8 +141,7 @@ namespace gl
 
     int program_base::get_uniform(char const *name)
     {
-        int location;
-        location = glGetUniformLocation(program_id, name);
+        int location = glGetUniformLocation(program_id, name);
         if(location == (int)GL_INVALID_INDEX) {
             LOG_WARNING("Can't get uniform location for \"{}\" in program \"{}\"", name, program_name);
         }
@@ -153,8 +152,7 @@ namespace gl
 
     int program_base::get_attribute(char const *name)
     {
-        int location;
-        location = glGetAttribLocation(program_id, name);
+        int location = glGetAttribLocation(program_id, name);
         if(location == (int)GL_INVALID_INDEX) {
             LOG_ERROR("Can't get attribute location for \"{}\" in program \"{}\"", name, program_name);
         }
@@ -412,10 +410,9 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    int index_buffer::activate() const
+    void index_buffer::activate() const
     {
         GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_id));
-        return 0;
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -556,7 +553,7 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    int texture::init(GLuint w, GLuint h, uint32_t *data)
+    int texture::init(GLuint w, GLuint h, uint32_t const *data)
     {
         GL_CHECK(glActiveTexture(GL_TEXTURE0));
         GL_CHECK(glGenTextures(1, &texture_id));
@@ -701,7 +698,7 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    void drawlist::draw()
+    void drawlist::draw() const
     {
         if(!drawlist_entries.empty()) {
             vertex_array.activate();

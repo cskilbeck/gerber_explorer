@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "job_pool.h"
 #include "gerber_log.h"
 

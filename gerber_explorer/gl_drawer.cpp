@@ -520,7 +520,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, uint8_t draw_flags)
+    void gl_drawer::fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, uint8_t draw_flags) const
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -568,7 +568,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::outline(float outline_thickness, gl::matrix const &matrix, vec2d const &viewport_size)
+    void gl_drawer::outline(float outline_thickness, gl::matrix const &matrix, vec2d const &viewport_size) const
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;

@@ -157,7 +157,7 @@ namespace
 
 //////////////////////////////////////////////////////////////////////
 
-void gl_window::set_icon(uint8_t const *png_data, size_t png_size)
+void gl_window::set_icon(uint8_t const *png_data, size_t png_size) const
 {
     GLFWimage images[1];
     images[0].pixels = stbi_load_from_memory(png_data, (int)png_size, &images[0].width, &images[0].height, nullptr, 4);

@@ -43,6 +43,7 @@
 // make the gerber parser interruptible with stop_token
 // share arenas where possible in gl_drawer (pool of arenas reused?)
 // make status bar more informative
+// use native menus on MacOS
 // dynamic tesselation
 // measure tool
 // fix the memory allocation - especially for tesselator and gerber::draw

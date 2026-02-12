@@ -78,10 +78,8 @@ namespace gerber
             return arena->alloc(size);
         }
 
-        static void tess_free(void *userData, void *ptr)
+        static void tess_free([[maybe_unused]] void *userData, [[maybe_unused]] void *ptr)
         {
-            (void)userData;
-            (void)ptr;
         }
 
         TESSalloc tess_alloc{};
@@ -109,7 +107,7 @@ namespace gerber
     {
         LOG_CONTEXT("drawable", debug);
 
-        using vertex_type = typename vertex_array_type::vertex_type;
+        using vertex_type = vertex_array_type::vertex_type;
 
         typed_arena<vertex_type> vertices;
         typed_arena<GLuint> indices;
@@ -220,8 +218,8 @@ namespace gerber
         void create_gl_resources();
         void release_gl_resources();
 
-        void fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, uint8_t draw_flags);
-        void outline(float outline_thickness, gl::matrix const &matrix, gerber_lib::vec2d const &viewport_size);
+        void fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, uint8_t draw_flags) const;
+        void outline(float outline_thickness, gl::matrix const &matrix, gerber_lib::vec2d const &viewport_size) const;
 
         // picking/selection
         void clear_entity_flags(int flags);

@@ -65,6 +65,24 @@ endif ()
 
 add_executable(${PROJECT} ${PROJECT_SOURCES})
 
+# When using non-Apple Clang (e.g. Homebrew LLVM), ensure the linker can find
+# its libc++ and libunwind. This applies to all build types.
+if (APPLE AND NOT CMAKE_CXX_COMPILER MATCHES "^/usr/")
+    get_filename_component(_COMPILER_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    get_filename_component(_LLVM_ROOT "${_COMPILER_DIR}" DIRECTORY)
+    set(_LIBCXX_PATH "${_LLVM_ROOT}/lib/c++/libc++.1.dylib")
+    if (EXISTS "${_LIBCXX_PATH}")
+        message(STATUS "Using non-system libc++: ${_LIBCXX_PATH}")
+        target_link_options(${PROJECT} PRIVATE
+            -L${_LLVM_ROOT}/lib/c++
+            -L${_LLVM_ROOT}/lib/unwind
+            -lc++
+            -lunwind
+        )
+        set(_USING_LLVM_LIBCXX TRUE)
+    endif()
+endif()
+
 # Debug: Terminal application (for debug output)
 # Release/RelWithDebInfo: App (with icon, no console etc)
 if (APPLE AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -84,7 +102,86 @@ if (APPLE AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
         MACOSX_BUNDLE_COPYRIGHT "Copyright © 2026 Charlie Skilbeck. All rights reserved."
     )
     target_sources(${PROJECT} PRIVATE ${ICON_PATH})
+
+    # Bundle non-system libc++ into the .app when building with Homebrew LLVM.
+    if (_USING_LLVM_LIBCXX)
+        get_filename_component(_LIBCXX_DIR "${_LIBCXX_PATH}" DIRECTORY)
+        set(_LIBCXXABI_PATH "${_LIBCXX_DIR}/libc++abi.1.dylib")
+        set(_LIBUNWIND_PATH "${_LLVM_ROOT}/lib/unwind/libunwind.1.dylib")
+
+        message(STATUS "Bundling non-system libc++: ${_LIBCXX_PATH}")
+
+        set_target_properties(${PROJECT} PROPERTIES
+            INSTALL_RPATH "@executable_path/../Frameworks"
+            BUILD_WITH_INSTALL_RPATH TRUE
+        )
+
+        # Helper list of dylibs to bundle: original_path, bundle_name
+        # Start with libc++ (always present at this point)
+        add_custom_command(TARGET ${PROJECT} POST_BUILD
+            COMMENT "Bundling LLVM runtime libraries into app bundle..."
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${_LIBCXX_PATH}"
+                "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libc++.1.dylib"
+            COMMAND install_name_tool -id
+                "@rpath/libc++.1.dylib"
+                "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libc++.1.dylib"
+            COMMAND install_name_tool -change
+                "${_LIBCXX_PATH}"
+                "@rpath/libc++.1.dylib"
+                "$<TARGET_FILE:${PROJECT}>"
+        )
+
+        if (EXISTS "${_LIBCXXABI_PATH}")
+            message(STATUS "Bundling non-system libc++abi: ${_LIBCXXABI_PATH}")
+            add_custom_command(TARGET ${PROJECT} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${_LIBCXXABI_PATH}"
+                    "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libc++abi.1.dylib"
+                COMMAND install_name_tool -id
+                    "@rpath/libc++abi.1.dylib"
+                    "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libc++abi.1.dylib"
+                COMMAND install_name_tool -change
+                    "${_LIBCXXABI_PATH}"
+                    "@rpath/libc++abi.1.dylib"
+                    "$<TARGET_FILE:${PROJECT}>"
+                COMMAND install_name_tool -change
+                    "${_LIBCXXABI_PATH}"
+                    "@rpath/libc++abi.1.dylib"
+                    "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libc++.1.dylib"
+            )
+        endif()
+
+        if (EXISTS "${_LIBUNWIND_PATH}")
+            message(STATUS "Bundling non-system libunwind: ${_LIBUNWIND_PATH}")
+            add_custom_command(TARGET ${PROJECT} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${_LIBUNWIND_PATH}"
+                    "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libunwind.1.dylib"
+                COMMAND install_name_tool -id
+                    "@rpath/libunwind.1.dylib"
+                    "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libunwind.1.dylib"
+                COMMAND install_name_tool -change
+                    "${_LIBUNWIND_PATH}"
+                    "@rpath/libunwind.1.dylib"
+                    "$<TARGET_FILE:${PROJECT}>"
+            )
+        endif()
+
+        # Ad-hoc codesign all bundled dylibs, then the app bundle itself.
+        # Dylibs must be signed before the bundle or the bundle signature is invalid.
+        add_custom_command(TARGET ${PROJECT} POST_BUILD
+            COMMENT "Ad-hoc codesigning app bundle..."
+            COMMAND ${CMAKE_COMMAND} -DBUNDLE_DIR=$<TARGET_BUNDLE_DIR:${PROJECT}>
+                -P "${CMAKE_SOURCE_DIR}/cmake/codesign_bundle.cmake"
+        )
+    else()
+        message(STATUS "Using system libc++ (no bundling needed)")
+    endif()
 endif()
+
 
 if(USE_OUTPUT_DEBUG_STRING)
     message("Using OutputDebugString for logging")

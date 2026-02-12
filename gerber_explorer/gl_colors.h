@@ -271,7 +271,7 @@ namespace gl
             return a | b | g | r;
         }
 
-        std::string to_string()
+        std::string to_string() const
         {
             color c =(color)*this;
             return color_to_string(c);
