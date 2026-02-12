@@ -349,7 +349,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber_aperture::execute_aperture_macro(double scale)
+    gerber_error_code gerber_aperture::execute_aperture_macro()
     {
         LOG_CONTEXT("execute_aperture_macro", info);
 
@@ -551,9 +551,6 @@ namespace gerber_lib
 
                     case aperture_type_macro_circle:
                         exposure = macro->parameters[circle_exposure];
-                        macro->parameters[circle_diameter] *= scale;
-                        macro->parameters[circle_centre_x] *= scale;
-                        macro->parameters[circle_centre_y] *= scale;
                         break;
 
                     case aperture_type_macro_outline: {
@@ -574,15 +571,11 @@ namespace gerber_lib
                         }
                         // scale the points
                         for(int i = 0; i < num_points; ++i) {
-                            macro->parameters[i * 2 + outline_first_x] *= scale;
-                            macro->parameters[i * 2 + outline_first_y] *= scale;
                         }
                         // if it doesn't have the extra point, add it (pushing rotation to the end)
                         if(num_params == required_without) {
                             int last_x = num_points * 2 + outline_rotation;
                             double rotation = macro->parameters[last_x];
-                            macro->parameters[last_x] = macro->parameters[outline_first_x] * scale;
-                            macro->parameters.push_back(macro->parameters[outline_first_y] * scale);
                             macro->parameters.push_back(rotation);
 
                         }
@@ -590,45 +583,21 @@ namespace gerber_lib
 
                     case aperture_type_macro_polygon:
                         exposure = macro->parameters[polygon_exposure];
-                        macro->parameters[polygon_centre_x] *= scale;
-                        macro->parameters[polygon_centre_y] *= scale;
-                        macro->parameters[polygon_diameter] *= scale;
                         break;
 
                     case aperture_type_macro_moire:
-                        macro->parameters[moire_centre_x] *= scale;
-                        macro->parameters[moire_centre_y] *= scale;
-                        macro->parameters[moire_outside_diameter] *= scale;
-                        macro->parameters[moire_circle_line_width] *= scale;
-                        macro->parameters[moire_gap_width] *= scale;
-                        macro->parameters[moire_crosshair_line_width] *= scale;
-                        macro->parameters[moire_crosshair_length] *= scale;
                         break;
 
                     case aperture_type_macro_thermal:
-                        macro->parameters[thermal_centre_x] *= scale;
-                        macro->parameters[thermal_centre_y] *= scale;
-                        macro->parameters[thermal_outside_diameter] *= scale;
-                        macro->parameters[thermal_inside_diameter] *= scale;
-                        macro->parameters[thermal_crosshair_line_width] *= scale;
                         break;
 
                     case aperture_type_macro_line20:
                         exposure = macro->parameters[line_20_exposure];
-                        macro->parameters[line_20_line_width] *= scale;
-                        macro->parameters[line_20_start_x] *= scale;
-                        macro->parameters[line_20_start_y] *= scale;
-                        macro->parameters[line_20_end_x] *= scale;
-                        macro->parameters[line_20_end_y] *= scale;
                         break;
 
                     case aperture_type_macro_line21:
                     case aperture_type_macro_line22:
                         exposure = macro->parameters[line_21_exposure];
-                        macro->parameters[line_21_line_width] *= scale;
-                        macro->parameters[line_21_line_height] *= scale;
-                        macro->parameters[line_21_centre_x] *= scale;
-                        macro->parameters[line_21_centre_y] *= scale;
                         break;
 
                     default:

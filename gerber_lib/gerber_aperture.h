@@ -112,7 +112,7 @@ namespace gerber_lib
 
         ~gerber_aperture();
 
-        gerber_error_code execute_aperture_macro(double scale);
+        gerber_error_code execute_aperture_macro();
     };
 
     //////////////////////////////////////////////////////////////////////

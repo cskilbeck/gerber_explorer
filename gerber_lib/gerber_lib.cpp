@@ -875,815 +875,815 @@ namespace gerber_lib
 
     gerber_error_code gerber_file::parse_rs274x(gerber_net *net)
     {
-        LOG_CONTEXT("RS274X", debug);
+        LOG_CONTEXT("RS274X", info);
 
-        double unit_scale{ 1.0 };
+        while(true) {
+            double unit_scale{ 1.0 };
 
-        if(state.net_state->unit == unit_inch) {
-            unit_scale = 25.4;
-        }
-
-        uint32_t command;
-        CHECK(reader.read_short(&command, 2));
-
-        LOG_DEBUG("command {}", string_from_uint32(command));
-
-        // If it falls out of this switch/case statement, then
-        // the trailing * and % need to be eaten
-
-        // if they're already eaten (macro definition, basically), then don't break out, just return
-
-        switch(command) {
-
-            //////////////////////////////////////////////////////////////////////
-            // AM: aperture macro
-
-        case 'AM': {
-
-            auto macro = std::make_unique<gerber_aperture_macro>();
-            CHECK(macro->parse_aperture_macro(reader));
-            LOG_DEBUG("AM {}", *macro);
-            image.aperture_macros.push_back(macro.release());
-            return ok;
-
-        } break;    // redundant, for the linter
-
-            //////////////////////////////////////////////////////////////////////
-            // AD: aperture definition
-
-        case 'AD': {
-            auto aperture = std::make_unique<gerber_aperture>();
-
-            if(parse_aperture_definition(aperture.get(), &image, unit_scale) == ok) {
-
-                LOG_DEBUG("AD {}", *aperture);
-
-                int aperture_number = aperture->aperture_number;
-
-                if(aperture_number >= 0 && aperture_number <= max_num_apertures) {
-
-                    aperture->unit = state.net_state->unit;
-
-                    if(image.apertures.contains(aperture_number)) {
-                        stats.error(reader, error_duplicate_aperture_number, "aperture {} already defined, overwriting", aperture_number);
-                        delete image.apertures[aperture_number];
-                        // image.apertures.erase(aperture_number);
-                    }
-
-                    image.apertures[aperture_number] = aperture.release();
-
-                    // stats.add_aperture(-1, aperture_number, aperture->aperture_type, aperture->parameters);
-                    stats.add_new_d_list(aperture_number);
-
-                    if(aperture_number < min_aperture) {
-                        stats.error(reader, error_bad_aperture_number, "{}, must be >= {}, using {}", aperture_number, min_aperture, min_aperture);
-                        aperture_number = min_aperture;
-                    }
-                    LOG_DEBUG("Set net aperture to {}", aperture_number);
-                    net->aperture = aperture_number;
-
-                } else {
-
-                    return stats.error(reader, error_bad_aperture_number, "{}, must be >= {}, <= {}", aperture_number, 0, max_num_apertures);
-                }
+            if(state.net_state->unit == unit_inch) {
+                unit_scale = 25.4;
             }
 
-        } break;
+            uint32_t command;
+            CHECK(reader.read_short(&command, 2));
 
-            //////////////////////////////////////////////////////////////////////
-            // AS: axis select
-
-        case 'AS': {
-
-            state.net_state = new gerber_net_state(&image);
-
-            CHECK(reader.read_short(&command, 4));
+            LOG_DEBUG("command {}", string_from_uint32(command));
 
             switch(command) {
 
-            case 'AXBY':
-                LOG_DEBUG("axis_select_none");
-                state.net_state->axis_select = axis_select_none;
-                break;
+                //////////////////////////////////////////////////////////////////////
+                // AM: aperture macro
 
-            case 'AYBX':
-                LOG_DEBUG("axis_select_swap_ab");
-                state.net_state->axis_select = axis_select_swap_ab;
-                break;
+            case 'AM': {
 
-            default:
-                return stats.error(reader, error_invalid_axis_select, "expected [AXBY|AYBX], got {}", string_from_uint32(command));
-            }
-        } break;
+                auto macro = std::make_unique<gerber_aperture_macro>();
+                CHECK(macro->parse_aperture_macro(reader));
+                LOG_DEBUG("AM {}", *macro);
+                image.aperture_macros.push_back(macro.release());
+                return ok;
 
-        case 'TO': {
-            std::string obj_attr;
-            reader.read_until(&obj_attr, '*');
-            std::vector<std::string> tokens;
-            tokenize(obj_attr, tokens, ",", tokenize_keep_empty);
-            if(tokens.size() < 2) {
-                stats.error(reader, error_malformed_command, "expected attribute_name,attribute_value, got {}", obj_attr);
-            } else {
-                std::string s = join(std::span(tokens).subspan(1), ",");
-                LOG_DEBUG("TOKEN ATTR[{}] = {}", tokens[0], s);
-                attributes[tokens[0]] = s;
-            }
-        } break;
+            } break;    // redundant, for the linter
 
-        case 'TD': {
-            std::string attribute_to_clear;
-            reader.read_until(&attribute_to_clear, '*');
-            if(attribute_to_clear.empty()) {
-                LOG_DEBUG("Clear attribute dictionary");
-                attributes.clear();
-            } else {
-                LOG_DEBUG("Delete attribute: \"{}\"", attribute_to_clear);
-                auto f = attributes.find(attribute_to_clear);
-                if(f == attributes.end()) {
-                    stats.error(reader, error_missing_attribute, "Can't find {}", attribute_to_clear);
-                } else {
-                    attributes.erase(attribute_to_clear);
+                //////////////////////////////////////////////////////////////////////
+                // AD: aperture definition
+
+            case 'AD': {
+                auto aperture = std::make_unique<gerber_aperture>();
+
+                if(parse_aperture_definition(aperture.get(), &image, unit_scale) == ok) {
+
+                    LOG_DEBUG("AD {}", *aperture);
+
+                    int aperture_number = aperture->aperture_number;
+
+                    if(aperture_number >= 0 && aperture_number <= max_num_apertures) {
+
+                        aperture->unit = state.net_state->unit;
+
+                        if(image.apertures.contains(aperture_number)) {
+                            stats.error(reader, error_duplicate_aperture_number, "aperture {} already defined, overwriting", aperture_number);
+                            delete image.apertures[aperture_number];
+                            // image.apertures.erase(aperture_number);
+                        }
+
+                        image.apertures[aperture_number] = aperture.release();
+
+                        // stats.add_aperture(-1, aperture_number, aperture->aperture_type, aperture->parameters);
+                        stats.add_new_d_list(aperture_number);
+
+                        if(aperture_number < min_aperture) {
+                            stats.error(reader, error_bad_aperture_number, "{}, must be >= {}, using {}", aperture_number, min_aperture, min_aperture);
+                            aperture_number = min_aperture;
+                        }
+                        LOG_DEBUG("Set net aperture to {}", aperture_number);
+                        net->aperture = aperture_number;
+
+                    } else {
+
+                        return stats.error(reader, error_bad_aperture_number, "{}, must be >= {}, <= {}", aperture_number, 0, max_num_apertures);
+                    }
                 }
-            }
-            reader.rewind(1);
-        } break;
 
-            //////////////////////////////////////////////////////////////////////
-            // FS: format specification
+            } break;
 
-        case 'FS': {
+                //////////////////////////////////////////////////////////////////////
+                // AS: axis select
 
-            char c;
-            CHECK(reader.read_char(&c));
+            case 'AS': {
 
-            switch(c) {
+                state.net_state = new gerber_net_state(&image);
 
-            case 'L':
-                LOG_DEBUG("omit_zeros_leading");
-                image.format.omit_zeros = omit_zeros_leading;
-                break;
+                CHECK(reader.read_short(&command, 4));
 
-            case 'T':
-                LOG_DEBUG("omit_zeros_trailing");
-                image.format.omit_zeros = omit_zeros_trailing;
-                break;
+                switch(command) {
 
-            case 'D':
-                LOG_DEBUG("omit_zeros_explicit");
-                image.format.omit_zeros = omit_zeros_explicit;
-                break;
+                case 'AXBY':
+                    LOG_DEBUG("axis_select_none");
+                    state.net_state->axis_select = axis_select_none;
+                    break;
 
-            default:
-                return stats.error(reader, error_invalid_omit_zeros, "expected [L|T|D], got {}", string_from_char(c));
-            }
+                case 'AYBX':
+                    LOG_DEBUG("axis_select_swap_ab");
+                    state.net_state->axis_select = axis_select_swap_ab;
+                    break;
 
-            CHECK(reader.read_char(&c));
+                default:
+                    return stats.error(reader, error_invalid_axis_select, "expected [AXBY|AYBX], got {}", string_from_uint32(command));
+                }
+            } break;
 
-            switch(c) {
+            case 'TO': {
+                std::string obj_attr;
+                reader.read_until(&obj_attr, '*');
+                std::vector<std::string> tokens;
+                tokenize(obj_attr, tokens, ",", tokenize_keep_empty);
+                if(tokens.size() < 2) {
+                    stats.error(reader, error_malformed_command, "expected attribute_name,attribute_value, got {}", obj_attr);
+                } else {
+                    std::string s = join(std::span(tokens).subspan(1), ",");
+                    LOG_DEBUG("TOKEN ATTR[{}] = {}", tokens[0], s);
+                    attributes[tokens[0]] = s;
+                }
+            } break;
 
-            case 'A':
-                LOG_DEBUG("coordinate_absolute");
-                image.format.coordinate = coordinate_absolute;
-                break;
+            case 'TD': {
+                std::string attribute_to_clear;
+                reader.read_until(&attribute_to_clear, '*');
+                if(attribute_to_clear.empty()) {
+                    LOG_DEBUG("Clear attribute dictionary");
+                    attributes.clear();
+                } else {
+                    LOG_DEBUG("Delete attribute: \"{}\"", attribute_to_clear);
+                    auto f = attributes.find(attribute_to_clear);
+                    if(f == attributes.end()) {
+                        stats.error(reader, error_missing_attribute, "Can't find {}", attribute_to_clear);
+                    } else {
+                        attributes.erase(attribute_to_clear);
+                    }
+                }
+                reader.rewind(1);
+            } break;
 
-            case 'I':
-                LOG_DEBUG("coordinate_incremental");
-                image.format.coordinate = coordinate_incremental;
-                break;
+                //////////////////////////////////////////////////////////////////////
+                // FS: format specification
 
-            default:
-                return stats.error(reader, error_invalid_coordinate_setting, "expected [A|I], got {}", string_from_char(c));
-            }
+            case 'FS': {
 
-            CHECK(reader.read_char(&c));
-
-            while(c != '*') {
+                char c;
+                CHECK(reader.read_char(&c));
 
                 switch(c) {
 
-                case 'N':
-                    CHECK(reader.read_char(&c));
-                    if(isdigit(c)) {
-                        image.format.sequence_number_limit = c - '0';
-                        LOG_DEBUG("sequence_number_limit = {}", image.format.sequence_number_limit);
-                    } else {
-                        return stats.error(reader, error_out_of_range, "expected digit, got {}", string_from_char(c));
-                    }
+                case 'L':
+                    LOG_DEBUG("omit_zeros_leading");
+                    image.format.omit_zeros = omit_zeros_leading;
                     break;
 
-                case 'G':
-                    CHECK(reader.read_char(&c));
-                    if(isdigit(c)) {
-                        image.format.general_function_limit = c - '0';
-                        LOG_DEBUG("general_function_limit = {}", image.format.general_function_limit);
-                    } else {
-                        return stats.error(reader, error_out_of_range, "expected digit, got {}", string_from_char(c));
-                    }
+                case 'T':
+                    LOG_DEBUG("omit_zeros_trailing");
+                    image.format.omit_zeros = omit_zeros_trailing;
                     break;
 
                 case 'D':
-                    CHECK(reader.read_char(&c));
-                    if(isdigit(c)) {
-                        image.format.plot_function_limit = c - '0';
-                        LOG_DEBUG("plot_function_limit = {}", image.format.plot_function_limit);
-                    } else {
-                        return stats.error(reader, error_out_of_range, "expected digit, got {}", string_from_char(c));
-                    }
-                    break;
-
-                case 'M':
-                    CHECK(reader.read_char(&c));
-                    if(isdigit(c)) {
-                        image.format.misc_function_limit = c - '0';
-                        LOG_DEBUG("misc_function_limit = {}", image.format.misc_function_limit);
-                    } else {
-                        return stats.error(reader, error_out_of_range, "expected digit, got {}", string_from_char(c));
-                    }
-                    break;
-
-                case 'X':
-                    CHECK(reader.read_char(&c));
-                    if(c >= '0' && c <= '6') {
-                        image.format.integral_part_x = c - '0';
-                        LOG_DEBUG("integral_part_x = {}", image.format.integral_part_x);
-                    } else {
-                        return stats.error(reader, error_out_of_range, "expected digit 0..6, got {}", string_from_char(c));
-                    }
-                    CHECK(reader.read_char(&c));
-                    if(c >= '0' && c <= '6') {
-                        image.format.decimal_part_x = c - '0';
-                        LOG_DEBUG("decimal_part_x = {}", image.format.decimal_part_x);
-                    } else {
-                        return stats.error(reader, error_out_of_range, "expected digit 0..6, got {}", string_from_char(c));
-                    }
-                    break;
-
-                case 'Y':
-                    CHECK(reader.read_char(&c));
-                    if(c >= '0' && c <= '6') {
-                        image.format.integral_part_y = c - '0';
-                        LOG_DEBUG("integral_part_y = {}", image.format.integral_part_y);
-                    } else {
-                        return stats.error(reader, error_out_of_range, "expected digit 0..6, got {}", string_from_char(c));
-                    }
-                    CHECK(reader.read_char(&c));
-                    if(c >= '0' && c <= '6') {
-                        image.format.decimal_part_y = c - '0';
-                        LOG_DEBUG("decimal_part_y = {}", image.format.decimal_part_y);
-                    } else {
-                        return stats.error(reader, error_out_of_range, "expected digit 0..6, got {}", string_from_char(c));
-                    }
+                    LOG_DEBUG("omit_zeros_explicit");
+                    image.format.omit_zeros = omit_zeros_explicit;
                     break;
 
                 default:
-                    return stats.error(reader, error_invalid_format_specification, "expected [N|G|D|M|X|Y], got {}", string_from_char(c));
+                    return stats.error(reader, error_invalid_omit_zeros, "expected [L|T|D], got {}", string_from_char(c));
                 }
+
                 CHECK(reader.read_char(&c));
-            }
-            reader.rewind(1);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // MI: mirror state
-
-        case 'MI': {
-
-            state.net_state = new gerber_net_state(&image);
-
-            char c;
-            CHECK(reader.read_char(&c));
-
-            gerber_mirror_state mirror = mirror_state_none;
-
-            while(c != '*') {
 
                 switch(c) {
 
                 case 'A':
-                    CHECK(reader.read_char(&c));
-                    if(c == '1') {
-                        mirror = mirror_state_flip_a;
-                    } else if(c != '0') {
-                        return stats.error(reader, error_invalid_mirror_state, "for axis A, expected [0|1], got {}", string_from_char(c));
-                    }
+                    LOG_DEBUG("coordinate_absolute");
+                    image.format.coordinate = coordinate_absolute;
                     break;
 
-                case 'B':
-                    CHECK(reader.read_char(&c));
-                    if(c == '1') {
-                        if(mirror == mirror_state_flip_a) {
-                            mirror = mirror_state_flip_ab;
+                case 'I':
+                    LOG_DEBUG("coordinate_incremental");
+                    image.format.coordinate = coordinate_incremental;
+                    break;
+
+                default:
+                    return stats.error(reader, error_invalid_coordinate_setting, "expected [A|I], got {}", string_from_char(c));
+                }
+
+                CHECK(reader.read_char(&c));
+
+                while(c != '*') {
+
+                    switch(c) {
+
+                    case 'N':
+                        CHECK(reader.read_char(&c));
+                        if(isdigit(c)) {
+                            image.format.sequence_number_limit = c - '0';
+                            LOG_DEBUG("sequence_number_limit = {}", image.format.sequence_number_limit);
                         } else {
-                            mirror = mirror_state_flip_b;
+                            return stats.error(reader, error_out_of_range, "expected digit, got {}", string_from_char(c));
                         }
-                    } else if(c != '0') {
-                        return stats.error(reader, error_invalid_mirror_state, "for axis B, expected [0|1], got {}", string_from_char(c));
+                        break;
+
+                    case 'G':
+                        CHECK(reader.read_char(&c));
+                        if(isdigit(c)) {
+                            image.format.general_function_limit = c - '0';
+                            LOG_DEBUG("general_function_limit = {}", image.format.general_function_limit);
+                        } else {
+                            return stats.error(reader, error_out_of_range, "expected digit, got {}", string_from_char(c));
+                        }
+                        break;
+
+                    case 'D':
+                        CHECK(reader.read_char(&c));
+                        if(isdigit(c)) {
+                            image.format.plot_function_limit = c - '0';
+                            LOG_DEBUG("plot_function_limit = {}", image.format.plot_function_limit);
+                        } else {
+                            return stats.error(reader, error_out_of_range, "expected digit, got {}", string_from_char(c));
+                        }
+                        break;
+
+                    case 'M':
+                        CHECK(reader.read_char(&c));
+                        if(isdigit(c)) {
+                            image.format.misc_function_limit = c - '0';
+                            LOG_DEBUG("misc_function_limit = {}", image.format.misc_function_limit);
+                        } else {
+                            return stats.error(reader, error_out_of_range, "expected digit, got {}", string_from_char(c));
+                        }
+                        break;
+
+                    case 'X':
+                        CHECK(reader.read_char(&c));
+                        if(c >= '0' && c <= '6') {
+                            image.format.integral_part_x = c - '0';
+                            LOG_DEBUG("integral_part_x = {}", image.format.integral_part_x);
+                        } else {
+                            return stats.error(reader, error_out_of_range, "expected digit 0..6, got {}", string_from_char(c));
+                        }
+                        CHECK(reader.read_char(&c));
+                        if(c >= '0' && c <= '6') {
+                            image.format.decimal_part_x = c - '0';
+                            LOG_DEBUG("decimal_part_x = {}", image.format.decimal_part_x);
+                        } else {
+                            return stats.error(reader, error_out_of_range, "expected digit 0..6, got {}", string_from_char(c));
+                        }
+                        break;
+
+                    case 'Y':
+                        CHECK(reader.read_char(&c));
+                        if(c >= '0' && c <= '6') {
+                            image.format.integral_part_y = c - '0';
+                            LOG_DEBUG("integral_part_y = {}", image.format.integral_part_y);
+                        } else {
+                            return stats.error(reader, error_out_of_range, "expected digit 0..6, got {}", string_from_char(c));
+                        }
+                        CHECK(reader.read_char(&c));
+                        if(c >= '0' && c <= '6') {
+                            image.format.decimal_part_y = c - '0';
+                            LOG_DEBUG("decimal_part_y = {}", image.format.decimal_part_y);
+                        } else {
+                            return stats.error(reader, error_out_of_range, "expected digit 0..6, got {}", string_from_char(c));
+                        }
+                        break;
+
+                    default:
+                        return stats.error(reader, error_invalid_format_specification, "expected [N|G|D|M|X|Y], got {}", string_from_char(c));
                     }
-                    break;
-
-                default:
-                    return stats.error(reader, error_invalid_axis, "for MI, expected [A|B], got {}", string_from_char(c));
-                }
-                CHECK(reader.read_char(&c));
-            }
-            state.net_state->mirror_state = mirror;
-            LOG_DEBUG("Mirror state: {}", mirror);
-            reader.rewind(1);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // MO: mode (MM or INCH units, basically)
-
-        case 'MO': {
-
-            uint32_t rs_command;
-            CHECK(reader.read_short(&rs_command, 2));
-
-            gerber_unit unit{ unit_unspecified };
-
-            switch(rs_command) {
-
-            case 'IN':
-                unit = unit_inch;
-                break;
-
-            case 'MM':
-                unit = unit_millimeter;
-                break;
-
-            default:
-                return stats.error(reader, error_invalid_mode, "expected [IN|MM], got {}", string_from_uint32(command));
-            }
-
-            if(unit != unit_unspecified) {
-                state.net_state = new gerber_net_state(&image);
-                state.net_state->unit = unit;
-            }
-            LOG_DEBUG("Units: {}", unit);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // OF: offset
-
-        case 'OF': {
-
-            char c;
-            CHECK(reader.read_char(&c));
-
-            while(c != '*') {
-
-                double offset;
-                CHECK(reader.get_double(&offset));
-                offset *= unit_scale;
-
-                switch(c) {
-
-                case 'A':
-                    state.net_state->offset.x = offset;
-                    break;
-
-                case 'B':
-                    state.net_state->offset.y = offset;
-                    break;
-
-                default:
-                    return stats.error(reader, error_invalid_offset, "expected [A|B], got {}", string_from_uint32(c));
-                }
-
-                CHECK(reader.read_char(&c));
-            }
-            LOG_DEBUG("Image offset: {},{}", state.net_state->offset.x, state.net_state->offset.y);
-            reader.rewind(1);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // IF: include file - NOT SUPPORTED
-
-        case 'IF': {
-            return stats.error(reader, error_not_supported, "IF (include files) not supported");
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // SF: scale factor
-
-        case 'SF': {
-
-            char c;
-            CHECK(reader.read_char(&c));
-
-            while(c != '*') {
-
-                double scale;
-                CHECK(reader.get_double(&scale));
-                scale *= unit_scale;
-
-                switch(c) {
-
-                case 'A':
-                    state.net_state->scale.x = scale;
-                    break;
-
-                case 'B':
-                    state.net_state->scale.y = scale;
-                    break;
-
-                default:
-                    return stats.error(reader, error_invalid_axis, "for SF, expected [A|B], got {}", string_from_char(c));
-                }
-                CHECK(reader.read_char(&c));
-            }
-            LOG_DEBUG("Image scale factor: {},{}", state.net_state->scale.x, state.net_state->scale.y);
-            reader.rewind(1);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // IO: image offset
-
-        case 'IO': {
-
-            char c;
-            CHECK(reader.read_char(&c));
-
-            while(c != '*') {
-
-                double offset;
-                CHECK(reader.get_double(&offset));
-                offset *= unit_scale;
-
-                switch(c) {
-
-                case 'A':
-                    image.info.offset_a = offset;
-                    break;
-
-                case 'B':
-                    image.info.offset_b = offset;
-                    break;
-
-                default:
-                    return stats.error(reader, error_invalid_axis, "for IO, expected [A|B], got {}", string_from_char(c));
-                }
-                CHECK(reader.read_char(&c));
-            }
-            LOG_DEBUG("Image offset: A:{}, B:{}", image.info.offset_a, image.info.offset_b);
-            reader.rewind(1);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // IJ: image justification
-
-        case 'IJ': {
-
-            char c;
-            CHECK(reader.read_char(&c));
-
-            image.info.justify_a = image_justify_lower_left;
-            image.info.justify_b = image_justify_lower_left;
-            image.info.image_justify_offset_a = 0.0;
-            image.info.image_justify_offset_b = 0.0;
-
-            while(c != '*') {
-
-                switch(c) {
-
-                case 'A':
                     CHECK(reader.read_char(&c));
-                    if(c == 'C') {
-                        image.info.justify_a = image_justify_centre;
-                    } else if(c == 'L') {
-                        image.info.justify_a = image_justify_lower_left;
-                    } else {
-                        reader.rewind(1);
-                        double offset;
-                        CHECK(reader.get_double(&offset));
-                        image.info.image_justify_offset_a = offset * unit_scale;
-                    }
-                    break;
-
-                case 'B':
-                    CHECK(reader.read_char(&c));
-                    if(c == 'C') {
-                        image.info.justify_b = image_justify_centre;
-                    } else if(c == 'L') {
-                        image.info.justify_b = image_justify_lower_left;
-                    } else {
-                        reader.rewind(1);
-                        double offset;
-                        CHECK(reader.get_double(&offset));
-                        image.info.image_justify_offset_b = offset * unit_scale;
-                    }
-                    break;
-
-                default:
-                    return stats.error(reader, error_invalid_axis, "for IJ, expected [A|B], got {}", string_from_char(c));
                 }
-                CHECK(reader.read_char(&c));
-            }
-            LOG_DEBUG("Image justify: A:{} (offset {}) B:{} (offset {})",
-                      image.info.justify_a,
-                      image.info.image_justify_offset_a,
-                      image.info.justify_b,
-                      image.info.image_justify_offset_b);
-            reader.rewind(1);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // IN: image name
-
-        case 'IN': {
-            CHECK(reader.read_until(&image.info.image_name, '*'));
-            LOG_DEBUG("Image name: {}", image.info.image_name);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // IP: image polarity
-
-        case 'IP': {
-
-            uint32_t cmd;
-            CHECK(reader.read_short(&cmd, 3));
-
-            switch(cmd) {
-
-            case 'POS':
-                image.info.polarity = polarity_positive;
-                break;
-
-            case 'NEG':
-                image.info.polarity = polarity_negative;
-                break;
-
-            default:
-                return stats.error(reader, error_invalid_polarity, "expected [POS|NEG], got {}", string_from_uint32(cmd));
-            }
-            LOG_DEBUG("Image polarity: {}", image.info.polarity);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // IR: image rotation
-
-        case 'IR': {
-
-            int rotation;
-            CHECK(reader.get_int(&rotation));
-
-            if(rotation % 90 == 0) {
-                image.info.image_rotation = static_cast<double>(rotation);
-            } else {
-                return stats.error(reader, error_invalid_rotation, "expected [0|90|180|270], got {}", rotation);
-            }
-            LOG_DEBUG("Image rotation: {}", rotation);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // PF: plotter film
-
-        case 'PF': {
-            CHECK(reader.read_until(&image.info.plotter_film, '*'));
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // AB: aperture block - NOT SUPPORTED
-
-        case 'AB': {
-
-            return stats.error(reader, error_unsupported_command, "{} (block aperture) not supported", string_from_uint32(command));
-        }
-
-            //////////////////////////////////////////////////////////////////////
-            // LN: level name
-
-        case 'LN': {
-            std::string name;
-            CHECK(reader.read_until(&name, '*'));
-            state.level = new gerber_level(&image);
-            state.level->name = name;
-            LOG_DEBUG("Level name: {}", state.level->name);
-            reader.rewind(1);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // LP: level polarity
-
-        case 'LP': {
-            char c;
-            CHECK(reader.read_char(&c));
-
-            switch(c) {
-
-            case 'D':
-                state.level = new gerber_level(&image);
-                state.level->polarity = polarity_dark;
-                break;
-
-            case 'C':
-                state.level = new gerber_level(&image);
-                state.level->polarity = polarity_clear;
-                break;
-
-            default:
-                return stats.error(reader, error_invalid_level_polarity, "expected [D|C], got {}", string_from_char(c));
-            }
-            LOG_DEBUG("Polarity: {}", state.level->polarity);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // KO: knockout
-
-        case 'KO': {
-
-            state.level = new gerber_level(&image);
-
-            update_knockout_measurements();
-
-            knockout_measure = false;
-
-            char c;
-            CHECK(reader.read_char(&c));
-            switch(c) {
-
-            case '*':
-                state.level->knockout.knockout_type = knockout_type_no_knockout;
                 reader.rewind(1);
-                break;
+            } break;
 
-            case 'C':
-                state.level->knockout.polarity = polarity_clear;
-                break;
+                //////////////////////////////////////////////////////////////////////
+                // MI: mirror state
 
-            case 'D':
-                state.level->knockout.polarity = polarity_dark;
-                break;
+            case 'MI': {
+
+                state.net_state = new gerber_net_state(&image);
+
+                char c;
+                CHECK(reader.read_char(&c));
+
+                gerber_mirror_state mirror = mirror_state_none;
+
+                while(c != '*') {
+
+                    switch(c) {
+
+                    case 'A':
+                        CHECK(reader.read_char(&c));
+                        if(c == '1') {
+                            mirror = mirror_state_flip_a;
+                        } else if(c != '0') {
+                            return stats.error(reader, error_invalid_mirror_state, "for axis A, expected [0|1], got {}", string_from_char(c));
+                        }
+                        break;
+
+                    case 'B':
+                        CHECK(reader.read_char(&c));
+                        if(c == '1') {
+                            if(mirror == mirror_state_flip_a) {
+                                mirror = mirror_state_flip_ab;
+                            } else {
+                                mirror = mirror_state_flip_b;
+                            }
+                        } else if(c != '0') {
+                            return stats.error(reader, error_invalid_mirror_state, "for axis B, expected [0|1], got {}", string_from_char(c));
+                        }
+                        break;
+
+                    default:
+                        return stats.error(reader, error_invalid_axis, "for MI, expected [A|B], got {}", string_from_char(c));
+                    }
+                    CHECK(reader.read_char(&c));
+                }
+                state.net_state->mirror_state = mirror;
+                LOG_DEBUG("Mirror state: {}", mirror);
+                reader.rewind(1);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // MO: mode (MM or INCH units, basically)
+
+            case 'MO': {
+
+                uint32_t rs_command;
+                CHECK(reader.read_short(&rs_command, 2));
+
+                gerber_unit unit{ unit_unspecified };
+
+                switch(rs_command) {
+
+                case 'IN':
+                    unit = unit_inch;
+                    break;
+
+                case 'MM':
+                    unit = unit_millimeter;
+                    break;
+
+                default:
+                    return stats.error(reader, error_invalid_mode, "expected [IN|MM], got {}", string_from_uint32(command));
+                }
+
+                if(unit != unit_unspecified) {
+                    state.net_state = new gerber_net_state(&image);
+                    state.net_state->unit = unit;
+                }
+                LOG_DEBUG("Units: {}", unit);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // OF: offset
+
+            case 'OF': {
+
+                char c;
+                CHECK(reader.read_char(&c));
+
+                while(c != '*') {
+
+                    double offset;
+                    CHECK(reader.get_double(&offset));
+                    offset *= unit_scale;
+
+                    switch(c) {
+
+                    case 'A':
+                        state.net_state->offset.x = offset;
+                        break;
+
+                    case 'B':
+                        state.net_state->offset.y = offset;
+                        break;
+
+                    default:
+                        return stats.error(reader, error_invalid_offset, "expected [A|B], got {}", string_from_uint32(c));
+                    }
+
+                    CHECK(reader.read_char(&c));
+                }
+                LOG_DEBUG("Image offset: {},{}", state.net_state->offset.x, state.net_state->offset.y);
+                reader.rewind(1);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // IF: include file - NOT SUPPORTED
+
+            case 'IF': {
+                return stats.error(reader, error_not_supported, "IF (include files) not supported");
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // SF: scale factor
+
+            case 'SF': {
+
+                char c;
+                CHECK(reader.read_char(&c));
+
+                while(c != '*') {
+
+                    double scale;
+                    CHECK(reader.get_double(&scale));
+                    scale *= unit_scale;
+
+                    switch(c) {
+
+                    case 'A':
+                        state.net_state->scale.x = scale;
+                        break;
+
+                    case 'B':
+                        state.net_state->scale.y = scale;
+                        break;
+
+                    default:
+                        return stats.error(reader, error_invalid_axis, "for SF, expected [A|B], got {}", string_from_char(c));
+                    }
+                    CHECK(reader.read_char(&c));
+                }
+                LOG_DEBUG("Image scale factor: {},{}", state.net_state->scale.x, state.net_state->scale.y);
+                reader.rewind(1);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // IO: image offset
+
+            case 'IO': {
+
+                char c;
+                CHECK(reader.read_char(&c));
+
+                while(c != '*') {
+
+                    double offset;
+                    CHECK(reader.get_double(&offset));
+                    offset *= unit_scale;
+
+                    switch(c) {
+
+                    case 'A':
+                        image.info.offset_a = offset;
+                        break;
+
+                    case 'B':
+                        image.info.offset_b = offset;
+                        break;
+
+                    default:
+                        return stats.error(reader, error_invalid_axis, "for IO, expected [A|B], got {}", string_from_char(c));
+                    }
+                    CHECK(reader.read_char(&c));
+                }
+                LOG_DEBUG("Image offset: A:{}, B:{}", image.info.offset_a, image.info.offset_b);
+                reader.rewind(1);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // IJ: image justification
+
+            case 'IJ': {
+
+                char c;
+                CHECK(reader.read_char(&c));
+
+                image.info.justify_a = image_justify_lower_left;
+                image.info.justify_b = image_justify_lower_left;
+                image.info.image_justify_offset_a = 0.0;
+                image.info.image_justify_offset_b = 0.0;
+
+                while(c != '*') {
+
+                    switch(c) {
+
+                    case 'A':
+                        CHECK(reader.read_char(&c));
+                        if(c == 'C') {
+                            image.info.justify_a = image_justify_centre;
+                        } else if(c == 'L') {
+                            image.info.justify_a = image_justify_lower_left;
+                        } else {
+                            reader.rewind(1);
+                            double offset;
+                            CHECK(reader.get_double(&offset));
+                            image.info.image_justify_offset_a = offset * unit_scale;
+                        }
+                        break;
+
+                    case 'B':
+                        CHECK(reader.read_char(&c));
+                        if(c == 'C') {
+                            image.info.justify_b = image_justify_centre;
+                        } else if(c == 'L') {
+                            image.info.justify_b = image_justify_lower_left;
+                        } else {
+                            reader.rewind(1);
+                            double offset;
+                            CHECK(reader.get_double(&offset));
+                            image.info.image_justify_offset_b = offset * unit_scale;
+                        }
+                        break;
+
+                    default:
+                        return stats.error(reader, error_invalid_axis, "for IJ, expected [A|B], got {}", string_from_char(c));
+                    }
+                    CHECK(reader.read_char(&c));
+                }
+                LOG_DEBUG("Image justify: A:{} (offset {}) B:{} (offset {})",
+                          image.info.justify_a,
+                          image.info.image_justify_offset_a,
+                          image.info.justify_b,
+                          image.info.image_justify_offset_b);
+                reader.rewind(1);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // IN: image name
+
+            case 'IN': {
+                CHECK(reader.read_until(&image.info.image_name, '*'));
+                LOG_DEBUG("Image name: {}", image.info.image_name);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // IP: image polarity
+
+            case 'IP': {
+
+                uint32_t cmd;
+                CHECK(reader.read_short(&cmd, 3));
+
+                switch(cmd) {
+
+                case 'POS':
+                    image.info.polarity = polarity_positive;
+                    break;
+
+                case 'NEG':
+                    image.info.polarity = polarity_negative;
+                    break;
+
+                default:
+                    return stats.error(reader, error_invalid_polarity, "expected [POS|NEG], got {}", string_from_uint32(cmd));
+                }
+                LOG_DEBUG("Image polarity: {}", image.info.polarity);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // IR: image rotation
+
+            case 'IR': {
+
+                int rotation;
+                CHECK(reader.get_int(&rotation));
+
+                if(rotation % 90 == 0) {
+                    image.info.image_rotation = static_cast<double>(rotation);
+                } else {
+                    return stats.error(reader, error_invalid_rotation, "expected [0|90|180|270], got {}", rotation);
+                }
+                LOG_DEBUG("Image rotation: {}", rotation);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // PF: plotter film
+
+            case 'PF': {
+                CHECK(reader.read_until(&image.info.plotter_film, '*'));
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // AB: aperture block - NOT SUPPORTED
+
+            case 'AB': {
+
+                return stats.error(reader, error_unsupported_command, "{} (block aperture) not supported", string_from_uint32(command));
+            }
+
+                //////////////////////////////////////////////////////////////////////
+                // LN: level name
+
+            case 'LN': {
+                std::string name;
+                CHECK(reader.read_until(&name, '*'));
+                state.level = new gerber_level(&image);
+                state.level->name = name;
+                LOG_DEBUG("Level name: {}", state.level->name);
+                reader.rewind(1);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // LP: level polarity
+
+            case 'LP': {
+                char c;
+                CHECK(reader.read_char(&c));
+
+                switch(c) {
+
+                case 'D':
+                    state.level = new gerber_level(&image);
+                    state.level->polarity = polarity_dark;
+                    break;
+
+                case 'C':
+                    state.level = new gerber_level(&image);
+                    state.level->polarity = polarity_clear;
+                    break;
+
+                default:
+                    return stats.error(reader, error_invalid_level_polarity, "expected [D|C], got {}", string_from_char(c));
+                }
+                LOG_DEBUG("Polarity: {}", state.level->polarity);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // KO: knockout
+
+            case 'KO': {
+
+                state.level = new gerber_level(&image);
+
+                update_knockout_measurements();
+
+                knockout_measure = false;
+
+                char c;
+                CHECK(reader.read_char(&c));
+                switch(c) {
+
+                case '*':
+                    state.level->knockout.knockout_type = knockout_type_no_knockout;
+                    reader.rewind(1);
+                    break;
+
+                case 'C':
+                    state.level->knockout.polarity = polarity_clear;
+                    break;
+
+                case 'D':
+                    state.level->knockout.polarity = polarity_dark;
+                    break;
+
+                default:
+                    return stats.error(reader, error_invalid_knockout_polarity, "expected [D|C], got {}", string_from_char(c));
+                }
+
+                LOG_DEBUG("KNOCKOUT: {}", state.level->knockout.knockout_type);
+
+                state.level->knockout.lower_left = { 0, 0 };
+                state.level->knockout.size = { 0, 0 };
+                state.level->knockout.border = 0.0;
+                state.level->knockout.first_instance = true;
+
+                CHECK(reader.read_char(&c));
+
+                while(c != '*') {
+
+                    double d;
+                    CHECK(reader.get_double(&d));
+                    d *= unit_scale;
+
+                    switch(c) {
+
+                    case 'X':
+                        state.level->knockout.knockout_type = knockout_type_fixed_knockout;
+                        state.level->knockout.lower_left.x = d;
+                        break;
+
+                    case 'Y':
+                        state.level->knockout.knockout_type = knockout_type_fixed_knockout;
+                        state.level->knockout.lower_left.y = d;
+                        break;
+
+                    case 'I':
+                        state.level->knockout.knockout_type = knockout_type_fixed_knockout;
+                        state.level->knockout.size.x = d;
+                        break;
+
+                    case 'J':
+                        state.level->knockout.knockout_type = knockout_type_fixed_knockout;
+                        state.level->knockout.size.y = d;
+                        break;
+
+                    case 'K':
+                        state.level->knockout.knockout_type = knockout_type_border;
+                        state.level->knockout.border = d;
+
+                        // This is a bordered knockout, so we need to start measuring the size of the area bordering all future components.
+                        knockout_measure = true;
+                        knockout_limit_min = { DBL_MAX, DBL_MAX };
+                        knockout_limit_max = { DBL_MIN, DBL_MIN };
+                        knockout_level = *state.level;    // Save a copy of this level for future access.
+                        break;
+
+                    default:
+                        return stats.error(reader, error_invalid_knockout_variable, "expected [X|Y|I|J|K], got {}", string_from_char(c));
+                    }
+                    CHECK(reader.read_char(&c));
+                }
+                reader.rewind(1);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // SR: step & repeat
+
+            case 'SR': {
+
+                state.level = new gerber_level(&image);
+
+                state.level->step_and_repeat.pos = { 1.0, 1.0 };
+                state.level->step_and_repeat.distance = { 0.0, 0.0 };
+
+                char c;
+                CHECK(reader.read_char(&c));
+
+                while(c != '*') {
+
+                    int i;
+                    double d;
+
+                    switch(c) {
+
+                    case 'X':
+                        CHECK(reader.get_int(&i));
+                        if(i == 0) {
+                            i = 1;
+                        }
+                        state.level->step_and_repeat.pos.x = static_cast<double>(i);
+                        break;
+
+                    case 'Y':
+                        CHECK(reader.get_int(&i));
+                        if(i == 0) {
+                            i = 1;
+                        }
+                        state.level->step_and_repeat.pos.y = static_cast<double>(i);
+                        break;
+
+                    case 'I':
+                        CHECK(reader.get_double(&d));
+                        state.level->step_and_repeat.distance.x = d;
+                        break;
+
+                    case 'J':
+                        CHECK(reader.get_double(&d));
+                        state.level->step_and_repeat.distance.y = d;
+                        break;
+
+                    default:
+                        return stats.error(reader, error_invalid_step_and_repeat, "expected [X|Y|I|J], got {}", string_from_char(c));
+                    }
+                    CHECK(reader.read_char(&c));
+                }
+                LOG_DEBUG("Step and repeat: POS: {},{}, DISTANCE: {},{}",
+                          state.level->step_and_repeat.pos.x,
+                          state.level->step_and_repeat.pos.y,
+                          state.level->step_and_repeat.distance.x,
+                          state.level->step_and_repeat.distance.y);
+                reader.rewind(1);
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // TF: file attributes
+
+            case 'TF': {
+                CHECK(parse_tf_code());
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
+                // TA: aperture attributes
+
+            case 'TA': {
+                struct gerber_aperture_attribute
+                {
+                    std::string name;
+                    std::string value;
+                };
+                std::string field;
+                CHECK(reader.read_until(&field, '*'));
+                std::vector<std::string> tokens;
+                tokenize(field, tokens, ",", tokenize_keep_empty);
+                if(tokens.empty()) {
+                    LOG_ERROR("Empty TA field!?");
+                } else {
+                    std::string value;
+                    if(tokens.size() > 1) {
+                        value = tokens[1];
+                    }
+                    LOG_VERBOSE("TA: {}=\"{}\"", tokens[0], value);
+                }
+            } break;
+
+                //////////////////////////////////////////////////////////////////////
 
             default:
-                return stats.error(reader, error_invalid_knockout_polarity, "expected [D|C], got {}", string_from_char(c));
+                return stats.error(reader, error_unknown_command, "{}", string_from_uint32(command));
             }
 
-            LOG_DEBUG("KNOCKOUT: {}", state.level->knockout.knockout_type);
+            // ignore everything up to (but not including) the *
+            CHECK(reader.read_until(nullptr, '*'));
 
-            state.level->knockout.lower_left = { 0, 0 };
-            state.level->knockout.size = { 0, 0 };
-            state.level->knockout.border = 0.0;
-            state.level->knockout.first_instance = true;
-
-            CHECK(reader.read_char(&c));
-
-            while(c != '*') {
-
-                double d;
-                CHECK(reader.get_double(&d));
-                d *= unit_scale;
-
-                switch(c) {
-
-                case 'X':
-                    state.level->knockout.knockout_type = knockout_type_fixed_knockout;
-                    state.level->knockout.lower_left.x = d;
-                    break;
-
-                case 'Y':
-                    state.level->knockout.knockout_type = knockout_type_fixed_knockout;
-                    state.level->knockout.lower_left.y = d;
-                    break;
-
-                case 'I':
-                    state.level->knockout.knockout_type = knockout_type_fixed_knockout;
-                    state.level->knockout.size.x = d;
-                    break;
-
-                case 'J':
-                    state.level->knockout.knockout_type = knockout_type_fixed_knockout;
-                    state.level->knockout.size.y = d;
-                    break;
-
-                case 'K':
-                    state.level->knockout.knockout_type = knockout_type_border;
-                    state.level->knockout.border = d;
-
-                    // This is a bordered knockout, so we need to start measuring the size of the area bordering all future components.
-                    knockout_measure = true;
-                    knockout_limit_min = { DBL_MAX, DBL_MAX };
-                    knockout_limit_max = { DBL_MIN, DBL_MIN };
-                    knockout_level = *state.level;    // Save a copy of this level for future access.
-                    break;
-
-                default:
-                    return stats.error(reader, error_invalid_knockout_variable, "expected [X|Y|I|J|K], got {}", string_from_char(c));
-                }
-                CHECK(reader.read_char(&c));
+            if(reader.eof()) {
+                return stats.error(reader, error_unterminated_command, "expected *, got EOF");
             }
-            reader.rewind(1);
-        } break;
 
-            //////////////////////////////////////////////////////////////////////
-            // SR: step & repeat
+            // skip the trailing *
+            reader.skip(1);
 
-        case 'SR': {
-
-            state.level = new gerber_level(&image);
-
-            state.level->step_and_repeat.pos = { 1.0, 1.0 };
-            state.level->step_and_repeat.distance = { 0.0, 0.0 };
-
+            // % means end of RS274X commands
             char c;
-            CHECK(reader.read_char(&c));
-
-            while(c != '*') {
-
-                int i;
-                double d;
-
-                switch(c) {
-
-                case 'X':
-                    CHECK(reader.get_int(&i));
-                    if(i == 0) {
-                        i = 1;
-                    }
-                    state.level->step_and_repeat.pos.x = static_cast<double>(i);
-                    break;
-
-                case 'Y':
-                    CHECK(reader.get_int(&i));
-                    if(i == 0) {
-                        i = 1;
-                    }
-                    state.level->step_and_repeat.pos.y = static_cast<double>(i);
-                    break;
-
-                case 'I':
-                    CHECK(reader.get_double(&d));
-                    state.level->step_and_repeat.distance.x = d;
-                    break;
-
-                case 'J':
-                    CHECK(reader.get_double(&d));
-                    state.level->step_and_repeat.distance.y = d;
-                    break;
-
-                default:
-                    return stats.error(reader, error_invalid_step_and_repeat, "expected [X|Y|I|J], got {}", string_from_char(c));
-                }
-                CHECK(reader.read_char(&c));
+            CHECK(reader.peek(&c));
+            if(c == '%') {
+                reader.skip(1);
+                return ok;
             }
-            LOG_DEBUG("Step and repeat: POS: {},{}, DISTANCE: {},{}",
-                      state.level->step_and_repeat.pos.x,
-                      state.level->step_and_repeat.pos.y,
-                      state.level->step_and_repeat.distance.x,
-                      state.level->step_and_repeat.distance.y);
-            reader.rewind(1);
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // TF: file attributes
-
-        case 'TF': {
-            CHECK(parse_tf_code());
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-            // TA: aperture attributes
-
-        case 'TA': {
-            struct gerber_aperture_attribute
-            {
-                std::string name;
-                std::string value;
-            };
-            std::string field;
-            CHECK(reader.read_until(&field, '*'));
-            std::vector<std::string> tokens;
-            tokenize(field, tokens, ",", tokenize_keep_empty);
-            if(tokens.empty()) {
-                LOG_ERROR("Empty TA field!?");
-            } else {
-                std::string value;
-                if(tokens.size() > 1) {
-                    value = tokens[1];
-                }
-                LOG_VERBOSE("TA: {}=\"{}\"", tokens[0], value);
-            }
-        } break;
-
-            //////////////////////////////////////////////////////////////////////
-
-        default:
-            return stats.error(reader, error_unknown_command, "{}", string_from_uint32(command));
-        }
-
-        // ignore everything up to (but not including) the *
-        CHECK(reader.read_until(nullptr, '*'));
-
-        if(reader.eof()) {
-            return stats.error(reader, error_unterminated_command, "expected *, got EOF");
-        }
-
-        reader.skip(1);
-
-        char c;
-        CHECK(reader.read_char(&c));
-        if(c != '%') {
-            return stats.error(reader, error_unterminated_command, "expected %, got {}", string_from_char(c));
         }
         return ok;
     }
@@ -1807,7 +1807,7 @@ namespace gerber_lib
         }
         switch(aperture->aperture_type) {
         case aperture_type_macro:
-            CHECK(aperture->execute_aperture_macro(unit_scale));
+            CHECK(aperture->execute_aperture_macro());
             break;
         case aperture_type_circle:
             aperture->parameters[0] *= unit_scale;
@@ -2072,9 +2072,6 @@ namespace gerber_lib
             } break;
 
             case 'D': {
-                if(reader.line_number == 856) {
-                    LOG_DEBUG("D at line {}", reader.line_number);
-                }
                 CHECK(parse_d_code());
             } break;
 
@@ -2152,10 +2149,6 @@ namespace gerber_lib
             } break;
 
             case '*': {
-
-                if(reader.line_number == 856) {
-                    LOG_DEBUG("* at line {}", reader.line_number);
-                }
 
                 stats.star_count += 1;
                 if(!state.changed_state) {
@@ -2395,7 +2388,6 @@ namespace gerber_lib
 
                         aperture_matrix = matrix::multiply(matrix::translate({ image.info.offset_a, image.info.offset_b }), aperture_matrix);
                         aperture_matrix = matrix::multiply(matrix::rotate(image.info.image_rotation), aperture_matrix);
-                        aperture_matrix = matrix::multiply(matrix::scale(state.net_state->scale), aperture_matrix);
                         aperture_matrix = matrix::multiply(matrix::translate(state.net_state->offset), aperture_matrix);
 
                         // Apply mirror.
@@ -2481,7 +2473,7 @@ namespace gerber_lib
                                 update_net_bounds(bounding_box, net->end.x, net->end.y, ap_size.x / 2, ap_size.y / 2);
                             }
                             // Update the info bounding box with this latest bounding box
-                            // don't change the bounding box if the polarity is clear
+                            // don't change the bounding box if the polarity is clear or negative
                             if(state.level->polarity != polarity_clear) {
                                 update_image_bounds(bounding_box, repeat_offset.x, repeat_offset.y, image);
                             }
