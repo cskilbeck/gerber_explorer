@@ -23,7 +23,7 @@
 
 #include <charconv>
 
-LOG_CONTEXT("gerber_lib", debug);
+LOG_CONTEXT("gerber_lib", info);
 
 //////////////////////////////////////////////////////////////////////
 
@@ -1729,7 +1729,7 @@ namespace gerber_lib
 
     gerber_error_code gerber_file::parse_aperture_definition(gerber_aperture *aperture, gerber_image *cur_image, double unit_scale)
     {
-        LOG_CONTEXT("parse_aperture", debug);
+        LOG_CONTEXT("parse_aperture", info);
 
         char c;
         CHECK(reader.read_char(&c));
@@ -2031,7 +2031,7 @@ namespace gerber_lib
 
     gerber_error_code gerber_file::parse_gerber_segment(gerber_net *net)
     {
-        LOG_CONTEXT("parse_segment", debug);
+        LOG_CONTEXT("parse_segment", info);
 
         rect whole_box{ DBL_MAX, DBL_MAX, -DBL_MAX, -DBL_MAX };
 
