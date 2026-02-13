@@ -142,6 +142,9 @@ namespace gerber_lib
 
         gerber_error_code parse_rs274x(gerber_net *net);
 
+        void add_trailing_zeros_x(int length, int *coordinate);
+        void add_trailing_zeros_y(int length, int *coordinate);
+
         layer::type_t classify() const;
 
         gerber_error_code parse_aperture_definition(gerber_aperture *aperture, gerber_image *cur_image, double unit_scale);

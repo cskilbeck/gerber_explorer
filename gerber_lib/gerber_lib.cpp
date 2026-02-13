@@ -90,18 +90,6 @@ namespace
 
     //////////////////////////////////////////////////////////////////////
 
-    void add_trailing_zeros(int integer_part, int decimal_part, int length, int *coordinate)
-    {
-        // LOG_DEBUG("add_trailing_zeros({},{},{}) {}", integer_part, decimal_part, length, *coordinate);
-
-        int omitted_value = integer_part + decimal_part - length;
-        for(int x = 0; x < omitted_value; x++) {
-            *coordinate *= 10;
-        }
-    }
-
-    //////////////////////////////////////////////////////////////////////
-
     gerber_error_code calculate_arc_mq(gerber_net *net, bool is_clockwise, vec2d const &center)
     {
         net->circle_segment.pos = net->start.add(center);
@@ -659,6 +647,30 @@ namespace gerber_lib
         reset();
         CHECK(reader.open(data, size));
         return do_parse();
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    void gerber_file::add_trailing_zeros_x(int length, int *coordinate)
+    {
+        if(image.format.omit_zeros == omit_zeros_trailing) {
+            int omitted_value = image.format.integral_part_x + image.format.decimal_part_x - length;
+            for(int x = 0; x < omitted_value; x++) {
+                *coordinate *= 10;
+            }
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////
+
+    void gerber_file::add_trailing_zeros_y(int length, int *coordinate)
+    {
+        if(image.format.omit_zeros == omit_zeros_trailing) {
+            int omitted_value = image.format.integral_part_y + image.format.decimal_part_y - length;
+            for(int x = 0; x < omitted_value; x++) {
+                *coordinate *= 10;
+            }
+        }
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -1271,7 +1283,6 @@ namespace gerber_lib
 
                     double scale;
                     CHECK(reader.get_double(&scale));
-                    scale *= unit_scale;
 
                     switch(c) {
 
@@ -1807,7 +1818,7 @@ namespace gerber_lib
         }
         switch(aperture->aperture_type) {
         case aperture_type_macro:
-            CHECK(aperture->execute_aperture_macro());
+            CHECK(aperture->execute_aperture_macro(unit_scale));
             break;
         case aperture_type_circle:
             aperture->parameters[0] *= unit_scale;
@@ -2083,9 +2094,7 @@ namespace gerber_lib
                 stats.x_count += 1;
                 size_t length = 0;
                 CHECK(reader.get_int(&coordinate, &length));
-                if(image.format.omit_zeros == omit_zeros_trailing) {
-                    add_trailing_zeros(image.format.integral_part_x, image.format.decimal_part_x, static_cast<int>(length), &coordinate);
-                }
+                add_trailing_zeros_x(static_cast<int>(length), &coordinate);
                 if(image.format.coordinate == coordinate_incremental) {
                     if(coordinate != 0) {
                         state.current_x += coordinate;
@@ -2103,9 +2112,7 @@ namespace gerber_lib
                 stats.y_count += 1;
                 size_t length = 0;
                 CHECK(reader.get_int(&coordinate, &length));
-                if(image.format.omit_zeros == omit_zeros_trailing) {
-                    add_trailing_zeros(image.format.integral_part_x, image.format.decimal_part_y, static_cast<int>(length), &coordinate);
-                }
+                add_trailing_zeros_y(static_cast<int>(length), &coordinate);
                 if(image.format.coordinate == coordinate_incremental) {
                     if(coordinate != 0) {
                         state.current_y += coordinate;
@@ -2124,9 +2131,7 @@ namespace gerber_lib
                 stats.i_count += 1;
                 size_t length = 0;
                 CHECK(reader.get_int(&coordinate, &length));
-                if(image.format.omit_zeros == omit_zeros_trailing) {
-                    add_trailing_zeros(image.format.integral_part_x, image.format.decimal_part_x, static_cast<int>(length), &coordinate);
-                }
+                add_trailing_zeros_x(static_cast<int>(length), &coordinate);
                 state.center_x = coordinate;
                 // LOG_DEBUG("CX = {}", state.center_x);
                 state.changed();
@@ -2136,9 +2141,7 @@ namespace gerber_lib
                 stats.j_count += 1;
                 size_t length = 0;
                 CHECK(reader.get_int(&coordinate, &length));
-                if(image.format.omit_zeros == omit_zeros_trailing) {
-                    add_trailing_zeros(image.format.integral_part_y, image.format.decimal_part_y, static_cast<int>(length), &coordinate);
-                }
+                add_trailing_zeros_y(static_cast<int>(length), &coordinate);
                 state.center_y = coordinate;
                 // LOG_DEBUG("CY = {}", state.center_y);
                 state.changed();
@@ -2388,6 +2391,7 @@ namespace gerber_lib
 
                         aperture_matrix = matrix::multiply(matrix::translate({ image.info.offset_a, image.info.offset_b }), aperture_matrix);
                         aperture_matrix = matrix::multiply(matrix::rotate(image.info.image_rotation), aperture_matrix);
+                        // aperture_matrix = matrix::multiply(matrix::scale(state.net_state->scale), aperture_matrix);
                         aperture_matrix = matrix::multiply(matrix::translate(state.net_state->offset), aperture_matrix);
 
                         // Apply mirror.

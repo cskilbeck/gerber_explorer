@@ -349,7 +349,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber_aperture::execute_aperture_macro()
+    gerber_error_code gerber_aperture::execute_aperture_macro(double scale)
     {
         LOG_CONTEXT("execute_aperture_macro", info);
 
@@ -569,17 +569,17 @@ namespace gerber_lib
                         if(num_params == required_with) {
                             num_points += 1;
                         }
-                        // scale the points
-                        for(int i = 0; i < num_points; ++i) {
-                        }
                         // if it doesn't have the extra point, add it (pushing rotation to the end)
                         if(num_params == required_without) {
                             int last_x = num_points * 2 + outline_rotation;
                             double rotation = macro->parameters[last_x];
                             macro->parameters.push_back(rotation);
-
                         }
-                    }break;
+                        for(int i=0; i<num_points; ++i) {
+                            macro->parameters[i*2 + outline_first_x] *= scale;
+                            macro->parameters[i*2 + outline_first_y] *= scale;
+                        }
+                    } break;
 
                     case aperture_type_macro_polygon:
                         exposure = macro->parameters[polygon_exposure];
