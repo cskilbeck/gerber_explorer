@@ -531,10 +531,6 @@ namespace gerber_lib
 
                 if(type != aperture_type_none) {
 
-                    if(num_of_parameters < 0 || num_of_parameters > max_num_aperture_parameters) {
-                        return error_bad_parameter_count;
-                    }
-
                     gerber_macro_parameters *macro = new gerber_macro_parameters();
 
                     macro->aperture_type = type;
@@ -599,7 +595,6 @@ namespace gerber_lib
                     case aperture_type_macro_line22:
                         exposure = macro->parameters[line_21_exposure];
                         break;
-
                     default:
                         break;
                     }

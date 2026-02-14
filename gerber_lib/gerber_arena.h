@@ -94,7 +94,7 @@ namespace gerber_lib
 
         //////////////////////////////////////////////////////////////////////
 
-        double percent_committed()
+        double percent_committed() const
         {
             return (double)committed_size / reserve_size * 100.0;
         }

@@ -12,7 +12,7 @@
 
 extern int gl_log;
 
-#if defined(_DEBUG) || 1
+#if defined(_DEBUG)
 #define GL_CHECK(x)                                                                                                                    \
     do {                                                                                                                               \
         if(gl_log != 0) {                                                                                                              \

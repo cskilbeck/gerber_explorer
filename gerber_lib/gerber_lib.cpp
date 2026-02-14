@@ -63,33 +63,6 @@ namespace
 
     //////////////////////////////////////////////////////////////////////
 
-    bool is_positive_integer(std::string_view sv)
-    {
-        if(sv.empty() || (sv[0] == '-' || sv[0] == '+')) {
-            return false;
-        }
-        unsigned int value;
-        auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
-        return ec == std::errc{} && ptr == sv.data() + sv.size();
-    }
-
-    //////////////////////////////////////////////////////////////////////
-
-    bool all_digits(std::string_view sv)
-    {
-        if(sv.empty()) {
-            return false;
-        }
-        for(auto const &c : sv) {
-            if(!isdigit(c)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    //////////////////////////////////////////////////////////////////////
-
     gerber_error_code calculate_arc_mq(gerber_net *net, bool is_clockwise, vec2d const &center)
     {
         net->circle_segment.pos = net->start.add(center);
@@ -647,7 +620,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    void gerber_file::add_trailing_zeros_x(int length, int *coordinate)
+    void gerber_file::add_trailing_zeros_x(int length, int *coordinate) const
     {
         if(image.format.omit_zeros == omit_zeros_trailing) {
             int omitted_value = image.format.integral_part_x + image.format.decimal_part_x - length;
@@ -659,7 +632,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    void gerber_file::add_trailing_zeros_y(int length, int *coordinate)
+    void gerber_file::add_trailing_zeros_y(int length, int *coordinate) const
     {
         if(image.format.omit_zeros == omit_zeros_trailing) {
             int omitted_value = image.format.integral_part_y + image.format.decimal_part_y - length;
@@ -1734,7 +1707,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber_file::parse_aperture_definition(gerber_aperture *aperture, gerber_image *cur_image, double unit_scale)
+    gerber_error_code gerber_file::parse_aperture_definition(gerber_aperture *aperture, gerber_image const *cur_image, double unit_scale)
     {
         LOG_CONTEXT("parse_aperture", info);
 
@@ -1860,7 +1833,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    void gerber_file::update_image_bounds(rect &bounds, double repeat_offset_x, double repeat_offset_y, gerber_image &cur_image) const
+    void gerber_file::update_image_bounds(rect const &bounds, double repeat_offset_x, double repeat_offset_y, gerber_image &cur_image) const
     {
         double minx = bounds.min_pos.x + repeat_offset_x;
         double maxx = bounds.max_pos.x + repeat_offset_x;
@@ -2558,7 +2531,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber_file::fill_polygon(gerber_draw_interface &drawer, double diameter, int num_sides, double angle_degrees) const
+    gerber_error_code gerber_file::fill_polygon(gerber_draw_interface const &drawer, double diameter, int num_sides, double angle_degrees) const
     {
         LOG_DEBUG("fill_polygon");
         (void)drawer;
@@ -2570,7 +2543,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber_file::draw_macro(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *const macro_aperture) const
+    gerber_error_code gerber_file::draw_macro(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture const *const macro_aperture) const
     {
         for(auto m : macro_aperture->macro_parameters_list) {
 
@@ -2694,7 +2667,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber_file::draw_linear_circle(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *aperture) const
+    gerber_error_code gerber_file::draw_linear_circle(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture const *aperture) const
     {
         double width = aperture->parameters[0];
 
@@ -2732,7 +2705,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gerber_file::draw_linear_rectangle(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *aperture) const
+    gerber_error_code gerber_file::draw_linear_rectangle(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture const *aperture) const
     {
         double w = aperture->parameters[0] / 2;
         double h = aperture->parameters[1] / 2;

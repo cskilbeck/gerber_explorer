@@ -235,7 +235,7 @@ namespace gerber_lib
 
     //////////////////////////////////////////////////////////////////////
 
-    bool point_in_poly(vec2f *points, int num_points, vec2f p)
+    bool point_in_poly(vec2f const *points, int num_points, vec2f p)
     {
         bool inside = false;
         for(int i = 0, j = num_points - 1; i < num_points; j = i++) {

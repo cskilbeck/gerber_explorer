@@ -1,7 +1,6 @@
 #pragma once
 
-#define _USE_MATH_DEFINES
-#include <math.h>
+#include <cmath>
 
 static constexpr double PI = 3.1415926535897932384626433;
 

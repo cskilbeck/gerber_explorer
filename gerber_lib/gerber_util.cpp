@@ -3,21 +3,8 @@
 #include <codecvt>
 #include <charconv>
 
-namespace
-{
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter{};
-
-}    // namespace
-
 namespace gerber_util
 {
-    //////////////////////////////////////////////////////////////////////
-
-    std::wstring utf16_from_utf8(std::string const &s)
-    {
-        return converter.from_bytes(s);
-    }
-
     //////////////////////////////////////////////////////////////////////
 
     std::string to_lowercase(std::string const &s)

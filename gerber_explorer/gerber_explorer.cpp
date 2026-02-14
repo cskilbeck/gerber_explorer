@@ -1291,7 +1291,6 @@ void gerber_explorer::ui()
             ImGui::EndMenu();
         }
 
-        // 1. Define your text
 #if defined(_DEBUG)
         static int frames = 0;
         frames += 1;

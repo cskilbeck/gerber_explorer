@@ -109,7 +109,7 @@ namespace gerber_lib
 
         void update_net_bounds(rect &bounds, std::vector<vec2d> const &points) const;
         void update_net_bounds(rect &bounds, double x, double y, double w, double h) const;
-        void update_image_bounds(rect &bounds, double repeat_offset_x, double repeat_offset_y, gerber_image &cur_image) const;
+        void update_image_bounds(const rect &bounds, double repeat_offset_x, double repeat_offset_y, gerber_image &cur_image) const;
 
         gerber_error_code get_aperture_points(gerber_macro_parameters const &macro, gerber_net *net, std::vector<vec2d> &points) const;
 
@@ -123,15 +123,15 @@ namespace gerber_lib
         gerber_error_code fill_region_path(gerber_draw_interface &drawer, size_t net_index, gerber_polarity polarity) const;
 
         gerber_error_code draw_linear_interpolation(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *aperture) const;
-        gerber_error_code draw_linear_circle(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *aperture) const;
-        gerber_error_code draw_linear_rectangle(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *aperture) const;
-        gerber_error_code draw_macro(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture *macro_aperture) const;
+        gerber_error_code draw_linear_circle(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture const *aperture) const;
+        gerber_error_code draw_linear_rectangle(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture const *aperture) const;
+        gerber_error_code draw_macro(gerber_draw_interface &drawer, gerber_net *net, gerber_aperture const *macro_aperture) const;
         gerber_error_code draw_capsule(gerber_draw_interface &drawer, gerber_net *net, double width, double height) const;
         gerber_error_code draw_arc(gerber_draw_interface &drawer, gerber_net *net, double thickness) const;
         gerber_error_code draw_circle(gerber_draw_interface &drawer, gerber_net *net, vec2d const &pos, double radius) const;
         gerber_error_code draw_rectangle(gerber_draw_interface &drawer, gerber_net *net, rect const &draw_rect) const;
 
-        gerber_error_code fill_polygon(gerber_draw_interface &drawer, double diameter, int num_sides, double angle_degrees) const;
+        gerber_error_code fill_polygon(gerber_draw_interface const &drawer, double diameter, int num_sides, double angle_degrees) const;
 
         gerber_error_code parse_gerber_segment(gerber_net *net);
 
@@ -142,12 +142,12 @@ namespace gerber_lib
 
         gerber_error_code parse_rs274x(gerber_net *net);
 
-        void add_trailing_zeros_x(int length, int *coordinate);
-        void add_trailing_zeros_y(int length, int *coordinate);
+        void add_trailing_zeros_x(int length, int *coordinate) const;
+        void add_trailing_zeros_y(int length, int *coordinate) const;
 
         layer::type_t classify() const;
 
-        gerber_error_code parse_aperture_definition(gerber_aperture *aperture, gerber_image *cur_image, double unit_scale);
+        gerber_error_code parse_aperture_definition(gerber_aperture *aperture, gerber_image const *cur_image, double unit_scale);
 
         void update_knockout_measurements();
 

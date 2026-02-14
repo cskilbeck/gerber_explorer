@@ -126,7 +126,7 @@ namespace gerber_lib
 
         //////////////////////////////////////////////////////////////////////
 
-        bool equal(vec2d const &o)
+        bool equal(vec2d const &o) const
         {
             return x == o.x && y == o.y;
         }
@@ -233,7 +233,7 @@ namespace gerber_lib
 
         //////////////////////////////////////////////////////////////////////
 
-        rect offset(vec2d o)
+        rect offset(vec2d o) const
         {
             return { min_pos.add(o), max_pos.add(o) };
         }
@@ -254,7 +254,7 @@ namespace gerber_lib
 
         //////////////////////////////////////////////////////////////////////
 
-        bool is_empty_rect()
+        bool is_empty_rect() const
         {
             vec2d const s = size();
             return s.x == 0 || s.y == 0;
@@ -344,7 +344,7 @@ namespace gerber_lib
 
     rect get_arc_extents(vec2d const &center, double radius, double start_degrees, double end_degrees);
     bool line_intersects_rect(rect const &r, vec2f const &p1, vec2f const &p2);
-    bool point_in_poly(vec2f *points, int num_points, vec2f p);
+    bool point_in_poly(vec2f const *points, int num_points, vec2f p);
 
 }    // namespace gerber_lib
 

@@ -226,7 +226,7 @@ inline bool is_debugger_present()
     size_t size = sizeof(info);
     info.kp_proc.p_flag = 0;
 
-    if(sysctl(mib, 4, &info, &size, NULL, 0) == 0) {
+    if(sysctl(mib, 4, &info, &size, nullptr, 0) == 0) {
         return (info.kp_proc.p_flag & P_TRACED) != 0;
     }
     return false;
