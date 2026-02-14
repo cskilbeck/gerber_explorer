@@ -578,7 +578,7 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    int texture::update([[maybe_unused]] uint32_t *data)
+    int texture::update([[maybe_unused]] uint32_t *data) const
     {
         LOG_ERROR("NOPE");
         return 1;

@@ -460,7 +460,7 @@ namespace gl
 
         int init(GLuint w, GLuint h, uint32_t const *data = nullptr);
         int bind() const;
-        int update(uint32_t *data);
+        int update(uint32_t *data) const;
         void cleanup();
     };
 

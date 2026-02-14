@@ -1,7 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <filesystem>
-#include <cstdlib>
 #include <string>
 #include <optional>
 #include <vector>

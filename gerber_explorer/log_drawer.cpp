@@ -17,7 +17,8 @@ namespace gl
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_lib::gerber_error_code log_drawer::fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements, gerber_lib::gerber_polarity polarity, gerber_lib::gerber_net *gnet)
+    gerber_lib::gerber_error_code log_drawer::fill_elements(gerber_lib::gerber_draw_element const *elements, size_t num_elements,
+                                                            gerber_lib::gerber_polarity polarity, gerber_lib::gerber_net *gnet)
     {
         LOG_INFO("fill entity:{},elements:{},polarity:{}", gnet->entity_id, num_elements, polarity);
         for(size_t n = 0; n < num_elements; ++n) {
@@ -26,4 +27,4 @@ namespace gl
         return gerber_lib::ok;
     }
 
-}    // namespace gerber_3d
+}    // namespace gl
