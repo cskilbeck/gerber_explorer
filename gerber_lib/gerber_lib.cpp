@@ -132,10 +132,6 @@ namespace
             }
         }
 
-        if(beta < alpha) {
-            std::swap(alpha, beta);
-        }
-
         net->circle_segment.start_angle = alpha;
         net->circle_segment.end_angle = beta;
 
