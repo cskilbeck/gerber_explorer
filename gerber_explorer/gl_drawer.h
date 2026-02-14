@@ -90,10 +90,12 @@ namespace gerber
     struct tesselator_entity
     {
         gerber_lib::gerber_net *net{};
-        int outline_offset;           // offset into outline lines
-        int outline_size{};           // # of lines in the outline
-        int flags;                    // see entity_flags_t
-        gerber_lib::rect bounds{};    // for picking speedup
+        int outline_offset;                  // offset into outline vertices
+        int outline_size{};                  // # of vertices in the outline
+        int contour_offset{};               // offset into contour_sizes arena
+        int num_contours{};                 // # of contours
+        int flags;                           // see entity_flags_t
+        gerber_lib::rect bounds{};           // for picking speedup
 
         int entity_id() const
         {
@@ -198,6 +200,7 @@ namespace gerber
             entity_flags.init();
             fill_vertices.init();
             fill_indices.init();
+            contour_sizes.init();
         }
 
         // setup from a parsed gerber file
@@ -248,6 +251,7 @@ namespace gerber
         tess_arena_t boundary_arena;
         tess_arena_t interior_arena;
         typed_arena<tesselator_entity> entities;
+        typed_arena<int> contour_sizes;
         typed_arena<vec2f> temp_points;
         typed_arena<gl::line2_program::line> outline_lines;
         typed_arena<vec2f> outline_vertices;

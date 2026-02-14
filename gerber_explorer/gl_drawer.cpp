@@ -75,6 +75,7 @@ namespace gerber
         boundary_arena.reset();
         interior_arena.reset();
         entities.clear();
+        contour_sizes.clear();
         temp_points.clear();
         outline_vertices.clear();
         outline_lines.clear();
@@ -97,6 +98,7 @@ namespace gerber
         boundary_arena.release();
         interior_arena.release();
         entities.release();
+        contour_sizes.release();
         temp_points.release();
         outline_vertices.release();
         outline_lines.release();
@@ -242,11 +244,16 @@ namespace gerber
         for(auto &e : entities) {
             size_t id = e.entity_id();
             max_entity_id = std::max(max_entity_id, e.entity_id());
-            size_t s = e.outline_offset;
-            size_t t = s + e.outline_size - 1;
-            size_t u = t;
-            for(; s <= u; t = s++) {
-                outline_lines.emplace_back((uint32_t)s, (uint32_t)t, (uint32_t)id, 0);
+            size_t contour_start = e.outline_offset;
+            for(int c = 0; c < e.num_contours; ++c) {
+                int contour_size = contour_sizes[e.contour_offset + c];
+                size_t s = contour_start;
+                size_t t = contour_start + contour_size - 1;
+                size_t u = t;
+                for(; s <= u; t = s++) {
+                    outline_lines.emplace_back((uint32_t)s, (uint32_t)t, (uint32_t)id, 0);
+                }
+                contour_start += contour_size;
             }
         }
         entity_flags.increase_size_to(max_entity_id + 1);
@@ -271,18 +278,22 @@ namespace gerber
             tessSetOption(interior_tesselator, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 1);
             tessSetOption(interior_tesselator, TESS_REVERSE_CONTOURS, 1);
 
+            tesselator_entity &e = entities.back();
+            e.contour_offset = (int)contour_sizes.size();
+
             for(int i = 0; i < nelems; ++i) {
                 int b = elems[i * 2];
                 int n = elems[i * 2 + 1];
                 float const *f = &verts[b * 2];
                 tessAddContour(interior_tesselator, 2, f, sizeof(float) * 2, n);
+                contour_sizes.push_back(n);
                 for(int p = 0; p < n; ++p) {
                     outline_vertices.emplace_back(f[0], f[1]);
                     f += 2;
                 }
             }
 
-            tesselator_entity &e = entities.back();
+            e.num_contours = (int)contour_sizes.size() - e.contour_offset;
             e.outline_size = (int)(outline_vertices.size() - e.outline_offset);
 
             vec2f min{ FLT_MAX, FLT_MAX };
@@ -344,7 +355,7 @@ namespace gerber
     {
         finish_entity();
 
-        entities.emplace_back(net, (int)outline_vertices.size(), 0, flags);
+        entities.emplace_back(net, (int)outline_vertices.size(), 0, 0, 0, flags);
 
         boundary_stesselator = tessNewTess(&boundary_arena.tess_alloc);
 
@@ -554,16 +565,22 @@ namespace gerber
 
     void gl_drawer::update_flags_buffer()
     {
+        bool update = false;
         for(auto const &e : entities) {
             int id = e.entity_id();
             if(id < 0 || id >= (int)entity_flags.size()) {
                 LOG_ERROR("INVALID ENTITY ID {}!?", id);
             } else {
-                entity_flags[id] = (uint8_t)e.flags;
+                if(entity_flags[id] != (uint8_t)e.flags) {
+                    entity_flags[id] = (uint8_t)e.flags;
+                    update = true;
+                }
             }
         }
-        GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, flags_buffer)); //%a %b %d %H:%M:%S %Z
-        gl::update_buffer<GL_TEXTURE_BUFFER>(entity_flags);
+        if(update) {
+            GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, flags_buffer)); //%a %b %d %H:%M:%S %Z
+            gl::update_buffer<GL_TEXTURE_BUFFER>(entity_flags);
+        }
     }
 
     //////////////////////////////////////////////////////////////////////
