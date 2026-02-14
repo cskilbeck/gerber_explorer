@@ -562,6 +562,38 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
 
 void gerber_explorer::on_mouse_move(double xpos, double ypos)
 {
+    // Wrap cursor to opposite edge when panning for infinite pan
+    if(mouse_mode == mouse_drag_pan) {
+        bool warped = false;
+        double new_x = xpos;
+        double new_y = ypos;
+
+        if(xpos <= 0) {
+            new_x = window_width - 2;
+            warped = true;
+        } else if(xpos >= window_width - 1) {
+            new_x = 1;
+            warped = true;
+        }
+
+        if(ypos <= 0) {
+            new_y = window_height - 2;
+            warped = true;
+        } else if(ypos >= window_height - 1) {
+            new_y = 1;
+            warped = true;
+        }
+
+        if(warped) {
+            glfwSetCursorPos(window, new_x, new_y);
+            mouse_pos = { new_x - viewport_xpos, viewport_height - (new_y - viewport_ypos) };
+            drag_mouse_start_pos = mouse_pos;
+            prev_mouse_pos = mouse_pos;
+            set_active();
+            return;
+        }
+    }
+
     mouse_pos = { xpos - viewport_xpos, viewport_height - (ypos - viewport_ypos) };
     set_active();
 }
