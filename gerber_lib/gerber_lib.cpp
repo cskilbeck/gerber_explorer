@@ -2800,14 +2800,12 @@ namespace gerber_lib
 
         // this is nasty, there are a few cases
 
-        if(start_angle > end_angle) {
-            // hmmm
-        } else if(start_angle == end_angle) {
+        if(start_angle == end_angle) {
             // just a point of thickness
             double start_radians = deg_2_rad(start_angle);
             vec2d start_pos{ pos.x + cos(start_radians) * radius, pos.y + sin(start_radians) * radius };
             add_arc(start_pos, r, 0, 360);
-        } else if(end_angle - start_angle >= 360) {
+        } else if(std::abs(end_angle - start_angle) >= 360) {
 
             // a ring of thickness
             add_arc(pos, outer_radius, 0, 360);
@@ -2820,7 +2818,9 @@ namespace gerber_lib
 
         } else {
 
-            // ok, it's an arc, but do the ends overlap?
+            if(start_angle > end_angle) {
+                std::swap(start_angle, end_angle);
+            }
             double start_radians = deg_2_rad(start_angle);
             double end_radians = deg_2_rad(end_angle);
 
