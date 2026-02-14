@@ -271,7 +271,7 @@ void gerber_explorer::fit_to_viewport()
 {
     if(active_entity != nullptr) {
         zoom_to_rect(board_rect_from_world_rect(active_entity->bounds));
-    } else if(selected_layer != nullptr && selected_layer->is_valid()) {
+    } else if(selected_layer != nullptr && selected_layer->is_valid() && selected_layer->extent().is_normalized()) {
         // zoom to selected entities or the whole layer
         rect extent{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
         int num_selected = 0;
@@ -1176,7 +1176,7 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
 
 void gerber_explorer::ui()
 {
-    auto is_active = []() {
+    auto is_active = [] {
         ImGuiIO &io = ImGui::GetIO();
         if(io.Ctx->DimBgRatio != 0.0f && io.Ctx->DimBgRatio != 1.0f) {
             return true;
@@ -1564,18 +1564,29 @@ void gerber_explorer::update_board_extent()
     rect all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
     rect visible_all{ { FLT_MAX, FLT_MAX }, { -FLT_MAX, -FLT_MAX } };
 
+    bool all_valid{false};
+    bool visible_valid{false};
     for(auto layer : layers) {
-        all = all.union_with(layer->extent());
-        if(layer_is_visible(layer)) {
-            visible_all = visible_all.union_with(layer->extent());
+        rect const &r = layer->extent();
+        if(r.is_normalized()) {
+            all_valid = true;
+            all = all.union_with(layer->extent());
+            if(layer_is_visible(layer)) {
+                visible_all = visible_all.union_with(layer->extent());
+                visible_valid = true;
+            }
         }
     }
 
-    board_extent = all;
-    board_center = board_extent.center();
+    if(all_valid) {
+        board_extent = all;
+        board_center = board_extent.center();
+    }
 
-    visible_board_extent = visible_all;
-    visible_board_center = visible_board_extent.center();
+    if(visible_valid) {
+        visible_board_extent = visible_all;
+        visible_board_center = visible_board_extent.center();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1801,6 +1812,11 @@ void gerber_explorer::on_render()
             }
             tesselate_layer(l, options);
         }
+    }
+
+    // if there are outstanding jobs running, it's active (so we see the result when they complete)
+    if(pool.get_info().active != 0) {
+        set_active();
     }
 
     update_view_rect();

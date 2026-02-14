@@ -2567,7 +2567,8 @@ namespace gerber_lib
                 mat = matrix::multiply(mat, matrix::translate(net->end));
                 pos = transform_point(mat, pos);
                 gerber_draw_element e(pos, 0, 360, diameter / 2);
-                return drawer.fill_elements(&e, 1, polarity, net);
+                CHECK(drawer.fill_elements(&e, 1, polarity, net));
+                break;
             }
 
             case aperture_type_macro_moire: {
@@ -2588,7 +2589,8 @@ namespace gerber_lib
                 for(size_t i = 0; i < points.size() - 1; ++i) {
                     e.emplace_back(points[i], points[i + 1]);
                 }
-                return drawer.fill_elements(e.data(), e.size(), polarity_dark, net);
+                CHECK(drawer.fill_elements(e.data(), e.size(), polarity_dark, net));
+                break;
             }
 
             case aperture_type_macro_polygon: {
@@ -2601,7 +2603,7 @@ namespace gerber_lib
                 vec2d end{ m->parameters[line_20_end_x], m->parameters[line_20_end_y] };
                 double width = m->parameters[line_20_line_width];
                 if(width == 0) {
-                    return error_invalid_number;
+                    break;
                 }
                 double w2 = width / 2;
                 double rotation = m->parameters[line_20_rotation];
@@ -2621,7 +2623,8 @@ namespace gerber_lib
                 e[1] = gerber_draw_element(points[3], points[2]);
                 e[2] = gerber_draw_element(points[2], points[1]);
                 e[3] = gerber_draw_element(points[1], points[0]);
-                return drawer.fill_elements(e, 4, polarity_dark, net);
+                CHECK(drawer.fill_elements(e, 4, polarity_dark, net));
+                break;
             }
 
             case aperture_type_macro_line21: {
@@ -2631,7 +2634,7 @@ namespace gerber_lib
                 double w = m->parameters[line_21_line_width];
                 double h = m->parameters[line_21_line_height];
                 if(w == 0 || h == 0) {
-                    return error_invalid_number;
+                    break;
                 }
 
                 double rotation = m->parameters[line_21_rotation];
@@ -2651,7 +2654,8 @@ namespace gerber_lib
                 e[1] = gerber_draw_element(points[3], points[2]);
                 e[2] = gerber_draw_element(points[2], points[1]);
                 e[3] = gerber_draw_element(points[1], points[0]);
-                return drawer.fill_elements(e, 4, polarity_dark, net);
+                CHECK(drawer.fill_elements(e, 4, polarity_dark, net));
+                break;
             }
 
             case aperture_type_macro_line22: {
@@ -2659,10 +2663,10 @@ namespace gerber_lib
             } break;
             default:
                 LOG_FATAL("Bad aperture type: {}", m->aperture_type);
-                break;
+                return error_invalid_aperture_type;
             }
         }
-        return error_invalid_aperture_type;
+        return ok;
     }
 
     //////////////////////////////////////////////////////////////////////

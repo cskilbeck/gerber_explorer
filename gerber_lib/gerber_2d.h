@@ -191,6 +191,13 @@ namespace gerber_lib
 
         //////////////////////////////////////////////////////////////////////
 
+        bool is_normalized() const
+        {
+            return min_pos.x <= max_pos.x && min_pos.y <= max_pos.y;
+        }
+
+        //////////////////////////////////////////////////////////////////////
+
         bool overlaps_rect(rect const &b) const
         {
             return (!(max_pos.x < b.min_pos.x || b.max_pos.x < min_pos.x || max_pos.y < b.min_pos.y || b.max_pos.y < min_pos.y));

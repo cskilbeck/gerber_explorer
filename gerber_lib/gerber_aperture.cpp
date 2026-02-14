@@ -242,7 +242,7 @@ namespace gerber_lib
             case '(':
 
                 // syntax: can't have open bracket after a literal or reference
-                if(!ops.empty() && (ops.top() == opcode_push_parameter || ops.top() == opcode_push_value)) {
+                if(!unary_available) {
                     return error_syntax_error;
                 }
                 CHECK(push_opcode(opcode_open_bracket));
@@ -251,7 +251,7 @@ namespace gerber_lib
             case ')':
 
                 // syntax: can't have close bracket after anything except a literal or reference
-                if(ops.empty() || (ops.top() != opcode_push_parameter && ops.top() != opcode_push_value)) {
+                if(unary_available) {
                     return error_syntax_error;
                 }
                 flush_stack(opcode_close_bracket);
