@@ -7,11 +7,14 @@ namespace gerber_util
 {
     //////////////////////////////////////////////////////////////////////
 
-    std::string to_lowercase(std::string const &s)
+    std::string to_lowercase(std::string_view s)
     {
-        std::string r = s;
-        std::transform(r.begin(), r.end(), r.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-        return r;
+        std::string result;
+        result.reserve(s.size());
+        for(auto c : s) {
+            result.push_back(tolower(c));
+        }
+        return result;
     }
 
     //////////////////////////////////////////////////////////////////////

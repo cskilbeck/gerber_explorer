@@ -48,21 +48,6 @@ namespace
 
     //////////////////////////////////////////////////////////////////////
 
-    std::string to_lower(std::string_view s)
-    {
-        std::string r;
-        r.reserve(s.size());
-        for(char c : s) {
-            if(c >= 'A' && c <= 'Z') {
-                c |= 0x20;
-            }
-            r.push_back(c);
-        }
-        return r;
-    }
-
-    //////////////////////////////////////////////////////////////////////
-
     gerber_error_code calculate_arc_mq(gerber_net *net, bool is_clockwise, vec2d const &center)
     {
         net->circle_segment.pos = net->start.add(center);
@@ -400,15 +385,15 @@ namespace gerber_lib
     {
         using namespace layer;
         auto path = std::filesystem::path(filename);
-        std::string name(to_lower(path.filename().string()));
-        std::string stem(to_lower(path.stem().string()));
-        std::string extension(to_lower(path.extension().string()));
+        std::string name(to_lowercase(path.filename().string()));
+        std::string stem(to_lowercase(path.stem().string()));
+        std::string extension(to_lowercase(path.extension().string()));
 
         // X2 Attributes
         for(auto const &pair : attributes) {
-            std::string k = to_lower(pair.first);
+            std::string k = to_lowercase(pair.first);
             if(k == ".filefunction" || k == "filefunction") {
-                std::string v(to_lower(pair.second));
+                std::string v(to_lowercase(pair.second));
                 if(v.contains("copper")) {
                     if(v.contains("top")) {
                         return copper_top;
@@ -478,7 +463,7 @@ namespace gerber_lib
         if(extension == ".gbl" || stem.ends_with("-b_cu")) {
             return copper_bottom;
         }
-        if(stem.ends_with("-in") && stem.ends_with("_cu")) {
+        if(stem.ends_with("-in") || stem.ends_with("_cu")) {
             return copper_inner;
         }
         if(extension == ".gts" || stem.ends_with("-f_mask")) {
@@ -507,6 +492,59 @@ namespace gerber_lib
             auto n = get_uint(std::string_view(extension).substr(2));
             if(n.has_value()) {
                 return (type_t)((int)copper_inner + n.value());
+            }
+        }
+
+        if(name.contains("silk") || name.contains("silkscreen")) {
+            if(name.contains("top")) {
+                return overlay_top;
+            }
+            if(name.contains("bottom")) {
+                return overlay_bottom;
+            }
+        }
+
+        if(name.contains("gnd") || name.contains("pwr")) {
+            if(name.contains("top")) {
+                return copper_top;
+            }
+            if(name.contains("bottom")) {
+                return copper_bottom;
+            }
+            return copper_inner;
+        }
+
+        if(name.contains("top")) {
+            return copper_top;
+        }
+
+        if(name.contains("bottom")) {
+            return copper_bottom;
+        }
+
+        if(name.contains("smtop")) {
+            return soldermask_top;
+        }
+
+        if(name.contains("smbottom")) {
+            return soldermask_bottom;
+        }
+
+        if(name.contains("smask") || name.contains("soldermask")) {
+            if(name.contains("top")) {
+                return soldermask_top;
+            }
+            if(name.contains("bottom")) {
+                return soldermask_bottom;
+            }
+        }
+
+        if(name.contains("pmask") || name.contains("paste")) {
+            if(name.contains("top")) {
+                return paste_top;
+            }
+            if(name.contains("bottom")) {
+                return paste_bottom;
             }
         }
 
@@ -548,7 +586,7 @@ namespace gerber_lib
 
         // Comments
         for(const auto &comment : comments) {
-            std::string c(to_lower(comment));
+            std::string c(to_lowercase(comment));
             if(c.contains("keepout") || c.contains("keep-out")) {
                 return keepout;
             }

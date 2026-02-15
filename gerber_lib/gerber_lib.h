@@ -38,6 +38,7 @@ namespace gerber_lib
             drill = 8000,
             paste_top = 10000,
             pads_top = 11000,
+            assembly_top = 11500,
             overlay_top = 12000,
             soldermask_top = 13000,
             drill_top = 14000,
@@ -47,6 +48,7 @@ namespace gerber_lib
             drill_bottom = 18000,
             soldermask_bottom = 19000,
             overlay_bottom = 20000,
+            assembly_bottom = 20500,
             pads_bottom = 21000,
             paste_bottom = 22000,
         };
