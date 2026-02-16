@@ -16,6 +16,7 @@
 
 #include "gerber_aperture.h"
 #include "gerber_net.h"
+#include "gl_3d_drawer.h"
 #include "gl_matrix.h"
 #include "gl_colors.h"
 #include "util.h"
@@ -435,7 +436,7 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
                 file_open();
                 break;
             case GLFW_KEY_S: {
-                auto save_path = save_file_dialog();
+                auto save_path = save_file_dialog("settings.json");
                 if(save_path.has_value()) {
                     save_settings(save_path.value(), true);
                 }
@@ -966,10 +967,10 @@ void gerber_explorer::file_open()
 
 //////////////////////////////////////////////////////////////////////
 
-std::expected<std::filesystem::path, std::error_code> gerber_explorer::save_file_dialog()
+std::expected<std::filesystem::path, std::error_code> gerber_explorer::save_file_dialog(char const *filename)
 {
     nfdu8char_t *path;
-    nfdresult_t result = NFD_SaveDialogU8(&path, nullptr, 0, nullptr, "settings.json");
+    nfdresult_t result = NFD_SaveDialogU8(&path, nullptr, 0, nullptr, filename);
     switch(result) {
     case NFD_OKAY:
         return { path };
@@ -1204,7 +1205,7 @@ void gerber_explorer::ui()
             }
             ImGui::Separator();
             if(ImGui::MenuItem("Save Settings", "Ctrl-S", nullptr)) {
-                auto save_path = save_file_dialog();
+                auto save_path = save_file_dialog("settings.json");
                 if(save_path.has_value()) {
                     save_settings(save_path.value(), true);
                 }
@@ -1407,6 +1408,33 @@ void gerber_explorer::ui()
                             set_outline_layer(nullptr);
                         }
                     }
+                    if(ImGui::MenuItem("Export STL")) {
+                        std::filesystem::path p(l->name);
+                        p.replace_extension(".stl");
+                        auto save_path = save_file_dialog(p.string().c_str());
+                        gerber_layer *outline_layer{ nullptr };
+                        if(l->invert) {
+                            for(auto const layer : layers) {
+                                if(outline_layer == nullptr && layer->is_outline_layer && layer->got_mask) {
+                                    outline_layer = layer;
+                                    break;
+                                }
+                            }
+                        }
+                        if(save_path.has_value()) {
+                            pool.add_job(job_type_export, [filepath = save_path.value(), l, outline_layer] (std::stop_token st) {
+                                LOG_CONTEXT("export", debug);
+                                LOG_INFO("Export {} as {}", l->name, filepath.string());
+                                gerber_3d::gl_3d_drawer drawer;
+                                drawer.init();
+                                drawer.set_gerber(l->file);
+                                drawer.extrude(0.035);
+                                drawer.export_stl(filepath.string());
+                                drawer.release();
+                                LOG_INFO("Completed export to {}", filepath.string());
+                            });
+                        }
+                    }
                     ImGui::EndPopup();
                 }
 
@@ -1541,8 +1569,6 @@ void gerber_explorer::ui()
     }
     ImGui::End();
 
-#ifdef _DEBUG
-
     job_pool::pool_info info = pool.get_info();
 
     ImGui::Begin("Job Pool");
@@ -1550,8 +1576,6 @@ void gerber_explorer::ui()
         ImGui::Text("Active: %5zu, Queued: %5zu", info.active, info.queued);
     }
     ImGui::End();
-
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////

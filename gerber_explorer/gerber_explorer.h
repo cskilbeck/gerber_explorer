@@ -126,6 +126,7 @@ struct gerber_explorer : gl_window
         job_type_load_gerber = 1,
         job_type_tesselate = 2,
         job_type_create_mask = 4,
+        job_type_export = 8,
     };
 
     gerber::tesselation_quality_t tesselate_quality{ gerber::tesselation_quality::medium };
@@ -288,7 +289,7 @@ struct gerber_explorer : gl_window
 
     void close_all_layers();
 
-    static std::expected<std::filesystem::path, std::error_code> save_file_dialog();
+    static std::expected<std::filesystem::path, std::error_code> save_file_dialog(char const *filename);
     static std::expected<std::filesystem::path, std::error_code> load_file_dialog();
 
     void save_settings(std::filesystem::path const &path, bool save_files);

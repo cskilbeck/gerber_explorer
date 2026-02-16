@@ -68,6 +68,12 @@ Open a terminal, and make sure you have the XCode Command Line tools installed:
 $ xcode-select --install
 ```
 
+LLVM (version 21 or later) is also required, one way to get this is via Homebrew:
+
+```
+brew install llvm@21
+```
+
 Then, to build it:
 
 ```
@@ -80,13 +86,13 @@ $ cmake --build build
 
 The result should be in `build/gerber_explorer`
 
-Presumably there's a way to get CMake to generate an XCode project but I haven't looked into that.
+Note that debug builds create a bare executable, release builds create an app package.
 
 ### Linux
 
 #### Prerequisites
 
-You need CMake 3.24+, Ninja (or Make), and a C++23-capable compiler (GCC 13+ or Clang 16+).
+You need CMake 3.24+, Ninja (or Make), and a C++23-capable compiler (GCC 13+ or Clang 21+).
 
 **Debian/Ubuntu:**
 

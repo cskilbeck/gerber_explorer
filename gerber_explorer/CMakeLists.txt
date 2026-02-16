@@ -47,6 +47,8 @@ set(PROJECT_SOURCES
         gl_matrix.cpp
         gl_drawer.h
         gl_drawer.cpp
+        gl_3d_drawer.h
+        gl_3d_drawer.cpp
         gl_window.h
         gl_window.cpp
         gerber_explorer.cpp
