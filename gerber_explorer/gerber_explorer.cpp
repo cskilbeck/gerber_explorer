@@ -684,12 +684,17 @@ void gerber_explorer::handle_mouse()
 void gerber_explorer::on_closed()
 {
     bool should_save_files = pool.get_active_job_count(job_type_load_gerber) == 0;
+    save_settings(config_path(app_name, settings_filename), should_save_files);
     pool.shut_down();
+    // after shut_down, all jobs are done, safe to delete deferred layers
+    for(auto *l : layers) {
+        delete l;
+    }
+    layers.clear();
     NFD_Quit();
     if(crosshair_cursor != nullptr) {
         glfwDestroyCursor(crosshair_cursor);
     }
-    save_settings(config_path(app_name, settings_filename), should_save_files);
     gl_window::on_closed();
 }
 
@@ -735,19 +740,16 @@ void gerber_explorer::on_window_refresh()
 void gerber_explorer::close_all_layers()
 {
     LOG_INFO("CLOSE ALL");
+    set_active_entity(nullptr);
     select_layer(nullptr);
-    while(!layers.empty()) {
-        auto l = layers.front();
-        layers.pop_front();
-        delete l;
-    }
-}
-
-//////////////////////////////////////////////////////////////////////
-
-gerber_layer::~gerber_layer()
-{
-    delete file;
+    layers.remove_if([](gerber_layer *l) {
+        if(l->job_count.load() == 0) {
+            delete l;
+            return true;
+        }
+        l->marked_for_deletion = true;
+        return false;
+    });
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -766,6 +768,9 @@ gerber_layer *gerber_explorer::get_outline_layer() const
 
 bool gerber_explorer::layer_is_visible(gerber_layer const *layer) const
 {
+    if(layer->marked_for_deletion) {
+        return false;
+    }
     if(selected_layer != nullptr && isolate_selected_layer) {
         return layer == selected_layer;
     }
@@ -1023,24 +1028,37 @@ void gerber_explorer::select_layer(gerber_layer *layer)
 // It's annoying that we retesselate the layer when all we want is
 // to generate the mask...
 
-void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t options)
+void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t options, double pixels_per_world_unit)
 {
-    pool.add_job(job_type_tesselate, [this, layer, options](std::stop_token st) {
+    pool.add_job(job_type_tesselate, [this, layer, options, pixels_per_world_unit](std::stop_token st) {
+        layer->job_count.fetch_add(1);
         bool force_outline = (options & tesselation_options_force_outline) != 0;
         int d = 1 - layer->current_drawer;
         gl_drawer *other_drawer = &layer->drawers[d];
         using namespace gerber_lib;
         auto layer_type = layer->layer_type();
         layer->is_outline_layer = force_outline || is_layer_type(layer_type, layer::type_t::board) || is_layer_type(layer_type, layer::type_t::outline);
-        other_drawer->tesselation_quality = settings.tesselation_quality;
-        other_drawer->set_gerber(layer->file);
+        other_drawer->pixels_per_world_unit = layer->is_outline_layer ? 0 : pixels_per_world_unit;
+        other_drawer->tesselation_quality = layer->is_outline_layer ? tesselation_quality::high : settings.tesselation_quality;
+        other_drawer->set_gerber(&layer->file);
         if(layer->is_outline_layer) {
             other_drawer->create_mask();
+        }
+        // transfer entity flags (hovered/selected/active) from old drawer to new
+        {
+            gl_drawer *old_drawer = &layer->drawers[layer->current_drawer];
+            for(auto &e : other_drawer->entities) {
+                int id = e.entity_id();
+                if(id >= 0 && id < (int)old_drawer->entity_flags.size()) {
+                    e.flags = old_drawer->entity_flags[id];
+                }
+            }
         }
         {
             std::lock_guard l(layer_drawer_mutex);
             layer->current_drawer = d;
         }
+        layer->job_count.fetch_sub(1);
     });
 }
 
@@ -1048,66 +1066,69 @@ void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t
 
 void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
 {
-    gerber_lib::gerber_file *g = new gerber_lib::gerber_file();
-    gerber_lib::gerber_error_code err = g->parse_file(layer_to_load.filename.c_str());
-    if(err == gerber_lib::ok) {
-        gerber_layer *layer = new gerber_layer();
-        layer->init();
-        layer->file = g;
-        layer->index = layer_to_load.index;
-        layer->name = std::format("{}", std::filesystem::path(g->filename).filename().string());
-        layer->visible = layer_to_load.visible;
-        layer->clear_color = gl::colors::black;
-        layer->drawer = &layer->drawers[0];
+    gerber_layer *layer = new gerber_layer();
+    layer->init();
+    gerber_lib::gerber_error_code err = layer->file.parse_file(layer_to_load.filename.c_str());
+    if(err != gerber_lib::ok) {
+        LOG_ERROR("Error loading {} ({})", layer_to_load.filename, gerber_lib::get_error_text(err));
+        delete layer;
+        return;
+    }
 
-        layer_defaults_t d = get_defaults_for_layer_type(g->layer_type);
-        if(layer->index == -1) {
-            layer->index = g->layer_type;
-            LOG_DEBUG("{}:{} ({})", layer->name, g->image.info.polarity, d.is_inverted);
-            if(g->image.info.polarity == gerber_lib::polarity_unspecified) {
-                layer->invert = d.is_inverted;
-            } else {
-                layer->invert = g->image.info.polarity == gerber_lib::polarity_negative;
-            }
-            layer->fill_color = d.color;
+    gerber_lib::gerber_file &g = layer->file;
+    layer->index = layer_to_load.index;
+    layer->name = std::format("{}", std::filesystem::path(g.filename).filename().string());
+    layer->visible = layer_to_load.visible;
+    layer->clear_color = gl::colors::black;
+    layer->drawer = &layer->drawers[0];
+
+    layer_defaults_t d = get_defaults_for_layer_type(g.layer_type);
+    if(layer->index == -1) {
+        layer->index = g.layer_type;
+        LOG_DEBUG("{}:{} ({})", layer->name, g.image.info.polarity, d.is_inverted);
+        if(g.image.info.polarity == gerber_lib::polarity_unspecified) {
+            layer->invert = d.is_inverted;
         } else {
-            layer->invert = layer_to_load.inverted;
-            layer->fill_color = gl::color_from_string(layer_to_load.color);
+            layer->invert = g.image.info.polarity == gerber_lib::polarity_negative;
         }
-        next_index = std::max(layer->index + 1, next_index);
-        layer->layer_order = d.layer_order;
+        layer->fill_color = d.color;
+    } else {
+        layer->invert = layer_to_load.inverted;
+        layer->fill_color = gl::color_from_string(layer_to_load.color);
+    }
+    next_index = std::max(layer->index + 1, next_index);
+    layer->layer_order = d.layer_order;
 
-        LOG_DEBUG("Finished loading {}, \"{}\"", layer->index, layer_to_load.filename);
+    LOG_DEBUG("Finished loading {}, \"{}\"", layer->index, layer_to_load.filename);
 
-        pool.add_job(job_type_tesselate, [layer, this]([[maybe_unused]] std::stop_token st) {
-            using namespace gerber_lib;
-            layer->drawer->tesselation_quality = settings.tesselation_quality;
-            layer->drawer->set_gerber(layer->file);    // <----- TESSELATION HAPPENS HERE !!!!!
-            auto layer_type = layer->layer_type();
-            layer->is_outline_layer = is_layer_type(layer_type, layer::type_t::board) || is_layer_type(layer_type, layer::type_t::outline);
-            LOG_INFO("Tesselated ({}:{}) {}", layer_type_name(layer_type), layer->is_outline_layer, layer->filename());
-            if(layer->is_outline_layer) {
-                layer->drawer->create_mask();
-            }
+    pool.add_job(job_type_tesselate, [layer, this]([[maybe_unused]] std::stop_token st) {
+        layer->job_count.fetch_add(1);
+        using namespace gerber_lib;
+        auto layer_type = layer->layer_type();
+        layer->is_outline_layer = is_layer_type(layer_type, layer::type_t::board) || is_layer_type(layer_type, layer::type_t::outline);
+        layer->drawer->tesselation_quality = layer->is_outline_layer ? tesselation_quality::high : settings.tesselation_quality;
+        layer->drawer->set_gerber(&layer->file);
+        LOG_INFO("Tesselated ({}:{}) {}", layer_type_name(layer_type), layer->is_outline_layer, layer->filename());
+        if(layer->is_outline_layer) {
+            layer->drawer->create_mask();
+        }
 
-            // inform main thread that there's a new layer available and wait for it to pick it up
+        // inform main thread that there's a new layer available and wait for it to pick it up
+        {
+            std::lock_guard loaded_lock(loaded_mutex);
+            loaded_layers.push_back(layer);
+        }
+        bool loaded = false;
+        while(!loaded && !st.stop_requested()) {
             {
                 std::lock_guard loaded_lock(loaded_mutex);
-                loaded_layers.push_back(layer);
+                loaded = loaded_layers.empty();
+                glfwPostEmptyEvent();
             }
-            bool loaded = false;
-            while(!loaded && !st.stop_requested()) {
-                {
-                    std::lock_guard loaded_lock(loaded_mutex);
-                    loaded = loaded_layers.empty();
-                    glfwPostEmptyEvent();
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(25));
-            }
-        });
-    } else {
-        LOG_ERROR("Error loading {} ({})", layer_to_load.filename, gerber_lib::get_error_text(err));
-    }
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        }
+        layer->job_count.fetch_sub(1);
+    });
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1150,7 +1171,7 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
 
     std::string description{ "?" };
     if(net->aperture != 0) {
-        auto apertures = selected_layer->file->image.apertures;
+        auto apertures = selected_layer->file.image.apertures;
         auto it = apertures.find(net->aperture);
         if(it != apertures.end()) {
             gerber_aperture *aperture = it->second;
@@ -1270,14 +1291,17 @@ void gerber_explorer::ui()
                 ImGui::EndMenu();
             }
             if(ImGui::BeginMenu("Tesselation")) {
-                if(ImGui::SliderInt("##tesselation",
+                if(ImGui::Checkbox("Dynamic", &settings.dynamic_tesselation)) {
+                    if(settings.dynamic_tesselation) {
+                        last_tess_ppwu = 0;
+                    }
+                    retesselate = true;
+                }
+                if(ImGui::SliderInt("Quality",
                                     &settings.tesselation_quality,
                                     tesselation_quality::low,
                                     tesselation_quality::high,
                                     tesselation_quality_name(settings.tesselation_quality))) {
-                    retesselate = true;
-                }
-                if(ImGui::Checkbox("Dynamic", &settings.dynamic_tesselation)) {
                     retesselate = true;
                 }
                 ImGui::EndMenu();
@@ -1368,6 +1392,9 @@ void gerber_explorer::ui()
 
             for(auto it = layers.rbegin(); it != layers.rend(); ++it) {
                 gerber_layer *l = *it;
+                if(l->marked_for_deletion) {
+                    continue;
+                }
                 ImGui::PushID(l);
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
@@ -1422,16 +1449,55 @@ void gerber_explorer::ui()
                             }
                         }
                         if(save_path.has_value()) {
-                            pool.add_job(job_type_export, [filepath = save_path.value(), l, outline_layer] (std::stop_token st) {
+                            pool.add_job(job_type_export, [this, filepath = save_path.value(), l, outline_layer, board_ext = board_extent] (std::stop_token st) {
+                                l->job_count.fetch_add(1);
+                                if(outline_layer != nullptr) {
+                                    outline_layer->job_count.fetch_add(1);
+                                }
                                 LOG_CONTEXT("export", debug);
                                 LOG_INFO("Export {} as {}", l->name, filepath.string());
                                 gerber_3d::gl_3d_drawer drawer;
                                 drawer.init();
-                                drawer.set_gerber(l->file);
+                                drawer.tesselation_quality = settings.tesselation_quality;
+                                drawer.set_gerber(&l->file);
+                                if(l->invert) {
+                                    using namespace Clipper2Lib;
+                                    Paths64 openings = PolyTreeToPaths64(drawer.resolved_tree);
+                                    Paths64 outline;
+                                    if(outline_layer != nullptr) {
+                                        // resolve outline layer with fine arc tessellation to get clean board shape
+                                        gerber_3d::gl_3d_drawer outline_drawer;
+                                        outline_drawer.init();
+                                        outline_drawer.tesselation_quality = settings.tesselation_quality;
+                                        outline_drawer.set_gerber(&outline_layer->file);
+                                        // take only outer contours (top-level children), not holes
+                                        for(auto const &child : outline_drawer.resolved_tree) {
+                                            outline.push_back(child->Polygon());
+                                        }
+                                        outline_drawer.release();
+                                    } else {
+                                        int64_t S = gerber_3d::gl_3d_drawer::CLIPPER_SCALE;
+                                        outline.push_back({
+                                            {static_cast<int64_t>(board_ext.min_pos.x * S), static_cast<int64_t>(board_ext.min_pos.y * S)},
+                                            {static_cast<int64_t>(board_ext.max_pos.x * S), static_cast<int64_t>(board_ext.min_pos.y * S)},
+                                            {static_cast<int64_t>(board_ext.max_pos.x * S), static_cast<int64_t>(board_ext.max_pos.y * S)},
+                                            {static_cast<int64_t>(board_ext.min_pos.x * S), static_cast<int64_t>(board_ext.max_pos.y * S)}
+                                        });
+                                    }
+                                    Clipper64 clipper;
+                                    clipper.AddSubject(outline);
+                                    clipper.AddClip(openings);
+                                    drawer.resolved_tree.Clear();
+                                    clipper.Execute(ClipType::Difference, FillRule::NonZero, drawer.resolved_tree);
+                                }
                                 drawer.extrude(0.035);
                                 drawer.export_stl(filepath.string());
                                 drawer.release();
                                 LOG_INFO("Completed export to {}", filepath.string());
+                                if(outline_layer != nullptr) {
+                                    outline_layer->job_count.fetch_sub(1);
+                                }
+                                l->job_count.fetch_sub(1);
                             });
                         }
                     }
@@ -1510,9 +1576,14 @@ void gerber_explorer::ui()
         ImGui::PopStyleVar();
 
         if(item_to_delete) {
-            layers.erase(std::remove(layers.begin(), layers.end(), item_to_delete), layers.end());
+            set_active_entity(nullptr);
             select_layer(nullptr);
-            delete item_to_delete;
+            if(item_to_delete->job_count.load() == 0) {
+                layers.erase(std::remove(layers.begin(), layers.end(), item_to_delete), layers.end());
+                delete item_to_delete;
+            } else {
+                item_to_delete->marked_for_deletion = true;
+            }
         } else if(item_to_move && item_target && item_to_move != item_target) {
             auto dragged_it = std::find(layers.begin(), layers.end(), item_to_move);
             auto target_it = std::find(layers.begin(), layers.end(), item_target);
@@ -1678,9 +1749,11 @@ void gerber_explorer::set_outline_layer(gerber_layer *new_outline_layer)
     if(new_outline_layer != nullptr) {
         new_outline_layer->is_outline_layer = true;
         pool.add_job(job_type_create_mask, [new_outline_layer](std::stop_token st) {
+            new_outline_layer->job_count.fetch_add(1);
             if(!st.stop_requested()) {
                 new_outline_layer->drawer->create_mask();
             }
+            new_outline_layer->job_count.fetch_sub(1);
         });
     }
 }
@@ -1724,6 +1797,15 @@ void gerber_explorer::on_render()
             }
         }
     }
+
+    // delete layers whose jobs have finished
+    layers.remove_if([](gerber_layer *l) {
+        if(l->marked_for_deletion && l->job_count.load() == 0) {
+            delete l;
+            return true;
+        }
+        return false;
+    });
 
     ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
@@ -1820,24 +1902,6 @@ void gerber_explorer::on_render()
 
     handle_mouse();
 
-    if(retesselate) {
-        retesselate = false;
-        pool.abort_jobs(job_type_tesselate);
-        while(true) {
-            job_pool::pool_info info = pool.get_info();
-            if(info.active == 0) {
-                break;
-            }
-        }
-        for(auto l : layers) {
-            auto options = tesselation_options_none;
-            if(l->is_outline_layer) {
-                options = tesselation_options_force_outline;
-            }
-            tesselate_layer(l, options);
-        }
-    }
-
     // if there are outstanding jobs running, it's active (so we see the result when they complete)
     if(pool.get_info().active != 0) {
         set_active();
@@ -1850,6 +1914,57 @@ void gerber_explorer::on_render()
     }
 
     view_scale = viewport_size.divide(view_rect.size());
+
+    // --- explicit retesselation (quality slider changed) ---
+    if(retesselate) {
+        retesselate = false;
+        pool.abort_jobs(job_type_tesselate);
+        // busy-wait for explicit changes (user expects immediate result)
+        while(pool.get_info().active != 0) {}
+        double ppwu = settings.dynamic_tesselation ? std::min(view_scale.x, view_scale.y) : 0;
+        for(auto l : layers) {
+            if(l->marked_for_deletion) continue;
+            auto options = l->is_outline_layer ? tesselation_options_force_outline : tesselation_options_none;
+            tesselate_layer(l, options, ppwu);
+        }
+        last_tess_ppwu = ppwu;
+        dynamic_tess_pending = false;
+    }
+
+    // --- dynamic retesselation (zoom-driven) ---
+    if(settings.dynamic_tesselation && !layers.empty()) {
+        double ppwu = std::min(view_scale.x, view_scale.y);
+        double ratio = (last_tess_ppwu > 0) ? ppwu / last_tess_ppwu : 0;
+        bool needs_retess = (ratio < 0.8 || ratio > 1.25) || last_tess_ppwu == 0;
+        bool scale_changing = (ppwu != prev_frame_ppwu);
+        prev_frame_ppwu = ppwu;
+
+        if(needs_retess) {
+            if(scale_changing) {
+                // scale is actively changing (scrolling) — keep resetting the debounce timer
+                dynamic_tess_debounce_start = get_time();
+                dynamic_tess_pending = true;
+            } else if(!dynamic_tess_pending) {
+                // scale jumped but is now stable — start the timer
+                dynamic_tess_debounce_start = get_time();
+                dynamic_tess_pending = true;
+            }
+        }
+        if(dynamic_tess_pending) {
+            set_active();    // keep the main loop polling so we don't miss the timer
+            double elapsed = get_time() - dynamic_tess_debounce_start;
+            if(elapsed >= 0.3) {
+                dynamic_tess_pending = false;
+                pool.abort_jobs(job_type_tesselate);
+                // non-blocking: don't wait for old jobs, old drawers remain visible
+                for(auto l : layers) {
+                    if(l->marked_for_deletion || l->is_outline_layer) continue;
+                    tesselate_layer(l, tesselation_options_none, ppwu);
+                }
+                last_tess_ppwu = ppwu;
+            }
+        }
+    }
 
     // get bounding rect/center of all layers (for flip)
     update_board_extent();
@@ -1923,8 +2038,8 @@ void gerber_explorer::on_render()
                 pads_ordered = layer::type_t::pads_bottom;
                 std::swap(a, b);
             }
-            int ta = a->file->layer_type;
-            int tb = b->file->layer_type;
+            int ta = a->file.layer_type;
+            int tb = b->file.layer_type;
             if(is_layer_type(ta, layer::type_t::drill)) {
                 ta = drill_ordered;
             } else if(is_layer_type(ta, layer::type_t::pads)) {

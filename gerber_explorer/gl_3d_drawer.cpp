@@ -89,8 +89,10 @@ namespace gerber_3d
     gerber_error_code gl_3d_drawer::fill_elements(gerber_draw_element const *elements, size_t num_elements, gerber_polarity polarity, gerber_net *gnet)
     {
         double constexpr THRESHOLD = 1e-38;
-        double constexpr ARC_DEGREES_F[tesselation_quality::num_qualities] = { 10, 5, 2 };
-        double ARC_DEGREES = ARC_DEGREES_F[tesselation_quality];
+
+        // max chord deviation in mm per quality level
+        double constexpr DEVIATION_MM[tesselation_quality::num_qualities] = { 0.01, 0.005, 0.001 };
+        double const max_deviation = DEVIATION_MM[tesselation_quality];
 
         std::vector<vec2f> temp_points;
 
@@ -120,15 +122,32 @@ namespace gerber_3d
             case draw_element_arc: {
                 double start = element.arc.start_degrees;
                 double end = element.arc.end_degrees;
+                double arc_span = fabs(end - start);
+
+                // compute step size from deviation limit: sagitta = r * (1 - cos(theta/2))
+                // solve for theta: theta = 2 * acos(1 - deviation / r)
+                double arc_degrees;
+                double r = element.arc.radius;
+                if(r > max_deviation) {
+                    arc_degrees = 2.0 * rad_2_deg(acos(1.0 - max_deviation / r));
+                } else {
+                    arc_degrees = arc_span;
+                }
+
+                // ensure at least one interim point
+                if(arc_degrees > arc_span * 0.5) {
+                    arc_degrees = arc_span * 0.5;
+                }
+
                 double final_angle = end;
 
                 if(start < end) {
-                    for(double t = start; t < end; t += ARC_DEGREES) {
+                    for(double t = start; t < end; t += arc_degrees) {
                         add_arc_point(element, t);
                         final_angle = t;
                     }
                 } else {
-                    for(double t = start; t > end; t -= ARC_DEGREES) {
+                    for(double t = start; t > end; t -= arc_degrees) {
                         add_arc_point(element, t);
                         final_angle = t;
                     }

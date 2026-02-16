@@ -2,6 +2,7 @@
 
 #include <thread>
 #include <mutex>
+#include <atomic>
 
 #include "gl_window.h"
 #include "gl_base.h"
@@ -37,8 +38,6 @@ struct gerber_layer
     using vec2d = gerber_lib::vec2d;
     using matrix = gerber_lib::matrix;
 
-    ~gerber_layer();
-
     void init()
     {
         drawers[0].init(this);
@@ -52,7 +51,10 @@ struct gerber_layer
     gerber::gl_drawer drawers[2]{};
     int current_drawer{ 0 };
 
-    gerber_lib::gerber_file *file;
+    gerber_lib::gerber_file file;
+
+    std::atomic<int> job_count{0};
+    bool marked_for_deletion{false};
 
     int index;
     bool visible{ true };
@@ -71,8 +73,8 @@ struct gerber_layer
 
     gerber_lib::layer::type_t layer_type() const
     {
-        if(file != nullptr) {
-            return file->layer_type;
+        if(!file.filename.empty()) {
+            return file.layer_type;
         }
         return gerber_lib::layer::type_t::unknown;
     }
@@ -80,14 +82,14 @@ struct gerber_layer
     std::string filename() const
     {
         if(is_valid()) {
-            return file->filename;
+            return file.filename;
         }
         return {};
     }
 
     bool is_valid() const
     {
-        return drawer != nullptr && file != nullptr;
+        return drawer != nullptr && !file.filename.empty();
     }
 
     gerber_lib::rect extent() const
@@ -95,7 +97,7 @@ struct gerber_layer
         if(!is_valid()) {
             return rect{};
         }
-        return file->image.info.extent;
+        return file.image.info.extent;
     }
 
     bool operator<(gerber_layer const &other) const
@@ -229,13 +231,18 @@ struct gerber_explorer : gl_window
 
     bool retesselate{ false };
 
+    double last_tess_ppwu{0};               // pixels_per_world_unit used for last tesselation
+    double prev_frame_ppwu{0};              // pixels_per_world_unit from previous frame
+    double dynamic_tess_debounce_start{0};   // timestamp when scale change detected
+    bool dynamic_tess_pending{false};        // debounce timer active
+
     enum tesselation_options_t : int
     {
         tesselation_options_none = 0,
         tesselation_options_force_outline = 1,
     };
 
-    void tesselate_layer(gerber_layer *layer, tesselation_options_t options = tesselation_options_none);
+    void tesselate_layer(gerber_layer *layer, tesselation_options_t options = tesselation_options_none, double pixels_per_world_unit = 0);
 
     std::list<gerber_layer *> loaded_layers;
     std::mutex loaded_mutex;

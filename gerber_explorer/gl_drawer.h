@@ -188,6 +188,11 @@ namespace gerber
 
         gl_drawer() = default;
 
+        ~gl_drawer()
+        {
+            release_gl_resources();
+        }
+
         void init(gerber_layer const *for_layer)
         {
             layer = for_layer;
@@ -244,6 +249,7 @@ namespace gerber
 
         // ===== TESSELATION =====
         tesselation_quality_t tesselation_quality;
+        double pixels_per_world_unit{0};  // 0 = use fixed quality table, >0 = dynamic (0.5px error)
         int current_flag{ entity_flags_t::none };
         int base_vert{};
         int current_entity_id{ -1 };
