@@ -111,6 +111,7 @@ namespace
         { gerber_lib::layer::info, layer_normal, layer_order_t::other, gl::colors::white },
         { gerber_lib::layer::keepout, layer_normal, layer_order_t::other, gl::colors::magenta },
         { gerber_lib::layer::drill, layer_normal, layer_order_t::drill, gl::colors::black },
+        { gerber_lib::layer::pads_top, layer_normal, layer_order_t::top_pads, gl::colors::silver },
         { gerber_lib::layer::paste_top, layer_normal, layer_order_t::top_outer, gl::colors::silver },
         { gerber_lib::layer::overlay_top, layer_normal, layer_order_t::top_outer, gl::colors::white },
         { gerber_lib::layer::soldermask_top, layer_inverted, layer_order_t::top_outer, gl::set_alpha(gl::colors::dark_green, 0.75f) },
@@ -120,20 +121,21 @@ namespace
         { gerber_lib::layer::soldermask_bottom, layer_inverted, layer_order_t::bottom_outer, gl::set_alpha(gl::colors::dark_green, 0.75f) },
         { gerber_lib::layer::overlay_bottom, layer_normal, layer_order_t::bottom_outer, gl::colors::white },
         { gerber_lib::layer::paste_bottom, layer_normal, layer_order_t::bottom_outer, gl::colors::silver },
+        { gerber_lib::layer::pads_bottom, layer_normal, layer_order_t::bottom_pads, gl::colors::silver },
     };
 
     //////////////////////////////////////////////////////////////////////
 
     bool is_bottom_layer(layer_order_t o)
     {
-        return o == layer_order_t::bottom_outer || o == layer_order_t::bottom_copper || o == layer_order_t::drill;
+        return o == layer_order_t::bottom_outer || o == layer_order_t::bottom_copper || o == layer_order_t::drill || o == layer_order_t::bottom_pads;
     }
 
     //////////////////////////////////////////////////////////////////////
 
     bool is_top_layer(layer_order_t o)
     {
-        return o == layer_order_t::top_outer || o == layer_order_t::top_copper || o == layer_order_t::drill;
+        return o == layer_order_t::top_outer || o == layer_order_t::top_copper || o == layer_order_t::drill || o == layer_order_t::top_pads;
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -1045,13 +1047,14 @@ void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t
             other_drawer->create_mask();
         }
         // transfer entity flags (hovered/selected/active) from old drawer to new
-        {
-            gl_drawer *old_drawer = &layer->drawers[layer->current_drawer];
-            for(auto &e : other_drawer->entities) {
-                int id = e.entity_id();
-                if(id >= 0 && id < (int)old_drawer->entity_flags.size()) {
-                    e.flags = old_drawer->entity_flags[id];
-                }
+        // NOTE: only transfer selection flags - fill/clear come from the new tesselation
+        // and must not be overwritten (old_drawer->entity_flags is zero for layers that
+        // were never rendered, which would wipe out the fill/clear flags)
+        gl_drawer *old_drawer = &layer->drawers[layer->current_drawer];
+        for(auto &e : other_drawer->entities) {
+            int id = e.entity_id();
+            if(id >= 0 && id < (int)old_drawer->entity_flags.size()) {
+                e.flags = (e.flags & ~entity_flags_t::all_select) | (old_drawer->entity_flags[id] & entity_flags_t::all_select);
             }
         }
         {
@@ -1953,7 +1956,7 @@ void gerber_explorer::on_render()
         if(dynamic_tess_pending) {
             set_active();    // keep the main loop polling so we don't miss the timer
             double elapsed = get_time() - dynamic_tess_debounce_start;
-            if(elapsed >= 0.3) {
+            if(elapsed >= 0.2) {
                 dynamic_tess_pending = false;
                 pool.abort_jobs(job_type_tesselate);
                 // non-blocking: don't wait for old jobs, old drawers remain visible
@@ -2032,23 +2035,17 @@ void gerber_explorer::on_render()
         std::sort(ordered_layers.begin(), ordered_layers.end(), [this](gerber_layer const *a, gerber_layer const *b) {
             using namespace gerber_lib;
             layer::type_t drill_ordered = layer::type_t::drill_top;
-            layer::type_t pads_ordered = layer::type_t::pads_top;
             if(settings.board_view == board_view_bottom) {
                 drill_ordered = layer::type_t::drill_bottom;
-                pads_ordered = layer::type_t::pads_bottom;
                 std::swap(a, b);
             }
             int ta = a->file.layer_type;
             int tb = b->file.layer_type;
             if(is_layer_type(ta, layer::type_t::drill)) {
                 ta = drill_ordered;
-            } else if(is_layer_type(ta, layer::type_t::pads)) {
-                ta = pads_ordered;
             }
             if(is_layer_type(tb, layer::type_t::drill)) {
                 tb = drill_ordered;
-            } else if(is_layer_type(tb, layer::type_t::pads)) {
-                tb = pads_ordered;
             }
             return ta > tb;
         });

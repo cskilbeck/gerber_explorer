@@ -35,7 +35,7 @@ namespace gerber_lib
             info = 6000,
             keepout = 7000,
             pads = 8000,
-            drill = 8000,
+            drill = 9000,
             paste_top = 10000,
             pads_top = 11000,
             assembly_top = 11500,

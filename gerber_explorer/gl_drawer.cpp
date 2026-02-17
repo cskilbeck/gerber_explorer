@@ -380,7 +380,7 @@ namespace gerber
 
         // max chord deviation in mm per quality level
         double constexpr DEVIATION_MM[tesselation_quality::num_qualities] = { 0.01, 0.005, 0.001 };
-        double constexpr MAX_PIXEL_ERROR[tesselation_quality::num_qualities] = { 1.0, 0.5, 0.25 };
+        double constexpr MAX_PIXEL_ERROR[tesselation_quality::num_qualities] = { 0.5, 0.25, 0.125 };
         double const deviation = (pixels_per_world_unit > 0) ? MAX_PIXEL_ERROR[tesselation_quality] / pixels_per_world_unit : DEVIATION_MM[tesselation_quality];
 
         int flag = polarity == polarity_clear ? entity_flags_t::clear : entity_flags_t::fill;
@@ -433,10 +433,7 @@ namespace gerber
                     arc_degrees = arc_span;
                 }
 
-                // ensure at least one interim point
-                if(arc_degrees > arc_span * 0.5) {
-                    arc_degrees = arc_span * 0.5;
-                }
+                arc_degrees = std::min(arc_span / 8, arc_degrees);
 
                 double final_angle = end;
 

@@ -20,6 +20,7 @@ enum class layer_order_t
 {
     all,
     drill,    // drill is special, should be between top_outer and top_copper OR bottom_outer and botttom_copper (see drill_top, drill_bottom)
+    top_pads,
     top_outer,
     drill_top,
     top_copper,
@@ -27,6 +28,7 @@ enum class layer_order_t
     bottom_copper,
     drill_bottom,
     bottom_outer,
+    bottom_pads,
     other
 };
 
