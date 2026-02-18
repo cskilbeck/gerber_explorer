@@ -57,6 +57,7 @@ struct gerber_layer
 
     std::atomic<int> job_count{0};
     bool marked_for_deletion{false};
+    bool retesselating{false};    // protected by gerber_explorer::layer_drawer_mutex
 
     int index;
     bool visible{ true };

@@ -10,7 +10,6 @@
 #include "gerber_explorer.h"
 
 #include "gerber_net.h"
-#include "util.h"
 
 #include "gl_colors.h"
 
@@ -379,7 +378,7 @@ namespace gerber
         double constexpr THRESHOLD = 1e-38;
 
         // max chord deviation in mm per quality level
-        double constexpr DEVIATION_MM[tesselation_quality::num_qualities] = { 0.01, 0.005, 0.001 };
+        double constexpr DEVIATION_MM[tesselation_quality::num_qualities] = { 0.001, 0.0005, 0.0001 };
         double constexpr MAX_PIXEL_ERROR[tesselation_quality::num_qualities] = { 0.5, 0.25, 0.125 };
         double const deviation = (pixels_per_world_unit > 0) ? MAX_PIXEL_ERROR[tesselation_quality] / pixels_per_world_unit : DEVIATION_MM[tesselation_quality];
 

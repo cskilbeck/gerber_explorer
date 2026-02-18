@@ -1035,7 +1035,22 @@ void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t
     pool.add_job(job_type_tesselate, [this, layer, options, pixels_per_world_unit](std::stop_token st) {
         layer->job_count.fetch_add(1);
         bool force_outline = (options & tesselation_options_force_outline) != 0;
-        int d = 1 - layer->current_drawer;
+
+        // Atomically claim the idle drawer. If another retesselation job is already
+        // running for this layer (possible in the non-blocking dynamic-tess path),
+        // bail out - the running job will produce a result and another retesselation
+        // will be triggered by the next debounce if needed.
+        int d;
+        {
+            std::lock_guard l(layer_drawer_mutex);
+            if(layer->retesselating) {
+                layer->job_count.fetch_sub(1);
+                return;
+            }
+            d = 1 - layer->current_drawer;
+            layer->retesselating = true;
+        }
+
         gl_drawer *other_drawer = &layer->drawers[d];
         using namespace gerber_lib;
         auto layer_type = layer->layer_type();
@@ -1060,6 +1075,7 @@ void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t
         {
             std::lock_guard l(layer_drawer_mutex);
             layer->current_drawer = d;
+            layer->retesselating = false;
         }
         layer->job_count.fetch_sub(1);
     });
