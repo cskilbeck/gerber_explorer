@@ -13,6 +13,7 @@
 #include <nfd.h>
 
 #include "gerber_explorer.h"
+#include "gerber_util.h"
 
 #include "gerber_aperture.h"
 #include "gerber_net.h"
@@ -1034,6 +1035,7 @@ void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t
 {
     pool.add_job(job_type_tesselate, [this, layer, options, pixels_per_world_unit](std::stop_token st) {
         layer->job_count.fetch_add(1);
+        DEFER(layer->job_count.fetch_sub(1));
         bool force_outline = (options & tesselation_options_force_outline) != 0;
 
         // Atomically claim the idle drawer. If another retesselation job is already
@@ -1044,7 +1046,6 @@ void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t
         {
             std::lock_guard l(layer_drawer_mutex);
             if(layer->retesselating) {
-                layer->job_count.fetch_sub(1);
                 return;
             }
             d = 1 - layer->current_drawer;
@@ -1077,7 +1078,6 @@ void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t
             layer->current_drawer = d;
             layer->retesselating = false;
         }
-        layer->job_count.fetch_sub(1);
     });
 }
 
@@ -1122,6 +1122,8 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
 
     pool.add_job(job_type_tesselate, [layer, this]([[maybe_unused]] std::stop_token st) {
         layer->job_count.fetch_add(1);
+        DEFER(layer->job_count.fetch_sub(1));
+
         using namespace gerber_lib;
         auto layer_type = layer->layer_type();
         layer->is_outline_layer = is_layer_type(layer_type, layer::type_t::board) || is_layer_type(layer_type, layer::type_t::outline);
@@ -1146,7 +1148,6 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(25));
         }
-        layer->job_count.fetch_sub(1);
     });
 }
 
@@ -1211,6 +1212,71 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
     int x = selected_layer->drawer->entity_flags.data()[active_entity->entity_id()];
     active_entity_description =
         std::format("Entity {}:{}{} {} polarity ({}) flags: {} ({})", net->entity_id, state, interpolation, polarity, description, active_entity->flags, x);
+}
+
+//////////////////////////////////////////////////////////////////////
+
+void gerber_explorer::export_stl(std::filesystem::path filepath, gerber_layer *l, rect board_ext)
+{
+    gerber_layer *outline_layer{ nullptr };
+    if(l->invert) {
+        for(auto const layer : layers) {
+            if(outline_layer == nullptr && layer->is_outline_layer && layer->got_mask) {
+                outline_layer = layer;
+                break;
+            }
+        }
+    }
+    pool.add_job(job_type_export, [this, filepath, l, outline_layer, board_ext] (std::stop_token st) {
+        l->job_count.fetch_add(1);
+        if(outline_layer != nullptr) {
+            outline_layer->job_count.fetch_add(1);
+        }
+        LOG_CONTEXT("export", debug);
+        LOG_INFO("Export {} as {}", l->name, filepath.string());
+        gerber_3d::gl_3d_drawer drawer;
+        drawer.init();
+        drawer.tesselation_quality = settings.tesselation_quality;
+        drawer.set_gerber(&l->file);
+        if(l->invert) {
+            using namespace Clipper2Lib;
+            Paths64 openings = PolyTreeToPaths64(drawer.resolved_tree);
+            Paths64 outline;
+            if(outline_layer != nullptr) {
+                // resolve outline layer with fine arc tessellation to get clean board shape
+                gerber_3d::gl_3d_drawer outline_drawer;
+                outline_drawer.init();
+                outline_drawer.tesselation_quality = settings.tesselation_quality;
+                outline_drawer.set_gerber(&outline_layer->file);
+                // take only outer contours (top-level children), not holes
+                for(auto const &child : outline_drawer.resolved_tree) {
+                    outline.push_back(child->Polygon());
+                }
+                outline_drawer.release();
+            } else {
+                int64_t S = gerber_3d::gl_3d_drawer::CLIPPER_SCALE;
+                outline.push_back({
+                    {static_cast<int64_t>(board_ext.min_pos.x * S), static_cast<int64_t>(board_ext.min_pos.y * S)},
+                    {static_cast<int64_t>(board_ext.max_pos.x * S), static_cast<int64_t>(board_ext.min_pos.y * S)},
+                    {static_cast<int64_t>(board_ext.max_pos.x * S), static_cast<int64_t>(board_ext.max_pos.y * S)},
+                    {static_cast<int64_t>(board_ext.min_pos.x * S), static_cast<int64_t>(board_ext.max_pos.y * S)}
+                });
+            }
+            Clipper64 clipper;
+            clipper.AddSubject(outline);
+            clipper.AddClip(openings);
+            drawer.resolved_tree.Clear();
+            clipper.Execute(ClipType::Difference, FillRule::NonZero, drawer.resolved_tree);
+        }
+        drawer.extrude(0.035);
+        drawer.export_stl(filepath.string());
+        drawer.release();
+        LOG_INFO("Completed export to {}", filepath.string());
+        if(outline_layer != nullptr) {
+            outline_layer->job_count.fetch_sub(1);
+        }
+        l->job_count.fetch_sub(1);
+    });
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1458,66 +1524,8 @@ void gerber_explorer::ui()
                         std::filesystem::path p(l->name);
                         p.replace_extension(".stl");
                         auto save_path = save_file_dialog(p.string().c_str());
-                        gerber_layer *outline_layer{ nullptr };
-                        if(l->invert) {
-                            for(auto const layer : layers) {
-                                if(outline_layer == nullptr && layer->is_outline_layer && layer->got_mask) {
-                                    outline_layer = layer;
-                                    break;
-                                }
-                            }
-                        }
                         if(save_path.has_value()) {
-                            pool.add_job(job_type_export, [this, filepath = save_path.value(), l, outline_layer, board_ext = board_extent] (std::stop_token st) {
-                                l->job_count.fetch_add(1);
-                                if(outline_layer != nullptr) {
-                                    outline_layer->job_count.fetch_add(1);
-                                }
-                                LOG_CONTEXT("export", debug);
-                                LOG_INFO("Export {} as {}", l->name, filepath.string());
-                                gerber_3d::gl_3d_drawer drawer;
-                                drawer.init();
-                                drawer.tesselation_quality = settings.tesselation_quality;
-                                drawer.set_gerber(&l->file);
-                                if(l->invert) {
-                                    using namespace Clipper2Lib;
-                                    Paths64 openings = PolyTreeToPaths64(drawer.resolved_tree);
-                                    Paths64 outline;
-                                    if(outline_layer != nullptr) {
-                                        // resolve outline layer with fine arc tessellation to get clean board shape
-                                        gerber_3d::gl_3d_drawer outline_drawer;
-                                        outline_drawer.init();
-                                        outline_drawer.tesselation_quality = settings.tesselation_quality;
-                                        outline_drawer.set_gerber(&outline_layer->file);
-                                        // take only outer contours (top-level children), not holes
-                                        for(auto const &child : outline_drawer.resolved_tree) {
-                                            outline.push_back(child->Polygon());
-                                        }
-                                        outline_drawer.release();
-                                    } else {
-                                        int64_t S = gerber_3d::gl_3d_drawer::CLIPPER_SCALE;
-                                        outline.push_back({
-                                            {static_cast<int64_t>(board_ext.min_pos.x * S), static_cast<int64_t>(board_ext.min_pos.y * S)},
-                                            {static_cast<int64_t>(board_ext.max_pos.x * S), static_cast<int64_t>(board_ext.min_pos.y * S)},
-                                            {static_cast<int64_t>(board_ext.max_pos.x * S), static_cast<int64_t>(board_ext.max_pos.y * S)},
-                                            {static_cast<int64_t>(board_ext.min_pos.x * S), static_cast<int64_t>(board_ext.max_pos.y * S)}
-                                        });
-                                    }
-                                    Clipper64 clipper;
-                                    clipper.AddSubject(outline);
-                                    clipper.AddClip(openings);
-                                    drawer.resolved_tree.Clear();
-                                    clipper.Execute(ClipType::Difference, FillRule::NonZero, drawer.resolved_tree);
-                                }
-                                drawer.extrude(0.035);
-                                drawer.export_stl(filepath.string());
-                                drawer.release();
-                                LOG_INFO("Completed export to {}", filepath.string());
-                                if(outline_layer != nullptr) {
-                                    outline_layer->job_count.fetch_sub(1);
-                                }
-                                l->job_count.fetch_sub(1);
-                            });
+                            export_stl(save_path.value(), l, board_extent);
                         }
                     }
                     ImGui::EndPopup();

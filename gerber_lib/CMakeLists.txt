@@ -9,6 +9,7 @@ add_library(${PROJECT}
         gerber_aperture.cpp
         gerber_aperture.h
         gerber_arc.h
+        gerber_drill.cpp
         gerber_draw.h
         gerber_entity.h
         gerber_enums.cpp

@@ -632,7 +632,11 @@ namespace gerber_lib
     {
         filename = reader.filename;
         image.gerber = this;
-        CHECK(parse_gerber_segment(image.nets[0]));
+        if(detect_excellon()) {
+            CHECK(parse_drill_file());
+        } else {
+            CHECK(parse_gerber_segment(image.nets[0]));
+        }
         LOG_VERBOSE("Parsing complete after {} lines, found {} entities", reader.line_number, entities.size());
         layer_type = classify();
         return ok;

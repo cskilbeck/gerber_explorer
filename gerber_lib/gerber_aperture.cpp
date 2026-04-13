@@ -11,7 +11,7 @@
 #include "gerber_reader.h"
 #include "gerber_aperture.h"
 
-LOG_CONTEXT("aperture", info);
+LOG_CONTEXT("aperture", debug);
 
 namespace
 {
@@ -68,7 +68,7 @@ namespace gerber_lib
 
     gerber_error_code gerber_aperture_macro::parse_aperture_macro(gerber_reader &reader)
     {
-        LOG_CONTEXT("macro_parser", info);
+        LOG_CONTEXT("macro_parser", debug);
 
         CHECK(reader.read_until(&name, '*'));
 
@@ -351,7 +351,7 @@ namespace gerber_lib
 
     gerber_error_code gerber_aperture::execute_aperture_macro(double scale)
     {
-        LOG_CONTEXT("execute_aperture_macro", info);
+        LOG_CONTEXT("execute_aperture_macro", debug);
 
         LOG_DEBUG("Execute aperture macro \"{}\"", aperture_macro->name);
 
@@ -542,11 +542,14 @@ namespace gerber_lib
 
                     double exposure = 1.0;
 
-                    // Convert any mm values to inches.
+                    // Scale dimensional parameters from file units to mm.
                     switch(type) {
 
                     case aperture_type_macro_circle:
                         exposure = macro->parameters[circle_exposure];
+                        macro->parameters[circle_diameter] *= scale;
+                        macro->parameters[circle_centre_x] *= scale;
+                        macro->parameters[circle_centre_y] *= scale;
                         break;
 
                     case aperture_type_macro_outline: {
@@ -579,22 +582,54 @@ namespace gerber_lib
 
                     case aperture_type_macro_polygon:
                         exposure = macro->parameters[polygon_exposure];
+                        macro->parameters[polygon_centre_x] *= scale;
+                        macro->parameters[polygon_centre_y] *= scale;
+                        macro->parameters[polygon_diameter] *= scale;
                         break;
 
                     case aperture_type_macro_moire:
+                        macro->parameters[moire_centre_x] *= scale;
+                        macro->parameters[moire_centre_y] *= scale;
+                        macro->parameters[moire_outside_diameter] *= scale;
+                        macro->parameters[moire_circle_line_width] *= scale;
+                        macro->parameters[moire_gap_width] *= scale;
+                        macro->parameters[moire_crosshair_line_width] *= scale;
+                        macro->parameters[moire_crosshair_length] *= scale;
                         break;
 
                     case aperture_type_macro_thermal:
+                        macro->parameters[thermal_centre_x] *= scale;
+                        macro->parameters[thermal_centre_y] *= scale;
+                        macro->parameters[thermal_outside_diameter] *= scale;
+                        macro->parameters[thermal_inside_diameter] *= scale;
+                        macro->parameters[thermal_crosshair_line_width] *= scale;
                         break;
 
                     case aperture_type_macro_line20:
                         exposure = macro->parameters[line_20_exposure];
+                        macro->parameters[line_20_line_width] *= scale;
+                        macro->parameters[line_20_start_x] *= scale;
+                        macro->parameters[line_20_start_y] *= scale;
+                        macro->parameters[line_20_end_x] *= scale;
+                        macro->parameters[line_20_end_y] *= scale;
                         break;
 
                     case aperture_type_macro_line21:
-                    case aperture_type_macro_line22:
                         exposure = macro->parameters[line_21_exposure];
+                        macro->parameters[line_21_line_width] *= scale;
+                        macro->parameters[line_21_line_height] *= scale;
+                        macro->parameters[line_21_centre_x] *= scale;
+                        macro->parameters[line_21_centre_y] *= scale;
                         break;
+
+                    case aperture_type_macro_line22:
+                        exposure = macro->parameters[line_22_exposure];
+                        macro->parameters[line_22_line_width] *= scale;
+                        macro->parameters[line_22_line_height] *= scale;
+                        macro->parameters[line_22_lower_left_x] *= scale;
+                        macro->parameters[line_22_lower_left_y] *= scale;
+                        break;
+
                     default:
                         break;
                     }

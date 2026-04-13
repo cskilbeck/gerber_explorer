@@ -31,6 +31,8 @@ namespace gerber_lib
         gerber_error_code get_int(int *value, size_t *length = nullptr);
         gerber_error_code get_double(double *value, size_t *length = nullptr);
 
+        std::string_view read_line();
+
         void skip(size_t num_chars);
         void rewind(size_t num_chars);
         void skip_whitespace();

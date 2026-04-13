@@ -328,4 +328,27 @@ namespace gerber_lib
         return ok;
     }
 
+    //////////////////////////////////////////////////////////////////////
+
+    std::string_view gerber_reader::read_line()
+    {
+        size_t start = file_pos;
+        while(file_pos < file_size) {
+            char c = file_data[file_pos];
+            if(c == '\n') {
+                size_t len = file_pos - start;
+                file_pos += 1;
+                line_number += 1;
+                // trim trailing \r
+                if(len > 0 && file_data[start + len - 1] == '\r') {
+                    len -= 1;
+                }
+                return std::string_view(file_data + start, len);
+            }
+            file_pos += 1;
+        }
+        // EOF without newline
+        return std::string_view(file_data + start, file_pos - start);
+    }
+
 }    // namespace gerber_lib

@@ -83,46 +83,42 @@ namespace gerber_util
 
     std::expected<double, ParseError> double_from_string_view(std::string_view sv);
 
-    namespace util
+    //////////////////////////////////////////////////////////////////////
+    // DEFER / SCOPED admin
+
+    template <typename FUNC> struct defer_finalizer
     {
-        //////////////////////////////////////////////////////////////////////
-        // DEFER / SCOPED admin
+        FUNC lambda;
+        bool cancelled;
 
-        template <typename FUNC> struct defer_finalizer
+        template <typename T> explicit defer_finalizer(T &&f) : lambda(std::forward<T>(f)), cancelled(false)
         {
-            FUNC lambda;
-            bool cancelled;
+        }
 
-            template <typename T> explicit defer_finalizer(T &&f) : lambda(std::forward<T>(f)), cancelled(false)
-            {
-            }
+        defer_finalizer() = delete;
+        defer_finalizer(defer_finalizer const &) = delete;
+        defer_finalizer(defer_finalizer &&) = delete;
 
-            defer_finalizer() = delete;
-            defer_finalizer(defer_finalizer const &) = delete;
-            defer_finalizer(defer_finalizer &&) = delete;
-
-            void cancel()
-            {
-                cancelled = true;
-            }
-
-            ~defer_finalizer()
-            {
-                if(!cancelled) {
-                    lambda();
-                }
-            }
-        };
-
-        [[maybe_unused]] static struct
+        void cancel()
         {
-            template <typename F> [[nodiscard]] defer_finalizer<F> operator<<(F &&f)
-            {
-                return defer_finalizer<F>(std::forward<F>(f));
-            }
-        } deferrer;
+            cancelled = true;
+        }
 
-    }    // namespace util
+        ~defer_finalizer()
+        {
+            if(!cancelled) {
+                lambda();
+            }
+        }
+    };
+
+    [[maybe_unused]] static struct
+    {
+        template <typename F> [[nodiscard]] defer_finalizer<F> operator<<(F &&f)
+        {
+            return defer_finalizer<F>(std::forward<F>(f));
+        }
+    } deferrer;
 
 }    // namespace gerber_util
 
@@ -162,7 +158,7 @@ namespace gerber_util
 #define _DEFER_TOKENPASTE(x, y) x##y
 #define _DEFER_TOKENPASTE2(x, y) _DEFER_TOKENPASTE(x, y)
 
-#define DEFER(X) auto _DEFER_TOKENPASTE2(__deferred_lambda_call, __COUNTER__) = gerber_lib::util::deferrer << [=] { X; }
+#define DEFER(X) auto _DEFER_TOKENPASTE2(__deferred_lambda_call, __COUNTER__) = gerber_util::deferrer << [=] { X; }
 
 //////////////////////////////////////////////////////////////////////
 // if there's a `to_string()` member function, you can use this

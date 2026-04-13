@@ -62,7 +62,6 @@ struct gerber_layer
     int index;
     bool visible{ true };
     bool invert{ false };
-    bool expanded{ false };
     bool selected{ false };
     bool is_outline_layer{ false };
     int alpha{ 255 };
@@ -304,6 +303,8 @@ struct gerber_explorer : gl_window
 
     void save_settings(std::filesystem::path const &path, bool save_files);
     void load_settings(std::filesystem::path const &path);
+
+    void export_stl(std::filesystem::path filepath, gerber_layer *l, rect board_ext);
 
     void on_window_size(int w, int h) override;
     void on_window_refresh() override;

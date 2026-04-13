@@ -120,6 +120,9 @@ namespace gerber_lib
 
         gerber_error_code do_parse();
 
+        bool detect_excellon() const;
+        gerber_error_code parse_drill_file();
+
         gerber_error_code draw(gerber_draw_interface &drawer) const;
         gerber_error_code lines(gerber_draw_interface &drawer) const;
         gerber_error_code fill_region_path(gerber_draw_interface &drawer, size_t net_index, gerber_polarity polarity) const;
