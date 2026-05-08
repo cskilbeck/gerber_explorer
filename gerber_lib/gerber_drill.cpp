@@ -119,6 +119,10 @@ namespace gerber_lib
         double unit_scale = 25.4;
         double decimal_divisor = 10000.0;
 
+        bool routing = false;      // true between M15 (drill down) and M16 (drill up)
+        double route_start_x = 0.0;
+        double route_start_y = 0.0;
+
         int entity_id = 0;
         gerber_net *prev_net = image.nets[0];
 
@@ -221,6 +225,25 @@ namespace gerber_lib
                 break;
             }
 
+            // M15 - drill/route down (start cutting)
+            if(line.starts_with("M15")) {
+                routing = true;
+                route_start_x = prev_x;
+                route_start_y = prev_y;
+                continue;
+            }
+
+            // M16 - drill/route up (stop cutting)
+            if(line.starts_with("M16")) {
+                routing = false;
+                continue;
+            }
+
+            // M17 - end of step and repeat (ignore)
+            if(line.starts_with("M17")) {
+                continue;
+            }
+
             // Comments
             if(line[0] == ';') {
                 comments.push_back(std::string(line));
@@ -315,80 +338,86 @@ namespace gerber_lib
                 continue;
             }
 
-            // G-codes that might appear in body (G90, G05, etc.) - skip if line is only a G-code
-            if(line[0] == 'G' && line.find('X') == std::string_view::npos && line.find('Y') == std::string_view::npos) {
-                continue;
-            }
+            // Coordinate line or G-code with coordinates
+            {
+                bool has_coords = line.find('X') != std::string_view::npos || line.find('Y') != std::string_view::npos;
 
-            // Coordinate line (may start with G90/G05 prefix before X/Y, or contain G85 for slots)
-            if(line.find('X') != std::string_view::npos || line.find('Y') != std::string_view::npos) {
+                // G-codes without coordinates (G90, G05, etc.) - skip
+                if(line[0] == 'G' && !has_coords) {
+                    continue;
+                }
+
+                if(!has_coords) {
+                    continue;
+                }
 
                 size_t pos = 0;
 
-                // Skip leading G-codes (e.g., G90, G05 at start of line)
-                while(pos < line.size() && line[pos] == 'G') {
+                // Parse leading G-code if present (G00=rapid, G01=linear, G05=drill, G85=slot, G90=abs, etc.)
+                int g_code = -1;
+                if(line[pos] == 'G') {
                     pos += 1;
-                    parse_int(line, pos);    // skip the G-code number
+                    g_code = parse_int(line, pos);
                 }
 
-                // Parse first X,Y
+                // Parse X,Y from the line (before any G85)
                 double x_mm = prev_x;
                 double y_mm = prev_y;
 
-                // Scan for X
-                for(size_t i = pos; i < line.size(); ++i) {
+                auto g85_pos = line.find("G85", pos);
+                size_t coord_end = (g85_pos != std::string_view::npos) ? g85_pos : line.size();
+
+                for(size_t i = pos; i < coord_end; ++i) {
                     if(line[i] == 'X') {
                         size_t dpos = i + 1;
                         auto digits = parse_digits(line, dpos);
                         x_mm = convert_coordinate(digits, total_places, trailing_zero_suppression, unit_scale, decimal_divisor);
-                        break;
                     }
-                    if(line[i] == 'G') {
-                        break;    // stop before G85
-                    }
-                }
-
-                // Scan for Y before any G85
-                auto g85_pos = line.find("G85", pos);
-                size_t y_search_end = (g85_pos != std::string_view::npos) ? g85_pos : line.size();
-                for(size_t i = pos; i < y_search_end; ++i) {
                     if(line[i] == 'Y') {
                         size_t dpos = i + 1;
                         auto digits = parse_digits(line, dpos);
                         y_mm = convert_coordinate(digits, total_places, trailing_zero_suppression, unit_scale, decimal_divisor);
-                        break;
                     }
                 }
 
-                // Check for G85 (slot)
+                // Check for G85 (inline slot)
                 if(g85_pos != std::string_view::npos) {
 
-                    // Parse end coordinates after G85
                     double x2_mm = x_mm;
                     double y2_mm = y_mm;
-                    size_t slot_pos = g85_pos + 3;    // skip "G85"
+                    size_t slot_pos = g85_pos + 3;
 
                     for(size_t i = slot_pos; i < line.size(); ++i) {
                         if(line[i] == 'X') {
                             size_t dpos = i + 1;
                             auto digits = parse_digits(line, dpos);
                             x2_mm = convert_coordinate(digits, total_places, trailing_zero_suppression, unit_scale, decimal_divisor);
-                            break;
                         }
-                    }
-                    for(size_t i = slot_pos; i < line.size(); ++i) {
                         if(line[i] == 'Y') {
                             size_t dpos = i + 1;
                             auto digits = parse_digits(line, dpos);
                             y2_mm = convert_coordinate(digits, total_places, trailing_zero_suppression, unit_scale, decimal_divisor);
-                            break;
                         }
                     }
 
                     make_slot_net(x_mm, y_mm, x2_mm, y2_mm);
                     LOG_VERBOSE("Slot T{}: ({:g},{:g}) -> ({:g},{:g})", current_tool, x_mm, y_mm, x2_mm, y2_mm);
-                } else {
-                    // Round hole
+
+                } else if(routing && g_code == 1) {
+
+                    // G01 while routing: linear feed cut from current position to new position
+                    make_slot_net(route_start_x, route_start_y, x_mm, y_mm);
+                    LOG_VERBOSE("Route T{}: ({:g},{:g}) -> ({:g},{:g})", current_tool, route_start_x, route_start_y, x_mm, y_mm);
+                    route_start_x = x_mm;
+                    route_start_y = y_mm;
+
+                } else if(g_code == 0) {
+
+                    // G00: rapid move (reposition, no cutting)
+
+                } else if(!routing) {
+
+                    // Regular drill hit
                     make_flash_net(x_mm, y_mm);
                     LOG_VERBOSE("Drill T{}: ({:g},{:g})", current_tool, x_mm, y_mm);
                 }
