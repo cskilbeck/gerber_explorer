@@ -152,7 +152,7 @@ struct gerber_explorer : gl_window
     bool measure_line_visible{false};
     vec2d measure_start_world{};
     vec2d measure_end_world{};
-    GLFWcursor *crosshair_cursor{nullptr};
+    SDL_Cursor *crosshair_cursor{nullptr};
 
     // view rect in world coordinates
     rect view_rect{};
@@ -321,7 +321,7 @@ struct gerber_explorer : gl_window
     // whenever mouse moved or clicked or key pressed, call this
     void set_active();
 
-    // call this to decide whether to call glfwPollEvents() or glfwWaitEvents()
+    // call this to decide whether to poll or wait for events
     bool is_idle() override;
 
     double idle_timestamp{};

@@ -24,10 +24,7 @@
 
 #include "assets/matsym_codepoints_utf8.h"
 
-#if defined(WIN32)
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include "GLFW/glfw3native.h"
-#endif
+using namespace sdl_compat;
 
 LOG_CONTEXT("gerber_explorer", info);
 
@@ -173,7 +170,7 @@ void gerber_explorer::set_active()
 
 bool gerber_explorer::is_idle()
 {
-    // call glfwPollEvents for this much time after last call to set_active()
+    // poll events for this much time after last call to set_active()
     double constexpr idle_timer = 0.1f;
     return get_time() - idle_timestamp > idle_timer;
 }
@@ -403,48 +400,48 @@ void gerber_explorer::next_view()
 void gerber_explorer::on_key(int key, int scancode, int action, int mods)
 {
     set_active();
-    if(action == GLFW_PRESS) {
+    if(action == ACTION_PRESS) {
         if(mods == 0) {
             switch(key) {
-            case GLFW_KEY_ESCAPE:
-                glfwSetWindowShouldClose(window, true);
+            case KEY_ESCAPE:
+                set_should_close();
                 break;
-            case GLFW_KEY_V:
+            case KEY_V:
                 next_view();
                 break;
-            case GLFW_KEY_F:
+            case KEY_F:
                 fit_to_viewport();
                 break;
-            case GLFW_KEY_X:
+            case KEY_X:
                 settings.flip_x = !settings.flip_x;
                 break;
-            case GLFW_KEY_Y:
+            case KEY_Y:
                 settings.flip_y = !settings.flip_y;
                 break;
-            case GLFW_KEY_W:
+            case KEY_W:
                 settings.wireframe = !settings.wireframe;
                 break;
-            case GLFW_KEY_A:
+            case KEY_A:
                 settings.show_axes = !settings.show_axes;
                 break;
-            case GLFW_KEY_E:
+            case KEY_E:
                 settings.show_extent = !settings.show_extent;
                 break;
             default:
                 break;
             }
-        } else if(mods & GLFW_MOD_CONTROL) {
+        } else if(mods & KMOD_CTRL_FLAG) {
             switch(key) {
-            case GLFW_KEY_O:
+            case KEY_O:
                 file_open();
                 break;
-            case GLFW_KEY_S: {
+            case KEY_S: {
                 auto save_path = save_file_dialog("settings.json");
                 if(save_path.has_value()) {
                     save_settings(save_path.value(), true);
                 }
             } break;
-            case GLFW_KEY_L: {
+            case KEY_L: {
                 auto load_path = load_file_dialog();
                 if(load_path.has_value()) {
                     load_settings(load_path.value());
@@ -453,12 +450,12 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
             default:
                 break;
             }
-        } else if(mods & GLFW_MOD_ALT) {
+        } else if(mods & KMOD_ALT_FLAG) {
             switch(key) {
-            case GLFW_KEY_LEFT_ALT:
-            case GLFW_KEY_RIGHT_ALT:
+            case KEY_LEFT_ALT:
+            case KEY_RIGHT_ALT:
                 measure_mode = true;
-                glfwSetCursor(window, crosshair_cursor);
+                set_cursor(crosshair_cursor);
                 if(selected_layer != nullptr) {
                     selected_layer->drawer->clear_entity_flags(entity_flags_t::hovered);
                 }
@@ -468,12 +465,12 @@ void gerber_explorer::on_key(int key, int scancode, int action, int mods)
                 break;
             }
         }
-    } else if(action == GLFW_RELEASE) {
+    } else if(action == ACTION_RELEASE) {
         switch(key) {
-        case GLFW_KEY_LEFT_ALT:
-        case GLFW_KEY_RIGHT_ALT:
+        case KEY_LEFT_ALT:
+        case KEY_RIGHT_ALT:
             measure_mode = false;
-            glfwSetCursor(window, nullptr);
+            set_cursor(nullptr);
             break;
         default:
             break;
@@ -497,34 +494,34 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
     set_active();
 
     switch(action) {
-    case GLFW_PRESS:
+    case ACTION_PRESS:
         switch(button) {
-        case GLFW_MOUSE_BUTTON_LEFT:
+        case MOUSE_BUTTON_LEFT:
             if(measure_mode) {
                 // Start measuring (orthogonal to mouse_mode)
                 measure_start_world = world_pos_from_viewport_pos(mouse_pos);
                 measure_end_world = measure_start_world;
                 measure_dragging = true;
                 measure_line_visible = false;
-            } else if((mods & GLFW_MOD_CONTROL) != 0) {
+            } else if((mods & KMOD_CTRL_FLAG) != 0) {
                 set_mouse_mode(mouse_drag_zoom_select);
             } else {
                 set_mouse_mode(mouse_drag_maybe_select);
             }
             break;
-        case GLFW_MOUSE_BUTTON_RIGHT:
+        case MOUSE_BUTTON_RIGHT:
             set_mouse_mode(mouse_drag_pan);
             break;
-        case GLFW_MOUSE_BUTTON_MIDDLE:
+        case MOUSE_BUTTON_MIDDLE:
             set_mouse_mode(mouse_drag_zoom);
             break;
         default:
             break;
         }
         break;
-    case GLFW_RELEASE:
+    case ACTION_RELEASE:
         switch(button) {
-        case GLFW_MOUSE_BUTTON_LEFT:
+        case MOUSE_BUTTON_LEFT:
             if(measure_dragging) {
                 // Finalize measurement
                 measure_end_world = world_pos_from_viewport_pos(mouse_pos);
@@ -547,10 +544,10 @@ void gerber_explorer::on_mouse_button(int button, int action, int mods)
                 set_mouse_mode(mouse_drag_none);
             }
             break;
-        case GLFW_MOUSE_BUTTON_RIGHT:
+        case MOUSE_BUTTON_RIGHT:
             set_mouse_mode(mouse_drag_none);
             break;
-        case GLFW_MOUSE_BUTTON_MIDDLE:
+        case MOUSE_BUTTON_MIDDLE:
             set_mouse_mode(mouse_drag_none);
             break;
         default:
@@ -589,7 +586,7 @@ void gerber_explorer::on_mouse_move(double xpos, double ypos)
         }
 
         if(warped) {
-            glfwSetCursorPos(window, new_x, new_y);
+            set_cursor_pos(new_x, new_y);
             mouse_pos = { new_x - viewport_xpos, viewport_height - (new_y - viewport_ypos) };
             drag_mouse_start_pos = mouse_pos;
             prev_mouse_pos = mouse_pos;
@@ -696,7 +693,7 @@ void gerber_explorer::on_closed()
     layers.clear();
     NFD_Quit();
     if(crosshair_cursor != nullptr) {
-        glfwDestroyCursor(crosshair_cursor);
+        SDL_DestroyCursor(crosshair_cursor);
     }
     gl_window::on_closed();
 }
@@ -825,8 +822,8 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
 
     case mouse_drag_none:
         zoom_anim = mouse_mode == mouse_drag_zoom_select;
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        glfwSetCursor(window, measure_mode ? crosshair_cursor : nullptr);
+        set_input_mode_cursor_normal();
+        set_cursor(measure_mode ? crosshair_cursor : nullptr);
         break;
 
     case mouse_drag_pan:
@@ -836,12 +833,12 @@ void gerber_explorer::set_mouse_mode(mouse_drag_action action)
 
     case mouse_drag_zoom:
         zoom_anim = false;
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        set_input_mode_cursor_disabled();
         mouse_world_pos = world_pos_from_viewport_pos(mouse_pos);
         drag_mouse_cur_pos = mouse_pos;
         drag_mouse_start_pos = mouse_pos;
         // ignore the next 2 mouse moves because sometimes they are kind of
-        // random, something to do with GLFW_CURSOR_DISABLED/NORMAL
+        // random, something to do with cursor mode switching
         ignore_mouse_moves = 2;
         break;
 
@@ -897,10 +894,12 @@ bool gerber_explorer::on_init()
 #ifdef WIN32
     HICON hIcon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(1));
     if(hIcon) {
-        HWND hwnd = glfwGetWin32Window(window);
-        SendMessage(hwnd, WM_SETICON, ICON_SMALL2, (LPARAM)hIcon);
-        SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
-        SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+        HWND hwnd = (HWND)get_native_window_handle();
+        if(hwnd) {
+            SendMessage(hwnd, WM_SETICON, ICON_SMALL2, (LPARAM)hIcon);
+            SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
+            SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+        }
     }
 #endif
 
@@ -908,7 +907,7 @@ bool gerber_explorer::on_init()
 
     NFD_Init();
 
-    glfwGetWindowSize(window, &window_width, &window_height);
+    get_window_size(&window_width, &window_height);
     window_size.x = window_width;
     window_size.y = window_height;
     viewport_rect = { { 0, 0 }, { (double)window_width, (double)window_height } };
@@ -925,7 +924,7 @@ bool gerber_explorer::on_init()
 
     overlay.init();
 
-    crosshair_cursor = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
+    crosshair_cursor = create_system_cursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
 
     glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &max_multisamples);
 
@@ -1144,7 +1143,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
             {
                 std::lock_guard loaded_lock(loaded_mutex);
                 loaded = loaded_layers.empty();
-                glfwPostEmptyEvent();
+                SDL_Event e{}; e.type = SDL_EVENT_USER; SDL_PushEvent(&e);
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(25));
         }
@@ -1330,7 +1329,7 @@ void gerber_explorer::ui()
             }
             ImGui::Separator();
             if(ImGui::MenuItem("Exit", "Esc", nullptr)) {
-                glfwSetWindowShouldClose(window, true);
+                set_should_close();
             }
             ImGui::EndMenu();
         }
@@ -1793,7 +1792,7 @@ void gerber_explorer::on_render()
     ImGuiIO &io = ImGui::GetIO();
     if(measure_mode) {
         io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-        glfwSetCursor(window, crosshair_cursor);
+        set_cursor(crosshair_cursor);
     } else {
         io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
     }
@@ -1925,7 +1924,7 @@ void gerber_explorer::on_render()
 
     int framebuffer_width;
     int framebuffer_height;
-    glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+    get_framebuffer_size(&framebuffer_width, &framebuffer_height);
 
     handle_mouse();
 
@@ -2237,6 +2236,6 @@ void gerber_explorer::on_render()
     last_frame_cpu_time = get_time() - t;
 
     if(zoom_anim) {
-        glfwPostEmptyEvent();
+        SDL_Event e{}; e.type = SDL_EVENT_USER; SDL_PushEvent(&e);
     }
 }

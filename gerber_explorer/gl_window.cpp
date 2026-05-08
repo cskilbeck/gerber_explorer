@@ -1,11 +1,8 @@
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
-#undef APIENTRY
+#include <SDL3/SDL.h>
 
 #ifdef _WIN32
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
+#include <windows.h>
 #endif
 
 #include <cmrc/cmrc.hpp>
@@ -14,7 +11,7 @@
 #include "stb_image.h"
 
 #include "imgui.h"
-#include "imgui_impl_glfw.h"
+#include "imgui_impl_sdl3.h"
 #include "imgui_impl_opengl3.h"
 
 #include "gerber_log.h"
@@ -32,138 +29,26 @@ namespace
 
     std::string const imgui_ini_filename = config_path("gerber_explorer", "imgui.ini").string();
 
-    void log_gl([[maybe_unused]] GLenum source, [[maybe_unused]] GLenum type, [[maybe_unused]] GLuint id, [[maybe_unused]] GLenum severity,
-                [[maybe_unused]] GLsizei length, const GLchar *message, [[maybe_unused]] const void *userParam)
+    void APIENTRY log_gl([[maybe_unused]] GLenum source, [[maybe_unused]] GLenum type, [[maybe_unused]] GLuint id, [[maybe_unused]] GLenum severity,
+                         [[maybe_unused]] GLsizei length, const GLchar *message, [[maybe_unused]] const void *userParam)
     {
         LOG_INFO("{}:{}", id, message);
     }
-
-    //////////////////////////////////////////////////////////////////////
-
-    void on_glfw_key(GLFWwindow *window, int key, [[maybe_unused]] int scancode, int action, [[maybe_unused]] int mods)
-    {
-        ImGuiIO &io = ImGui::GetIO();
-        if(io.WantCaptureKeyboard) {
-            return;
-        }
-        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
-        glwindow->on_key(key, scancode, action, mods);
-    }
-
-    //////////////////////////////////////////////////////////////////////
-
-    void on_glfw_mouse_button(GLFWwindow *window, int button, int action, int mods)
-    {
-        ImGuiIO &io = ImGui::GetIO();
-        if(io.WantCaptureMouse) {
-            return;
-        }
-        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
-        glwindow->on_mouse_button(button, action, mods);
-    }
-
-    //////////////////////////////////////////////////////////////////////
-
-    void on_glfw_cursor_pos(GLFWwindow *window, double xpos, double ypos)
-    {
-        ImGuiIO &io = ImGui::GetIO();
-        if(io.WantCaptureMouse) {
-            return;
-        }
-        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
-        glwindow->on_mouse_move(xpos, ypos);
-    }
-
-    void on_glfw_scroll(GLFWwindow *window, double xoffset, double yoffset)
-    {
-        ImGuiIO &io = ImGui::GetIO();
-        if(io.WantCaptureMouse) {
-            return;
-        }
-        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
-        glwindow->on_scroll(xoffset, yoffset);
-    }
-
-    void on_glfw_size(GLFWwindow *window, int width, int height)
-    {
-        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
-        glwindow->on_window_size(width, height);
-    }
-
-    void on_glfw_refresh(GLFWwindow *window)
-    {
-        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
-        glwindow->on_window_refresh();
-    }
-
-    void on_glfw_pos(GLFWwindow *window, int x, int y)
-    {
-        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
-        glwindow->on_window_pos(x, y);
-    }
-
-    void on_glfw_drop(GLFWwindow *window, int count, char const **paths)
-    {
-        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
-        glwindow->on_drop(count, paths);
-    }
-
-    void on_glfw_focus(GLFWwindow *window, int focused)
-    {
-        gl_window *glwindow = static_cast<gl_window *>(glfwGetWindowUserPointer(window));
-        glwindow->on_window_focus(focused);
-    }
-
-#ifdef _WIN32
-    void restore_win32_window(GLFWwindow *window, const gl_window::window_state_t &state)
-    {
-        HWND hwnd = glfwGetWin32Window(window);
-        DWORD style = GetWindowLong(hwnd, GWL_STYLE);
-        DWORD exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-        HMENU menu = GetMenu(hwnd);
-        RECT rect = { 0, 0, state.width, state.height };
-        AdjustWindowRectEx(&rect, style, menu != nullptr, exStyle);
-        int finalW = rect.right - rect.left;
-        int finalH = rect.bottom - rect.top;
-        WINDOWPLACEMENT wp = { sizeof(wp) };
-        wp.rcNormalPosition = { state.x, state.y, state.x + finalW, state.y + finalH };
-        wp.showCmd = state.isMaximized ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
-        SetWindowPlacement(hwnd, &wp);
-    }
-
-    void capture_win32_window(GLFWwindow *window, gl_window::window_state_t &state)
-    {
-        HWND hwnd = glfwGetWin32Window(window);
-        WINDOWPLACEMENT wp = { sizeof(wp) };
-        if(GetWindowPlacement(hwnd, &wp)) {
-            state.x = wp.rcNormalPosition.left;
-            state.y = wp.rcNormalPosition.top;
-            DWORD style = GetWindowLong(hwnd, GWL_STYLE);
-            DWORD exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-            HMENU menu = GetMenu(hwnd);
-            RECT framePadding = { 0, 0, 0, 0 };
-            AdjustWindowRectEx(&framePadding, style, menu != nullptr, exStyle);
-            int borderWidth = framePadding.right - framePadding.left;
-            int borderHeight = framePadding.bottom - framePadding.top;
-            int fullFrameW = wp.rcNormalPosition.right - wp.rcNormalPosition.left;
-            int fullFrameH = wp.rcNormalPosition.bottom - wp.rcNormalPosition.top;
-            state.width = fullFrameW - borderWidth;
-            state.height = fullFrameH - borderHeight;
-            state.isMaximized = (wp.showCmd == SW_SHOWMAXIMIZED);
-        }
-    }
-#endif
 }    // namespace
 
 //////////////////////////////////////////////////////////////////////
 
 void gl_window::set_icon(uint8_t const *png_data, size_t png_size) const
 {
-    GLFWimage images[1];
-    images[0].pixels = stbi_load_from_memory(png_data, (int)png_size, &images[0].width, &images[0].height, nullptr, 4);
-    if (images[0].pixels) {
-        glfwSetWindowIcon(window, 1, images);
-        stbi_image_free(images[0].pixels);
+    int w, h;
+    uint8_t *pixels = stbi_load_from_memory(png_data, (int)png_size, &w, &h, nullptr, 4);
+    if(pixels) {
+        SDL_Surface *surface = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, pixels, w * 4);
+        if(surface) {
+            SDL_SetWindowIcon(window, surface);
+            SDL_DestroySurface(surface);
+        }
+        stbi_image_free(pixels);
     }
 }
 
@@ -171,7 +56,7 @@ void gl_window::set_icon(uint8_t const *png_data, size_t png_size) const
 
 void gl_window::on_window_size(int w, int h)
 {
-    if(!glfwGetWindowAttrib(window, GLFW_MAXIMIZED) && !glfwGetWindowAttrib(window, GLFW_ICONIFIED)) {
+    if(!(SDL_GetWindowFlags(window) & (SDL_WINDOW_MAXIMIZED | SDL_WINDOW_MINIMIZED))) {
         window_state.width = w;
         window_state.height = h;
     }
@@ -181,7 +66,7 @@ void gl_window::on_window_size(int w, int h)
 
 void gl_window::on_window_pos(int x, int y)
 {
-    if(!glfwGetWindowAttrib(window, GLFW_MAXIMIZED) && !glfwGetWindowAttrib(window, GLFW_ICONIFIED)) {
+    if(!(SDL_GetWindowFlags(window) & (SDL_WINDOW_MAXIMIZED | SDL_WINDOW_MINIMIZED))) {
         window_state.x = x;
         window_state.y = y;
     }
@@ -192,50 +77,89 @@ void gl_window::on_window_pos(int x, int y)
 gl_window::window_state_t gl_window::get_window_state()
 {
     window_state_t current_state;
-#ifdef _WIN32
-    capture_win32_window(window, current_state);
-#else
-    current_state.isMaximized = glfwGetWindowAttrib(window, GLFW_MAXIMIZED);
+    Uint32 flags = SDL_GetWindowFlags(window);
+    current_state.isMaximized = (flags & SDL_WINDOW_MAXIMIZED) != 0;
 
     if(!current_state.isMaximized) {
-        glfwGetWindowPos(window, &current_state.x, &current_state.y);
-        glfwGetWindowSize(window, &current_state.width, &current_state.height);
+        SDL_GetWindowPosition(window, &current_state.x, &current_state.y);
+        SDL_GetWindowSize(window, &current_state.width, &current_state.height);
     } else {
         current_state.x = window_state.x;
         current_state.y = window_state.y;
         current_state.width = window_state.width;
         current_state.height = window_state.height;
     }
-#endif
     return current_state;
+}
+
+//////////////////////////////////////////////////////////////////////
+// Helper methods for subclasses
+
+void gl_window::get_window_size(int *w, int *h) const
+{
+    SDL_GetWindowSize(window, w, h);
+}
+
+void gl_window::get_framebuffer_size(int *w, int *h) const
+{
+    SDL_GetWindowSizeInPixels(window, w, h);
+}
+
+void gl_window::set_should_close()
+{
+    should_close = true;
+}
+
+void gl_window::set_cursor_pos(double x, double y)
+{
+    SDL_WarpMouseInWindow(window, (float)x, (float)y);
+}
+
+void gl_window::set_input_mode_cursor_normal()
+{
+    SDL_SetWindowRelativeMouseMode(window, false);
+    SDL_ShowCursor();
+}
+
+void gl_window::set_input_mode_cursor_disabled()
+{
+    SDL_SetWindowRelativeMouseMode(window, true);
+}
+
+SDL_Cursor *gl_window::create_system_cursor(SDL_SystemCursor id)
+{
+    return SDL_CreateSystemCursor(id);
+}
+
+void gl_window::set_cursor(SDL_Cursor *cursor)
+{
+    SDL_SetCursor(cursor);
+}
+
+void *gl_window::get_native_window_handle() const
+{
+#ifdef _WIN32
+    return (void *)SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+#else
+    return nullptr;
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////
 
 void gl_window::init()
 {
-    glfwInit();
+    SDL_Init(SDL_INIT_VIDEO);
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);    // Required on macOS
-    glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
 
-    window = glfwCreateWindow(800, 600, window_name().c_str(), nullptr, nullptr);
-    glfwSetWindowUserPointer(window, this);
-
-    glfwSetKeyCallback(window, on_glfw_key);
-    glfwSetMouseButtonCallback(window, on_glfw_mouse_button);
-    glfwSetCursorPosCallback(window, on_glfw_cursor_pos);
-    glfwSetScrollCallback(window, on_glfw_scroll);
-    glfwSetWindowSizeCallback(window, on_glfw_size);
-    glfwSetWindowPosCallback(window, on_glfw_pos);
-    glfwSetDropCallback(window, on_glfw_drop);
-    glfwSetWindowRefreshCallback(window, on_glfw_refresh);
-    glfwSetWindowFocusCallback(window, on_glfw_focus);
-
-    glfwMakeContextCurrent(window);
+    window = SDL_CreateWindow(window_name().c_str(), 800, 600, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
+    gl_context = SDL_GL_CreateContext(window);
+    SDL_GL_MakeCurrent(window, gl_context);
+    SDL_GL_SetSwapInterval(1);
 
     if(!gladLoadGL()) {
         LOG_ERROR("GLAD LOAD FAILED, Exiting...");
@@ -245,7 +169,6 @@ void gl_window::init()
         GL_CHECK(glDebugMessageCallbackARB(log_gl, nullptr));
         GL_CHECK(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB));
         GL_CHECK(glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, nullptr, GL_FALSE));
-        // GL_CHECK(glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_MEDIUM_ARB, 0, nullptr, GL_FALSE));
         GL_CHECK(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB));
     }
 
@@ -256,14 +179,14 @@ void gl_window::init()
     auto fs = cmrc::my_assets::get_filesystem();
     auto roboto_font_file = fs.open("Roboto-Medium.ttf");
     auto matsym_font_file = fs.open("MaterialIcons-Regular.ttf");
-    void const* roboto_font_data_ptr = roboto_font_file.begin();
-    void const* matsym_font_data_ptr = matsym_font_file.begin();
+    void const *roboto_font_data_ptr = roboto_font_file.begin();
+    void const *matsym_font_data_ptr = matsym_font_file.begin();
     size_t roboto_font_data_size = roboto_font_file.size();
     size_t matsym_font_data_size = matsym_font_file.size();
 
     float fontSize = 18.0f;
     ImFontConfig font_cfg{};
-    font_cfg.FontDataOwnedByAtlas = false; // CRITICAL: Tells ImGui NOT to call free()
+    font_cfg.FontDataOwnedByAtlas = false;
     io.Fonts->AddFontFromMemoryTTF(const_cast<void *>(roboto_font_data_ptr), static_cast<int>(roboto_font_data_size), fontSize, &font_cfg);
 
     font_cfg.MergeMode = true;
@@ -277,11 +200,11 @@ void gl_window::init()
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplSDL3_InitForOpenGL(window, gl_context);
     ImGui_ImplOpenGL3_Init("#version 410");
 
     if(!on_init()) {
-        glfwSetWindowShouldClose(window, 1);
+        should_close = true;
         return;
     }
     if(window_state.width == 0 || window_state.height == 0) {
@@ -291,45 +214,46 @@ void gl_window::init()
         window_state.y = 200;
     }
 
-    // If the saved position is not on any connected monitor, reset to a safe default on the primary monitor.
-    int monitor_count;
-    GLFWmonitor **monitors = glfwGetMonitors(&monitor_count);
+    // If the saved position is not on any connected monitor, reset to a safe default
+    int display_count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&display_count);
     bool is_visible = false;
 
-    for(int i = 0; i < monitor_count; ++i) {
-        int monitorX, monitorY, monitorW, monitorH;
-        glfwGetMonitorWorkarea(monitors[i], &monitorX, &monitorY, &monitorW, &monitorH);
-        if(window_state.x >= monitorX && window_state.x < (monitorX + monitorW) && window_state.y >= monitorY && window_state.y < (monitorY + monitorH)) {
-            is_visible = true;
-            break;
+    if(displays) {
+        for(int i = 0; i < display_count; ++i) {
+            SDL_Rect usable;
+            if(SDL_GetDisplayUsableBounds(displays[i], &usable)) {
+                if(window_state.x >= usable.x && window_state.x < (usable.x + usable.w) && window_state.y >= usable.y &&
+                   window_state.y < (usable.y + usable.h)) {
+                    is_visible = true;
+                    break;
+                }
+            }
         }
+        SDL_free(displays);
     }
+
     if(!is_visible) {
-        int primaryX;
-        int primaryY;
-        int primaryW;
-        int primaryH;
-        glfwGetMonitorWorkarea(glfwGetPrimaryMonitor(), &primaryX, &primaryY, &primaryW, &primaryH);
-        window_state.x = primaryX + 100;
-        window_state.y = primaryY + 100;
-        if(window_state.width > primaryW) {
-            window_state.width = primaryW - 200;
-        }
-        if(window_state.height > primaryH) {
-            window_state.height = primaryH - 200;
+        SDL_DisplayID primary = SDL_GetPrimaryDisplay();
+        SDL_Rect usable;
+        if(SDL_GetDisplayUsableBounds(primary, &usable)) {
+            window_state.x = usable.x + 100;
+            window_state.y = usable.y + 100;
+            if(window_state.width > usable.w) {
+                window_state.width = usable.w - 200;
+            }
+            if(window_state.height > usable.h) {
+                window_state.height = usable.h - 200;
+            }
         }
     }
-#ifdef _WIN32
-    restore_win32_window(window, window_state);
-#else
-    glfwSetWindowPos(window, window_state.x, window_state.y);
-    glfwSetWindowSize(window, window_state.width, window_state.height);
+
+    SDL_SetWindowPosition(window, window_state.x, window_state.y);
+    SDL_SetWindowSize(window, window_state.width, window_state.height);
     if(window_state.isMaximized) {
-        glfwPollEvents();
-        glfwMaximizeWindow(window);
+        SDL_MaximizeWindow(window);
     }
-    glfwShowWindow(window);
-#endif
+    SDL_ShowWindow(window);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -337,19 +261,20 @@ void gl_window::init()
 void gl_window::on_frame()
 {
     ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     on_render();
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     ImGuiIO &io = ImGui::GetIO();
     if(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-        GLFWwindow *backup_current_context = glfwGetCurrentContext();
+        SDL_GLContext backup_context = SDL_GL_GetCurrentContext();
+        SDL_Window *backup_window = SDL_GL_GetCurrentWindow();
         ImGui::UpdatePlatformWindows();
         ImGui::RenderPlatformWindowsDefault();
-        glfwMakeContextCurrent(backup_current_context);
+        SDL_GL_MakeCurrent(backup_window, backup_context);
     }
-    glfwSwapBuffers(window);
+    SDL_GL_SwapWindow(window);
     frames += 1;
 }
 
@@ -358,19 +283,120 @@ void gl_window::on_frame()
 bool gl_window::update()
 {
     if(is_idle()) {
-        glfwWaitEvents();
-    } else {
-        glfwPollEvents();
+        SDL_WaitEvent(nullptr);
     }
+
+    SDL_Event event;
+    while(SDL_PollEvent(&event)) {
+        ImGui_ImplSDL3_ProcessEvent(&event);
+
+        switch(event.type) {
+
+        case SDL_EVENT_QUIT:
+            should_close = true;
+            break;
+
+        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+            if(event.window.windowID == SDL_GetWindowID(window)) {
+                should_close = true;
+            }
+            break;
+
+        case SDL_EVENT_WINDOW_RESIZED: {
+            if(event.window.windowID == SDL_GetWindowID(window)) {
+                on_window_size(event.window.data1, event.window.data2);
+            }
+        } break;
+
+        case SDL_EVENT_WINDOW_MOVED: {
+            if(event.window.windowID == SDL_GetWindowID(window)) {
+                on_window_pos(event.window.data1, event.window.data2);
+            }
+        } break;
+
+        case SDL_EVENT_WINDOW_EXPOSED: {
+            if(event.window.windowID == SDL_GetWindowID(window)) {
+                on_window_refresh();
+            }
+        } break;
+
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            if(event.window.windowID == SDL_GetWindowID(window)) {
+                on_window_focus(1);
+            }
+            break;
+
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
+            if(event.window.windowID == SDL_GetWindowID(window)) {
+                on_window_focus(0);
+            }
+            break;
+
+        case SDL_EVENT_KEY_DOWN:
+        case SDL_EVENT_KEY_UP: {
+            ImGuiIO &io = ImGui::GetIO();
+            if(io.WantCaptureKeyboard) {
+                break;
+            }
+            int action = (event.type == SDL_EVENT_KEY_DOWN) ? sdl_compat::ACTION_PRESS : sdl_compat::ACTION_RELEASE;
+            int mods = 0;
+            if(event.key.mod & SDL_KMOD_CTRL)
+                mods |= sdl_compat::KMOD_CTRL_FLAG;
+            if(event.key.mod & SDL_KMOD_ALT)
+                mods |= sdl_compat::KMOD_ALT_FLAG;
+            if(event.key.mod & SDL_KMOD_SHIFT)
+                mods |= sdl_compat::KMOD_SHIFT_FLAG;
+            on_key(event.key.key, event.key.scancode, action, mods);
+        } break;
+
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP: {
+            ImGuiIO &io = ImGui::GetIO();
+            if(io.WantCaptureMouse) {
+                break;
+            }
+            int action = (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) ? sdl_compat::ACTION_PRESS : sdl_compat::ACTION_RELEASE;
+            int mods = SDL_GetModState();
+            on_mouse_button(event.button.button, action, mods);
+        } break;
+
+        case SDL_EVENT_MOUSE_MOTION: {
+            ImGuiIO &io = ImGui::GetIO();
+            if(io.WantCaptureMouse) {
+                break;
+            }
+            on_mouse_move(event.motion.x, event.motion.y);
+        } break;
+
+        case SDL_EVENT_MOUSE_WHEEL: {
+            ImGuiIO &io = ImGui::GetIO();
+            if(io.WantCaptureMouse) {
+                break;
+            }
+            on_scroll(event.wheel.x, event.wheel.y);
+        } break;
+
+        case SDL_EVENT_DROP_FILE: {
+            char const *path = event.drop.data;
+            if(path) {
+                on_drop(1, &path);
+            }
+        } break;
+        }
+    }
+
+    if(should_close) {
+        on_closed();
+        SDL_GL_DestroyContext(gl_context);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return false;
+    }
+
     frame_start_time = get_time();
-    if(!glfwWindowShouldClose(window)) {
-        on_frame();
-        last_frame_elapsed_time = get_time() - frame_start_time;
-        return true;
-    }
-    on_closed();
-    glfwTerminate();
-    return false;
+    on_frame();
+    last_frame_elapsed_time = get_time() - frame_start_time;
+    return true;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -378,6 +404,6 @@ bool gl_window::update()
 void gl_window::on_closed()
 {
     ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 }

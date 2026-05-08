@@ -24,22 +24,19 @@ add_library(glad STATIC ${GLAD_DIR}/src/glad.c)
 target_include_directories(glad PUBLIC ${GLAD_DIR}/include)
 
 ######################################################################
-# GLFW
+# SDL3
 
 FetchContent_Declare(
-        glfw
-        GIT_REPOSITORY https://github.com/glfw/glfw.git
-        GIT_TAG 3.4)
+        SDL3
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG release-3.2.14)
 
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-# Always ON: prevents GLFW from overriding CMAKE_MSVC_RUNTIME_LIBRARY in its scope.
-# The runtime is controlled globally by CMAKE_MSVC_RUNTIME_LIBRARY in the root CMakeLists.txt.
-set(USE_MSVC_RUNTIME_LIBRARY_DLL ON CACHE BOOL "" FORCE)
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+set(SDL_TESTS OFF CACHE BOOL "" FORCE)
 
-FetchContent_MakeAvailable(glfw)
+FetchContent_MakeAvailable(SDL3)
 
 ######################################################################
 # IMGUI
@@ -54,13 +51,13 @@ FetchContent_MakeAvailable(imgui)
 
 file(GLOB IMGUI_CORE_SOURCES "${imgui_SOURCE_DIR}/*.cpp")
 set(IMGUI_BACKEND_SOURCES
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
         ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
 )
 
 add_library(imgui_lib STATIC ${IMGUI_CORE_SOURCES} ${IMGUI_BACKEND_SOURCES})
 
-target_link_libraries(imgui_lib PUBLIC glfw OpenGL::GL)
+target_link_libraries(imgui_lib PUBLIC SDL3::SDL3-static OpenGL::GL)
 
 if(UNIX AND NOT APPLE)
     find_package(X11 REQUIRED)
@@ -79,7 +76,7 @@ target_compile_definitions(imgui_lib PUBLIC IMGUI_USE_WCHAR32)
 add_library(gerber_gl INTERFACE)
 
 target_link_libraries(gerber_gl INTERFACE
-        imgui_lib # gl and glfw are added via imgui_lib...
+        imgui_lib # gl and SDL3 are added via imgui_lib...
         glad)
 
 ######################################################################
@@ -214,7 +211,7 @@ target_silence_warnings(Clipper2Zutils)
 # Enable IPO/LTO for some libs
 
 set(IPO_LIBS
-        glfw
+        SDL3-static
         glad
         imgui_lib
         DirectXMath
