@@ -240,7 +240,7 @@ struct gerber_explorer : gpu_window
     std::vector<int> active_entities;
     int active_entity_index;
     gerber::tesselator_entity *active_entity{ nullptr };
-    std::string active_entity_description{};
+    std::vector<std::string> active_entity_info{};
 
     job_pool pool;
 

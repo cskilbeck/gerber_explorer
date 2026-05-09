@@ -1190,50 +1190,124 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
     }
     active_entity = entity;
     if(active_entity == nullptr) {
-        active_entity_description.clear();
+        active_entity_info.clear();
         return;
     }
     active_entity->flags |= entity_flags_t::active;
     using namespace gerber_lib;
 
+    auto &info = active_entity_info;
+    info.clear();
+
     gerber_net *net = active_entity->net;
     gerber_level *level = net->level;
-    gerber_polarity polarity = level->polarity;
-    gerber_aperture_type aperture_type{ aperture_type_none };
+    gerber_aperture *aperture = nullptr;
 
-    std::string interpolation{ "" };
-    if(net->aperture_state == aperture_state_on && net->interpolation_method < interpolation_region_start) {
-        interpolation = std::format(" {} interpolation,", net->interpolation_method);
+    double scale = 1.0;
+    char const *units = "mm";
+    if(settings.units == settings::units_inch) {
+        scale = 1.0 / 25.4;
+        units = "in";
     }
 
-    std::string state{ "" };
-    if(net->aperture_state != aperture_state_on) {
-        state = std::format("{}", net->aperture_state);
-    }
+    auto coord = [&](double v) { return v * scale; };
 
-    std::string description{ "?" };
-    if(net->aperture != 0) {
-        auto apertures = selected_layer->file.image.apertures;
-        auto it = apertures.find(net->aperture);
-        if(it != apertures.end()) {
-            gerber_aperture *aperture = it->second;
-            aperture_type = aperture->aperture_type;
-            if(aperture_type >= aperture_type_macro) {
-                gerber_aperture_macro *macro = aperture->aperture_macro;
-                description = std::format("macro {}", macro->name);
-            } else {
-                description = std::format("aperture {} ({})", net->aperture, aperture_type);
-            }
-        } else {
-            description = std::format("?unknown aperture {}?", net->aperture);
+    // Look up aperture
+    if(net->aperture != 0 && selected_layer != nullptr) {
+        auto it = selected_layer->file.image.apertures.find(net->aperture);
+        if(it != selected_layer->file.image.apertures.end()) {
+            aperture = it->second;
         }
-    } else if(net->num_region_points != 0) {
-        description = std::format("region ({} points)", net->num_region_points);
     }
 
-    int x = selected_layer->drawer->entity_flags.data()[active_entity->entity_id()];
-    active_entity_description =
-        std::format("Entity {}:{}{} {} polarity ({}) flags: {} ({})", net->entity_id, state, interpolation, polarity, description, active_entity->flags, x);
+    // Find source line number from the entity list
+    int entity_index = active_entity->entity_id();
+    int source_line = 0;
+    if(selected_layer != nullptr && entity_index >= 0 && entity_index < (int)selected_layer->file.entities.size()) {
+        source_line = selected_layer->file.entities[entity_index].line_number_begin;
+    }
+
+    // Entity ID + source line
+    if(source_line > 0) {
+        info.push_back(std::format("Entity: {} (line {})", net->entity_id, source_line));
+    } else {
+        info.push_back(std::format("Entity: {}", net->entity_id));
+    }
+
+    // Type
+    {
+        std::string type_str;
+        switch(net->aperture_state) {
+        case aperture_state_flash:
+            type_str = "Flash";
+            break;
+        case aperture_state_on:
+            switch(net->interpolation_method) {
+            case interpolation_linear: type_str = "Linear"; break;
+            case interpolation_clockwise_circular: type_str = "Arc CW"; break;
+            case interpolation_counterclockwise_circular: type_str = "Arc CCW"; break;
+            case interpolation_region_start:
+                type_str = std::format("Region ({} points, {} contours)", net->num_region_points, active_entity->num_contours);
+                break;
+            default: type_str = "Draw"; break;
+            }
+            break;
+        case aperture_state_off: type_str = "Move"; break;
+        }
+        info.push_back(std::format("Type: {}", type_str));
+    }
+
+    // Aperture
+    if(aperture != nullptr) {
+        if(aperture->aperture_type >= aperture_type_macro && aperture->aperture_macro != nullptr) {
+            info.push_back(std::format("Aperture: D{} Macro \"{}\"", net->aperture, aperture->aperture_macro->name));
+        } else {
+            std::string ap_desc = aperture->get_description(1.0 / scale, units);
+            info.push_back(std::format("Aperture: D{} {}", net->aperture, ap_desc));
+        }
+    }
+
+    // Position/geometry details
+    switch(net->aperture_state) {
+    case aperture_state_flash:
+        info.push_back(std::format("Position: ({:.4f}, {:.4f}) {}", coord(net->end.x), coord(net->end.y), units));
+        break;
+
+    case aperture_state_on:
+        if(net->interpolation_method == interpolation_linear) {
+            double dx = net->end.x - net->start.x;
+            double dy = net->end.y - net->start.y;
+            double len = std::sqrt(dx * dx + dy * dy);
+            info.push_back(std::format("From: ({:.4f}, {:.4f}) {}", coord(net->start.x), coord(net->start.y), units));
+            info.push_back(std::format("To: ({:.4f}, {:.4f}) {}", coord(net->end.x), coord(net->end.y), units));
+            info.push_back(std::format("Length: {:.4f} {}", coord(len), units));
+        } else if(net->interpolation_method == interpolation_clockwise_circular ||
+                  net->interpolation_method == interpolation_counterclockwise_circular) {
+            auto const &arc = net->circle_segment;
+            double radius = arc.size.x / 2.0;
+            info.push_back(std::format("Center: ({:.4f}, {:.4f}) {}", coord(arc.pos.x), coord(arc.pos.y), units));
+            info.push_back(std::format("Radius: {:.4f} {}", coord(radius), units));
+            info.push_back(std::format("Angles: {:.1f}\xc2\xb0 \xe2\x86\x92 {:.1f}\xc2\xb0 (sweep {:.1f}\xc2\xb0)",
+                                       arc.start_angle, arc.end_angle, arc.sweep_angle()));
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    // Polarity
+    char const *polarity_str = "Dark";
+    if(level->polarity == polarity_clear || level->polarity == polarity_negative) {
+        polarity_str = "Clear";
+    }
+    info.push_back(std::format("Polarity: {}", polarity_str));
+
+    // Bounding box
+    rect const &bb = active_entity->bounds;
+    if(!bb.is_empty_rect()) {
+        info.push_back(std::format("Bounds: {:.4f} x {:.4f} {}", coord(bb.width()), coord(bb.height()), units));
+    }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1387,9 +1461,11 @@ void gerber_explorer::ui()
             if(ImGui::BeginMenu("Units")) {
                 if(ImGui::MenuItem("MM", "", settings.units == settings::units_mm)) {
                     settings.units = settings::units_mm;
+                    set_active_entity(active_entity);
                 }
                 if(ImGui::MenuItem("Inch", "", settings.units == settings::units_inch)) {
                     settings.units = settings::units_inch;
+                    set_active_entity(active_entity);
                 }
                 ImGui::EndMenu();
             }
@@ -1665,40 +1741,61 @@ void gerber_explorer::ui()
 
     ImGui::Begin("Info");
     {
-        if(active_entity != nullptr) {
-            ImGui::Text("%s", active_entity_description.c_str());
-        } else if(selected_layer != nullptr) {
-            char const *layer_type_name = gerber_lib::layer_type_name_friendly(selected_layer->layer_type());
-            ImGui::Text("%s - %s (%zu entities) (outline: %d) (got_mask: %d)",
-                        selected_layer->name.c_str(),
-                        layer_type_name,
-                        selected_layer->drawer->entities.size(),
-                        selected_layer->is_outline_layer,
-                        selected_layer->got_mask);
-        } else {
-            ImGui::Text("Select a layer...");
-        }
-        ImGui::SameLine();
         double scale = 1.0;
         char const *units_str = "mm";
         if(settings.units == settings::units_inch) {
             scale = 1.0 / 25.4;
             units_str = "in";
         }
-        // Show measurement distance
+
+        // Mouse position at the top, right-aligned
+        {
+            vec2d pos = world_mouse_pos.scale(scale);
+            std::string mouse_text = std::format("{:8.4f}  {:8.4f}  {}", pos.x, pos.y, units_str);
+            float text_width = ImGui::CalcTextSize(mouse_text.c_str()).x;
+            float posX = ImGui::GetWindowWidth() - text_width - ImGui::GetStyle().ItemSpacing.x;
+            ImGui::SetCursorPosX(posX);
+            ImGui::Text("%s", mouse_text.c_str());
+        }
+
+        // Measurement distance
         if(measure_dragging || measure_line_visible) {
             double dx = (measure_end_world.x - measure_start_world.x) * scale;
             double dy = (measure_end_world.y - measure_start_world.y) * scale;
             double distance = std::sqrt(dx * dx + dy * dy);
             ImGui::Text("Distance: %.4f %s (dx: %.4f, dy: %.4f)", distance, units_str, dx, dy);
-            ImGui::SameLine();
         }
-        vec2d pos = world_mouse_pos.scale(scale);
-        std::string text = std::format("{:8.4f} {:8.4f} {}", pos.x, pos.y, units_str);
-        float text_width = ImGui::CalcTextSize(text.c_str()).x;
-        float posX = ImGui::GetWindowWidth() - text_width - ImGui::GetStyle().ItemSpacing.x;
-        ImGui::SetCursorPosX(posX);
-        ImGui::Text("%s", text.c_str());
+
+        ImGui::Separator();
+
+        if(active_entity != nullptr && !active_entity_info.empty()) {
+            if(ImGui::BeginTable("##entity_info", 2, ImGuiTableFlags_SizingStretchProp)) {
+                ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed);
+                ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+                for(auto const &line : active_entity_info) {
+                    auto colon = line.find(':');
+                    if(colon != std::string::npos && colon < 20) {
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        ImGui::TextUnformatted(line.c_str(), line.c_str() + colon);
+                        ImGui::TableNextColumn();
+                        ImGui::TextUnformatted(line.c_str() + colon + 1);
+                    } else {
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        ImGui::TextUnformatted(line.c_str());
+                        ImGui::TableNextColumn();
+                    }
+                }
+                ImGui::EndTable();
+            }
+        } else if(selected_layer != nullptr) {
+            char const *layer_type_name = gerber_lib::layer_type_name_friendly(selected_layer->layer_type());
+            ImGui::Text("%s", selected_layer->name.c_str());
+            ImGui::Text("%s, %zu entities", layer_type_name, selected_layer->drawer->entities.size());
+        } else {
+            ImGui::Text("Select a layer...");
+        }
     }
     ImGui::End();
 
