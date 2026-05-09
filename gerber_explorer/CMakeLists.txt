@@ -22,21 +22,45 @@ set(HLSL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders_hlsl")
 set(VERT_SHADERS solid color layer line line2 arc blit)
 set(FRAG_SHADERS common layer line line2 arc blit selection)
 
-# ---- SPIR-V (Vulkan) ----
-set(SHADER_SPV_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders_spv")
-file(MAKE_DIRECTORY ${SHADER_SPV_DIR})
+# Only the shaders that gpu_base.cpp actually loads need an MSL counterpart.
+# (line/arc HLSL shaders are not currently used at runtime.)
+set(VERT_SHADERS_USED solid color layer line2 blit)
+set(FRAG_SHADERS_USED common layer line2 blit selection)
 
-set(ALL_SPV_FILES "")
-foreach(S ${VERT_SHADERS})
-    compile_hlsl_to_spirv(${HLSL_DIR}/${S}.vert.hlsl vertex main ${SHADER_SPV_DIR}/${S}.vert.spv)
-    list(APPEND ALL_SPV_FILES ${SHADER_SPV_DIR}/${S}.vert.spv)
-endforeach()
-foreach(S ${FRAG_SHADERS})
-    compile_hlsl_to_spirv(${HLSL_DIR}/${S}.frag.hlsl fragment main ${SHADER_SPV_DIR}/${S}.frag.spv)
-    list(APPEND ALL_SPV_FILES ${SHADER_SPV_DIR}/${S}.frag.spv)
-endforeach()
+if(APPLE)
+    # ---- MSL source (Metal, macOS only) ----
+    # We embed the .metal text directly and let SDL_GPU compile it with
+    # MTLLibrary's source compiler at runtime. This makes shader errors
+    # actionable (the alternative, .metallib, surfaces XPC failures from
+    # the GPU pipeline compiler with no useful diagnostics).
+    set(MSL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders_msl")
 
-cmrc_add_resource_library(my_shaders_spv WHENCE "${SHADER_SPV_DIR}" ${ALL_SPV_FILES})
+    set(ALL_MSL_FILES "")
+    foreach(S ${VERT_SHADERS_USED})
+        list(APPEND ALL_MSL_FILES ${MSL_DIR}/${S}.vert.metal)
+    endforeach()
+    foreach(S ${FRAG_SHADERS_USED})
+        list(APPEND ALL_MSL_FILES ${MSL_DIR}/${S}.frag.metal)
+    endforeach()
+
+    cmrc_add_resource_library(my_shaders_msl WHENCE "${MSL_DIR}" ${ALL_MSL_FILES})
+else()
+    # ---- SPIR-V (Vulkan) ----
+    set(SHADER_SPV_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders_spv")
+    file(MAKE_DIRECTORY ${SHADER_SPV_DIR})
+
+    set(ALL_SPV_FILES "")
+    foreach(S ${VERT_SHADERS})
+        compile_hlsl_to_spirv(${HLSL_DIR}/${S}.vert.hlsl vertex main ${SHADER_SPV_DIR}/${S}.vert.spv)
+        list(APPEND ALL_SPV_FILES ${SHADER_SPV_DIR}/${S}.vert.spv)
+    endforeach()
+    foreach(S ${FRAG_SHADERS})
+        compile_hlsl_to_spirv(${HLSL_DIR}/${S}.frag.hlsl fragment main ${SHADER_SPV_DIR}/${S}.frag.spv)
+        list(APPEND ALL_SPV_FILES ${SHADER_SPV_DIR}/${S}.frag.spv)
+    endforeach()
+
+    cmrc_add_resource_library(my_shaders_spv WHENCE "${SHADER_SPV_DIR}" ${ALL_SPV_FILES})
+endif()
 
 # ---- DXIL (D3D12, Windows only) ----
 if(WIN32)
@@ -103,11 +127,14 @@ if (APPLE AND NOT CMAKE_CXX_COMPILER MATCHES "^/usr/")
     set(_LIBCXX_PATH "${_LLVM_ROOT}/lib/c++/libc++.1.dylib")
     if (EXISTS "${_LIBCXX_PATH}")
         message(STATUS "Using non-system libc++: ${_LIBCXX_PATH}")
+        # clang already adds -lc++ implicitly; we only need to point the linker
+        # at Homebrew's lib dirs and add -lunwind. Adding -lc++ ourselves causes
+        # ld's "duplicate libraries" warning.
         target_link_options(${PROJECT} PRIVATE
             -L${_LLVM_ROOT}/lib/c++
             -L${_LLVM_ROOT}/lib/unwind
-            -lc++
             -lunwind
+            -Wl,-no_warn_duplicate_libraries
         )
         set(_USING_LLVM_LIBCXX TRUE)
     endif()
@@ -147,13 +174,18 @@ if (APPLE AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
         )
 
         # Helper list of dylibs to bundle: original_path, bundle_name
-        # Start with libc++ (always present at this point)
+        # Start with libc++ (always present at this point). We strip each
+        # dylib's existing codesignature before running install_name_tool;
+        # otherwise install_name_tool warns that its edits invalidate the
+        # signature. We re-codesign the whole bundle below.
         add_custom_command(TARGET ${PROJECT} POST_BUILD
             COMMENT "Bundling LLVM runtime libraries into app bundle..."
             COMMAND ${CMAKE_COMMAND} -E make_directory
                 "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${_LIBCXX_PATH}"
+                "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libc++.1.dylib"
+            COMMAND codesign --remove-signature
                 "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libc++.1.dylib"
             COMMAND install_name_tool -id
                 "@rpath/libc++.1.dylib"
@@ -169,6 +201,8 @@ if (APPLE AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
             add_custom_command(TARGET ${PROJECT} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     "${_LIBCXXABI_PATH}"
+                    "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libc++abi.1.dylib"
+                COMMAND codesign --remove-signature
                     "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libc++abi.1.dylib"
                 COMMAND install_name_tool -id
                     "@rpath/libc++abi.1.dylib"
@@ -189,6 +223,8 @@ if (APPLE AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
             add_custom_command(TARGET ${PROJECT} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     "${_LIBUNWIND_PATH}"
+                    "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libunwind.1.dylib"
+                COMMAND codesign --remove-signature
                     "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/Frameworks/libunwind.1.dylib"
                 COMMAND install_name_tool -id
                     "@rpath/libunwind.1.dylib"
@@ -220,7 +256,14 @@ endif()
 
 target_include_directories(${PROJECT} PRIVATE ${CMRC_INCLUDE_DIR})
 
-target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets my_shaders_spv project_options)
+target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets project_options)
+
+if(APPLE)
+    target_link_libraries(${PROJECT} PRIVATE my_shaders_msl)
+    target_compile_definitions(${PROJECT} PRIVATE HAS_MSL_SHADERS=1)
+else()
+    target_link_libraries(${PROJECT} PRIVATE my_shaders_spv)
+endif()
 
 if(WIN32)
     target_link_libraries(${PROJECT} PRIVATE my_shaders_dxil)

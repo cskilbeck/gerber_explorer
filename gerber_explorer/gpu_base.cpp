@@ -10,7 +10,11 @@
 
 LOG_CONTEXT("gpu_base", info);
 
+#if HAS_MSL_SHADERS
+CMRC_DECLARE(my_shaders_msl);
+#else
 CMRC_DECLARE(my_shaders_spv);
+#endif
 
 #if HAS_DXIL_SHADERS
 CMRC_DECLARE(my_shaders_dxil);
@@ -45,16 +49,23 @@ namespace gpu
         window = win;
 
         // Request all shader formats we have pre-compiled
-        SDL_GPUShaderFormat formats = SDL_GPU_SHADERFORMAT_SPIRV;
+        SDL_GPUShaderFormat formats = 0;
+#if HAS_MSL_SHADERS
+        formats |= SDL_GPU_SHADERFORMAT_MSL;
+#else
+        formats |= SDL_GPU_SHADERFORMAT_SPIRV;
+#endif
 #if HAS_DXIL_SHADERS
         formats |= SDL_GPU_SHADERFORMAT_DXIL;
 #endif
 
         LOG_INFO("Creating SDL_GPU device");
-        // Prefer D3D12 on Windows, falls back to Vulkan
+        // Prefer D3D12 on Windows, Metal on macOS, falls back to Vulkan elsewhere
         char const *preferred_driver = nullptr;
-#ifdef _WIN32
+#if defined(_WIN32)
         preferred_driver = "direct3d12";
+#elif defined(__APPLE__)
+        preferred_driver = "metal";
 #endif
         gpu = SDL_CreateGPUDevice(formats, true, preferred_driver);
         if(!gpu) {
@@ -107,6 +118,16 @@ namespace gpu
         }
 #endif
 
+#if HAS_MSL_SHADERS
+        if(format == SDL_GPU_SHADERFORMAT_INVALID && (shader_formats & SDL_GPU_SHADERFORMAT_MSL)) {
+            std::string msl_name = std::string(shader_name) + ".metal";
+            auto fs = cmrc::my_shaders_msl::get_filesystem();
+            code = load_resource(fs, msl_name.c_str());
+            if(code.data) {
+                format = SDL_GPU_SHADERFORMAT_MSL;
+            }
+        }
+#else
         if(format == SDL_GPU_SHADERFORMAT_INVALID) {
             // Fall back to SPIR-V
             std::string spv_name = std::string(shader_name) + ".spv";
@@ -116,19 +137,27 @@ namespace gpu
                 format = SDL_GPU_SHADERFORMAT_SPIRV;
             }
         }
+#endif
 
         if(!code.data) {
             LOG_ERROR("No shader bytecode found for '{}'", shader_name);
             return nullptr;
         }
 
-        LOG_INFO("  Loading '{}' ({}, {} bytes)", shader_name,
-                 (format == SDL_GPU_SHADERFORMAT_DXIL) ? "DXIL" : "SPIR-V", code.size);
+        char const *fmt_name = "?";
+        switch(format) {
+        case SDL_GPU_SHADERFORMAT_DXIL:  fmt_name = "DXIL"; break;
+        case SDL_GPU_SHADERFORMAT_SPIRV: fmt_name = "SPIR-V"; break;
+        case SDL_GPU_SHADERFORMAT_MSL:   fmt_name = "MSL"; break;
+        default: break;
+        }
+        LOG_INFO("  Loading '{}' ({}, {} bytes)", shader_name, fmt_name, code.size);
 
         SDL_GPUShaderCreateInfo ci{};
         ci.code = reinterpret_cast<Uint8 const *>(code.data);
         ci.code_size = code.size;
-        ci.entrypoint = entry_point;
+        // Metal disallows "main" as a function name; our MSL shaders use "main0".
+        ci.entrypoint = (format == SDL_GPU_SHADERFORMAT_MSL) ? "main0" : entry_point;
         ci.format = format;
         ci.stage = stage;
         ci.num_samplers = num_samplers;

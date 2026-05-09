@@ -2,7 +2,34 @@ cmake_minimum_required(VERSION 3.24)
 
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
-project(gerber_explorer VERSION 1.0)
+# When using non-Apple Clang (e.g. Homebrew LLVM), use its own ar/ranlib
+# so that LTO bitcode is handled correctly (Apple's `ar` is a thin wrapper
+# around `xcrun ar` which invokes Apple's ranlib internally and chokes on
+# LLVM 21 bitcode). This MUST run before project() so CMake's compiler-init
+# uses our overrides for the per-language CMAKE_*_COMPILER_AR/RANLIB.
+if (APPLE AND DEFINED CMAKE_CXX_COMPILER AND NOT CMAKE_CXX_COMPILER MATCHES "^/usr/")
+    get_filename_component(_CXX_COMPILER_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    find_program(_LLVM_AR llvm-ar PATHS "${_CXX_COMPILER_DIR}" NO_DEFAULT_PATH)
+    find_program(_LLVM_RANLIB llvm-ranlib PATHS "${_CXX_COMPILER_DIR}" NO_DEFAULT_PATH)
+    if (_LLVM_AR)
+        set(CMAKE_AR "${_LLVM_AR}" CACHE FILEPATH "Archiver" FORCE)
+        set(CMAKE_C_COMPILER_AR "${_LLVM_AR}" CACHE FILEPATH "Archiver" FORCE)
+        set(CMAKE_CXX_COMPILER_AR "${_LLVM_AR}" CACHE FILEPATH "Archiver" FORCE)
+        message(STATUS "Using LLVM ar: ${_LLVM_AR}")
+    endif()
+    if (_LLVM_RANLIB)
+        set(CMAKE_RANLIB "${_LLVM_RANLIB}" CACHE FILEPATH "Ranlib" FORCE)
+        set(CMAKE_C_COMPILER_RANLIB "${_LLVM_RANLIB}" CACHE FILEPATH "Ranlib" FORCE)
+        set(CMAKE_CXX_COMPILER_RANLIB "${_LLVM_RANLIB}" CACHE FILEPATH "Ranlib" FORCE)
+        message(STATUS "Using LLVM ranlib: ${_LLVM_RANLIB}")
+    endif()
+endif()
+
+if(APPLE)
+    project(gerber_explorer VERSION 1.0 LANGUAGES C CXX OBJC OBJCXX)
+else()
+    project(gerber_explorer VERSION 1.0 LANGUAGES C CXX)
+endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
@@ -11,22 +38,6 @@ include(utils)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-
-# When using non-Apple Clang (e.g. Homebrew LLVM), use its own ar/ranlib
-# so that LTO bitcode is handled correctly (Apple's tools don't understand it).
-if (APPLE AND NOT CMAKE_CXX_COMPILER MATCHES "^/usr/")
-    get_filename_component(_CXX_COMPILER_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
-    find_program(_LLVM_AR llvm-ar PATHS "${_CXX_COMPILER_DIR}" NO_DEFAULT_PATH)
-    find_program(_LLVM_RANLIB llvm-ranlib PATHS "${_CXX_COMPILER_DIR}" NO_DEFAULT_PATH)
-    if (_LLVM_AR)
-        set(CMAKE_AR "${_LLVM_AR}" CACHE FILEPATH "Archiver" FORCE)
-        message(STATUS "Using LLVM ar: ${_LLVM_AR}")
-    endif()
-    if (_LLVM_RANLIB)
-        set(CMAKE_RANLIB "${_LLVM_RANLIB}" CACHE FILEPATH "Ranlib" FORCE)
-        message(STATUS "Using LLVM ranlib: ${_LLVM_RANLIB}")
-    endif()
-endif()
 
 if (${MSVC_IDE})
     message(STATUS "Environment: Visual Studio detected: [${MSVC_IDE}],[$ENV{VisualStudioVersion}],[$ENV{VSAPPIDNAME}]")
