@@ -53,6 +53,7 @@ file(GLOB IMGUI_CORE_SOURCES "${imgui_SOURCE_DIR}/*.cpp")
 set(IMGUI_BACKEND_SOURCES
         ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
         ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp
 )
 
 add_library(imgui_lib STATIC ${IMGUI_CORE_SOURCES} ${IMGUI_BACKEND_SOURCES})
@@ -93,6 +94,23 @@ FetchContent_Declare(
 set(CPPTRACE_DISABLE_CXX_20_MODULES ON CACHE BOOL "Disable modules for cpptrace" FORCE)
 
 FetchContent_MakeAvailable(cpptrace)
+
+######################################################################
+# SDL_shadercross
+
+FetchContent_Declare(
+        SDL_shadercross
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL_shadercross.git
+        GIT_TAG main)
+
+set(SDLSHADERCROSS_SHARED OFF CACHE BOOL "" FORCE)
+set(SDLSHADERCROSS_STATIC ON CACHE BOOL "" FORCE)
+set(SDLSHADERCROSS_CLI OFF CACHE BOOL "" FORCE)
+set(SDLSHADERCROSS_VENDORED ON CACHE BOOL "" FORCE)
+set(SDLSHADERCROSS_SPIRVCROSS_SHARED OFF CACHE BOOL "" FORCE)
+set(SDLSHADERCROSS_DXC OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(SDL_shadercross)
 
 ######################################################################
 # DirectXMath
@@ -241,6 +259,7 @@ endif()
 
 target_link_libraries(third_party INTERFACE
         gerber_gl
+        SDL3_shadercross::SDL3_shadercross-static
         cpptrace::cpptrace
         DirectXMath
         nfd

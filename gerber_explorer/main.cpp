@@ -93,7 +93,7 @@ int output_debug_string(char const *s)
 }
 #endif
 
-int main(int, char **)
+int main(int argc, char **argv)
 {
 #ifdef _DEBUG
     log_set_level(gerber_lib::log_level_debug);
@@ -122,6 +122,13 @@ int main(int, char **)
 #endif
 
     gerber_explorer window;
+
+    for(int i = 1; i < argc; ++i) {
+        if(strcmp(argv[i], "--gpu") == 0) {
+            window.use_gpu_backend = true;
+        }
+    }
+
     window.init();
 
     while(window.update()) {}

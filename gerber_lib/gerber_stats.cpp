@@ -5,7 +5,7 @@
 #include "gerber_stats.h"
 #include "gerber_aperture.h"
 
-LOG_CONTEXT("stats", debug);
+LOG_CONTEXT("stats", info);
 
 namespace gerber_lib
 {

@@ -15,7 +15,7 @@ namespace gerber_lib
 
     void gerber_image::cleanup()
     {
-        LOG_INFO("cleanup {}", this->info.image_name);
+        LOG_DEBUG("cleanup {}", this->info.image_name);
 
         stats.cleanup();
 

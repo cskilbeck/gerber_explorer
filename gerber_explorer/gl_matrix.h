@@ -13,6 +13,7 @@ namespace gl
     matrix make_translate(float x, float y);
     matrix make_scale(float x, float y);
     matrix make_ortho(int w, int h);
+    matrix make_ortho_vk(int w, int h);    // Vulkan/SDL_GPU: Y flipped
     matrix matrix_multiply(matrix const &a, matrix const &b);
 
     gerber_lib::vec2f matrix_apply(gerber_lib::vec2f const &v, matrix const &matrix);

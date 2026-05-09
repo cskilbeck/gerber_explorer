@@ -51,6 +51,18 @@ namespace gl
         return t;
     }
 
+    matrix make_ortho_vk(int w, int h)
+    {
+        // Same as make_ortho but with Y-flip for Vulkan clip space
+        // GL ortho then negate Y: multiply by diag(1,-1,1,1)
+        matrix t = make_ortho(w, h);
+        t.m[1] = -t.m[1];    // negate column 1 elements (row-major storage)
+        t.m[5] = -t.m[5];
+        t.m[9] = -t.m[9];
+        t.m[13] = -t.m[13];
+        return t;
+    }
+
     matrix matrix_multiply(matrix const &a, matrix const &b)
     {
         XMMATRIX mA = load_gl(a);

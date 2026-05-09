@@ -9,6 +9,8 @@
 
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "imgui_impl_sdl3.h"
+#include "imgui_impl_sdlgpu3.h"
 
 #include <nfd.h>
 
@@ -695,7 +697,17 @@ void gerber_explorer::on_closed()
     if(crosshair_cursor != nullptr) {
         SDL_DestroyCursor(crosshair_cursor);
     }
-    gl_window::on_closed();
+    gl_window::on_closed();    // shuts down ImGui backends before we destroy GPU resources
+    if(use_gpu_backend) {
+        for(auto *l : layers) {
+            l->gpu_resources.release(gpu_dev);
+        }
+        gpu_dev.release_buffer(gpu_quad_vbo);
+        gpu_dev.release_buffer(gpu_overlay_vbo);
+        gpu_render_target.cleanup(gpu_dev);
+        gpu_pipelines.cleanup(gpu_dev);
+        gpu_dev.shutdown();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -729,6 +741,9 @@ void gerber_explorer::on_window_size(int w, int h)
 void gerber_explorer::on_window_refresh()
 {
     gl_window::on_window_refresh();
+    if(use_gpu_backend && frames == 0) {
+        return;    // GPU backend needs a proper first frame before refresh renders
+    }
     on_frame();
     if(should_fit_to_viewport) {
         view_rect = target_view_rect;
@@ -914,21 +929,60 @@ bool gerber_explorer::on_init()
     view_rect = viewport_rect;
     viewport_size = viewport_rect.size();
 
-    solid_program.init();
-    color_program.init();
-    layer_program.init();
-    blit_program.init();
-    selection_program.init();
-    arc_program.init();
-    line2_program.init();
+    if(use_gpu_backend) {
+        if(!gpu_dev.init(window)) {
+            LOG_ERROR("GPU device init failed, falling back to OpenGL");
+            use_gpu_backend = false;
+        } else {
+            SDL_GPUTextureFormat swapchain_format = SDL_GetGPUSwapchainTextureFormat(gpu_dev.gpu, window);
 
-    overlay.init();
+            if(!gpu_pipelines.init(gpu_dev, swapchain_format, SDL_GPU_SAMPLECOUNT_1)) {
+                // Start with SAMPLECOUNT_1; will be recreated when settings are loaded
+                LOG_ERROR("GPU pipeline init failed, falling back to OpenGL");
+                gpu_dev.shutdown();
+                use_gpu_backend = false;
+            } else {
+                // Initialize ImGui backends now that GPU device and pipelines are ready
+                ImGui_ImplSDL3_InitForOther(window);
+
+                ImGui_ImplSDLGPU3_InitInfo imgui_gpu_info{};
+                imgui_gpu_info.Device = gpu_dev.gpu;
+                imgui_gpu_info.ColorTargetFormat = swapchain_format;
+                imgui_gpu_info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;
+                ImGui_ImplSDLGPU3_Init(&imgui_gpu_info);
+            }
+        }
+    }
+
+    if(!use_gpu_backend) {
+        solid_program.init();
+        color_program.init();
+        layer_program.init();
+        blit_program.init();
+        selection_program.init();
+        arc_program.init();
+        line2_program.init();
+
+        overlay.init();
+    }
 
     crosshair_cursor = create_system_cursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
 
-    glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &max_multisamples);
+    if(!use_gpu_backend) {
+        glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &max_multisamples);
+    } else {
+        // Query max supported MSAA for our RT format
+        max_multisamples = 1;
+        SDL_GPUSampleCount test_counts[] = { SDL_GPU_SAMPLECOUNT_2, SDL_GPU_SAMPLECOUNT_4, SDL_GPU_SAMPLECOUNT_8 };
+        int test_values[] = { 2, 4, 8 };
+        for(int i = 0; i < 3; ++i) {
+            if(SDL_GPUTextureSupportsSampleCount(gpu_dev.gpu, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, test_counts[i])) {
+                max_multisamples = test_values[i];
+            }
+        }
+    }
 
-    LOG_INFO("MAX GL Multisamples: {}", max_multisamples);
+    LOG_INFO("MAX Multisamples: {}", max_multisamples);
 
     load_settings(config_path(app_name, settings_filename));
 
@@ -1128,7 +1182,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
         layer->is_outline_layer = is_layer_type(layer_type, layer::type_t::board) || is_layer_type(layer_type, layer::type_t::outline);
         layer->drawer->tesselation_quality = layer->is_outline_layer ? tesselation_quality::high : settings.tesselation_quality;
         layer->drawer->set_gerber(&layer->file);
-        LOG_INFO("Tesselated ({}:{}) {}", layer_type_name(layer_type), layer->is_outline_layer, layer->filename());
+        LOG_DEBUG("Tesselated ({}:{}) {}", layer_type_name(layer_type), layer->is_outline_layer, layer->filename());
         if(layer->is_outline_layer) {
             layer->drawer->create_mask();
         }
@@ -1370,8 +1424,21 @@ void gerber_explorer::ui()
                 }
                 ImGui::EndMenu();
             }
-            if(ImGui::BeginMenu("Multisamples")) {
-                ImGui::SliderInt("##multisamples", &settings.multisamples, 1, max_multisamples, "%d");
+            if(ImGui::BeginMenu("Anti-Aliasing")) {
+                int msaa_options[] = { 1, 2, 4, 8 };
+                int num_options = 0;
+                for(int i = 0; i < 4; ++i) {
+                    if(msaa_options[i] <= max_multisamples) {
+                        num_options = i + 1;
+                    }
+                }
+                for(int i = 0; i < num_options; ++i) {
+                    char label[16];
+                    snprintf(label, sizeof(label), "%dx", msaa_options[i]);
+                    if(ImGui::MenuItem(label, "", settings.multisamples == msaa_options[i])) {
+                        settings.multisamples = msaa_options[i];
+                    }
+                }
                 ImGui::EndMenu();
             }
             if(ImGui::BeginMenu("Tesselation")) {
@@ -1816,7 +1883,7 @@ void gerber_explorer::on_render()
             }
 
             layers.sort([](gerber_layer const *a, gerber_layer const *b) { return a->index > b->index; });
-            LOG_INFO("Loaded layer \"{}\"", loaded_layer->filename());
+            LOG_VERBOSE("Loaded layer \"{}\"", loaded_layer->filename());
             if(loaded_layers.empty()) {
                 select_layer(nullptr);
                 fit_to_viewport();
@@ -2005,6 +2072,7 @@ void gerber_explorer::on_render()
     flip_m.m[5] = (float)flip_xy.y;
     flip_m.m[12] = (float)(board_center.x - flip_xy.x * board_center.x);
     flip_m.m[13] = (float)(board_center.y - flip_xy.y * board_center.y);
+
     gl::matrix view_m = gl::make_identity();
     view_m.m[0] = (float)view_scale.x;
     view_m.m[5] = (float)view_scale.y;
@@ -2013,14 +2081,24 @@ void gerber_explorer::on_render()
     gl::matrix temp = matrix_multiply(view_m, flip_m);
     world_matrix = matrix_multiply(ortho_screen_matrix, temp);
 
+    // For Vulkan/SDL_GPU: flip Y in clip space after all view transforms.
+    // This keeps view_rect/zoom/pan math identical to the GL path.
+    if(use_gpu_backend) {
+        gl::matrix clip_y_flip = gl::make_identity();
+        clip_y_flip.m[5] = -1.0f;    // negate clip Y
+        world_matrix = matrix_multiply(clip_y_flip, world_matrix);
+    }
+
     //////////////////////////////////////////////////////////////////////
     // Draw stuff
 
     // resize the offscreen render target if the window size changed
-    if(layer_render_target.width != viewport_width || layer_render_target.height != viewport_height ||
-       layer_render_target.num_samples != settings.multisamples) {
-        layer_render_target.cleanup();
-        layer_render_target.init(viewport_width, viewport_height, settings.multisamples, 1);
+    if(!use_gpu_backend) {
+        if(layer_render_target.width != viewport_width || layer_render_target.height != viewport_height ||
+           layer_render_target.num_samples != settings.multisamples) {
+            layer_render_target.cleanup();
+            layer_render_target.init(viewport_width, viewport_height, settings.multisamples, 1);
+        }
     }
 
     // update which drawer being used (in case retesselation happened)
@@ -2031,7 +2109,11 @@ void gerber_explorer::on_render()
             layer->drawer = &layer->drawers[layer->current_drawer];
             layer->got_mask = layer->drawer->got_mask;
             if(layer->drawer != old_drawer) {
-                old_drawer->release_gl_resources();
+                if(!use_gpu_backend) {
+                    old_drawer->release_gl_resources();
+                }
+                // GPU resources for old drawer will be recreated on demand
+                layer->gpu_resources.ready = false;
             }
         }
     }
@@ -2074,9 +2156,19 @@ void gerber_explorer::on_render()
         });
     }
 
-    GL_CHECK(glClearColor(settings.background_color.r, settings.background_color.g, settings.background_color.b, 1.0f));
-
     double t = get_time();
+
+    if(use_gpu_backend) {
+        gpu_render();
+        ui();
+        last_frame_cpu_time = get_time() - t;
+        if(zoom_anim) {
+            SDL_Event e{}; e.type = SDL_EVENT_USER; SDL_PushEvent(&e);
+        }
+        return;
+    }
+
+    GL_CHECK(glClearColor(settings.background_color.r, settings.background_color.g, settings.background_color.b, 1.0f));
 
     GL_CHECK(glDisable(GL_DEPTH_TEST));
     GL_CHECK(glDisable(GL_CULL_FACE));

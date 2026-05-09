@@ -6,7 +6,7 @@
 #include "gerber_image.h"
 #include "gerber_aperture.h"
 
-LOG_CONTEXT("net", debug);
+LOG_CONTEXT("net", info);
 
 namespace gerber_lib
 {

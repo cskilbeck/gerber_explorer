@@ -11,7 +11,7 @@
 #include "gerber_reader.h"
 #include "gerber_aperture.h"
 
-LOG_CONTEXT("aperture", debug);
+LOG_CONTEXT("aperture", info);
 
 namespace
 {
@@ -68,7 +68,7 @@ namespace gerber_lib
 
     gerber_error_code gerber_aperture_macro::parse_aperture_macro(gerber_reader &reader)
     {
-        LOG_CONTEXT("macro_parser", debug);
+        LOG_CONTEXT("macro_parser", info);
 
         CHECK(reader.read_until(&name, '*'));
 
@@ -351,7 +351,7 @@ namespace gerber_lib
 
     gerber_error_code gerber_aperture::execute_aperture_macro(double scale)
     {
-        LOG_CONTEXT("execute_aperture_macro", debug);
+        LOG_CONTEXT("execute_aperture_macro", info);
 
         LOG_DEBUG("Execute aperture macro \"{}\"", aperture_macro->name);
 

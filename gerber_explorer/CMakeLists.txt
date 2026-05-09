@@ -32,6 +32,56 @@ cmrc_add_resource_library(my_shaders
         "shaders/blit_vertex_shader.glsl")
 
 ######################################################################
+### Compile HLSL -> SPIR-V at build time
+
+include(${CMAKE_SOURCE_DIR}/cmake/compile_shaders.cmake)
+
+set(SHADER_SPV_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders_spv")
+file(MAKE_DIRECTORY ${SHADER_SPV_DIR})
+
+set(HLSL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders_hlsl")
+
+# vertex shaders
+compile_hlsl_to_spirv(${HLSL_DIR}/solid.vert.hlsl vertex main ${SHADER_SPV_DIR}/solid.vert.spv)
+compile_hlsl_to_spirv(${HLSL_DIR}/color.vert.hlsl vertex main ${SHADER_SPV_DIR}/color.vert.spv)
+compile_hlsl_to_spirv(${HLSL_DIR}/layer.vert.hlsl vertex main ${SHADER_SPV_DIR}/layer.vert.spv)
+compile_hlsl_to_spirv(${HLSL_DIR}/line.vert.hlsl vertex main ${SHADER_SPV_DIR}/line.vert.spv)
+compile_hlsl_to_spirv(${HLSL_DIR}/line2.vert.hlsl vertex main ${SHADER_SPV_DIR}/line2.vert.spv)
+compile_hlsl_to_spirv(${HLSL_DIR}/arc.vert.hlsl vertex main ${SHADER_SPV_DIR}/arc.vert.spv)
+compile_hlsl_to_spirv(${HLSL_DIR}/blit.vert.hlsl vertex main ${SHADER_SPV_DIR}/blit.vert.spv)
+
+# fragment shaders
+compile_hlsl_to_spirv(${HLSL_DIR}/common.frag.hlsl fragment main ${SHADER_SPV_DIR}/common.frag.spv)
+compile_hlsl_to_spirv(${HLSL_DIR}/layer.frag.hlsl fragment main ${SHADER_SPV_DIR}/layer.frag.spv)
+compile_hlsl_to_spirv(${HLSL_DIR}/line.frag.hlsl fragment main ${SHADER_SPV_DIR}/line.frag.spv)
+compile_hlsl_to_spirv(${HLSL_DIR}/line2.frag.hlsl fragment main ${SHADER_SPV_DIR}/line2.frag.spv)
+compile_hlsl_to_spirv(${HLSL_DIR}/arc.frag.hlsl fragment main ${SHADER_SPV_DIR}/arc.frag.spv)
+compile_hlsl_to_spirv(${HLSL_DIR}/blit.frag.hlsl fragment main ${SHADER_SPV_DIR}/blit.frag.spv)
+compile_hlsl_to_spirv(${HLSL_DIR}/selection.frag.hlsl fragment main ${SHADER_SPV_DIR}/selection.frag.spv)
+
+set(ALL_SPV_FILES
+    ${SHADER_SPV_DIR}/solid.vert.spv
+    ${SHADER_SPV_DIR}/color.vert.spv
+    ${SHADER_SPV_DIR}/common.frag.spv
+    ${SHADER_SPV_DIR}/layer.vert.spv
+    ${SHADER_SPV_DIR}/layer.frag.spv
+    ${SHADER_SPV_DIR}/line.vert.spv
+    ${SHADER_SPV_DIR}/line.frag.spv
+    ${SHADER_SPV_DIR}/line2.vert.spv
+    ${SHADER_SPV_DIR}/line2.frag.spv
+    ${SHADER_SPV_DIR}/arc.vert.spv
+    ${SHADER_SPV_DIR}/arc.frag.spv
+    ${SHADER_SPV_DIR}/blit.vert.spv
+    ${SHADER_SPV_DIR}/blit.frag.spv
+    ${SHADER_SPV_DIR}/selection.frag.spv
+)
+
+# Embed compiled SPIR-V bytecode via CMRC
+cmrc_add_resource_library(my_shaders_spv
+        WHENCE "${SHADER_SPV_DIR}"
+        ${ALL_SPV_FILES})
+
+######################################################################
 # MAIN
 
 set(PROJECT gerber_explorer)
@@ -51,6 +101,11 @@ set(PROJECT_SOURCES
         gl_3d_drawer.cpp
         gl_window.h
         gl_window.cpp
+        gpu_base.h
+        gpu_base.cpp
+        gpu_drawer.h
+        gpu_drawer.cpp
+        gpu_render.cpp
         gerber_explorer.cpp
         gerber_explorer.h
         util.h
@@ -192,7 +247,7 @@ endif()
 
 target_include_directories(${PROJECT} PRIVATE ${CMRC_INCLUDE_DIR})
 
-target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets my_shaders project_options)
+target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets my_shaders my_shaders_spv project_options)
 
 target_enable_ipo(${PROJECT})
 

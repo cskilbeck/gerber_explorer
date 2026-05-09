@@ -15,7 +15,7 @@
 
 #include <array>
 
-LOG_CONTEXT("gl_base", debug);
+LOG_CONTEXT("gl_base", info);
 
 CMRC_DECLARE(my_shaders);
 
@@ -62,6 +62,9 @@ namespace gl
     {
         while(glGetError() != GL_NO_ERROR) {}
 
+        char const *type_name = (shader_type == GL_VERTEX_SHADER) ? "vertex" : "fragment";
+        LOG_INFO("Compiling {} {} shader ({} bytes)", program_name, type_name, strlen(source));
+
         char const *sources[] = { shader_version_preamble, shader_debug_preamble, source };
         GLuint id;
         GL_CHECK(id = glCreateShader(shader_type));
@@ -71,6 +74,7 @@ namespace gl
         int result;
         GL_CHECK(glGetShaderiv(id, GL_COMPILE_STATUS, &result));
         if(result) {
+            LOG_INFO("  {} {} shader compiled OK (id {})", program_name, type_name, id);
             return id;
         }
         GLsizei length;
@@ -115,8 +119,10 @@ namespace gl
 
     int program_base::init()
     {
+        LOG_INFO("Initializing shader program \"{}\"", program_name);
+
         if(vertex_shader_source.empty() || fragment_shader_source.empty()) {
-            LOG_ERROR("SHADER SOURCE MISSING");
+            LOG_ERROR("SHADER SOURCE MISSING for \"{}\"", program_name);
             return 1;
         }
         vertex_shader_id = compile_shader(GL_VERTEX_SHADER, vertex_shader_source.c_str());
@@ -130,10 +136,11 @@ namespace gl
         int rc = validate(GL_LINK_STATUS);
         if(rc != 0) {
             cleanup();
-            LOG_ERROR("validate error for init() {}", program_name);
+            LOG_ERROR("Link failed for program \"{}\"", program_name);
             return rc;
         }
         activate();
+        LOG_INFO("Shader program \"{}\" ready (program id {})", program_name, program_id);
         return 0;
     }
 

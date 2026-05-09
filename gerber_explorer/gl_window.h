@@ -56,6 +56,10 @@ struct gl_window
     {
     }
 
+    virtual void on_gpu_imgui()
+    {
+    }
+
     virtual bool is_idle()
     {
         return true;
@@ -90,6 +94,11 @@ struct gl_window
     window_state_t window_state;
     bool window_focused{false};
     bool should_close{false};
+    bool use_gpu_backend{false};    // true = SDL_GPU, false = OpenGL
+    bool init_complete{false};
+    float saved_cursor_x{};
+    float saved_cursor_y{};
+    bool cursor_hidden{false};
 
     int64_t frames{};
 

@@ -860,7 +860,7 @@ namespace gerber_lib
 
     bool gerber_file::parse_m_code()
     {
-        LOG_CONTEXT("M_code", none);
+        LOG_CONTEXT("M_code", info);
 
         int code;
         CHECK(reader.get_int(&code));

@@ -3,7 +3,7 @@
 #include "gerber_level.h"
 #include "gerber_image.h"
 
-LOG_CONTEXT("level", debug);
+LOG_CONTEXT("level", info);
 
 namespace gerber_lib
 {

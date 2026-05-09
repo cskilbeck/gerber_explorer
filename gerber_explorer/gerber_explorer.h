@@ -8,6 +8,8 @@
 #include "gl_base.h"
 #include "gl_colors.h"
 #include "gl_matrix.h"
+#include "gpu_base.h"
+#include "gpu_drawer.h"
 #include "gl_drawer.h"
 
 #include "job_pool.h"
@@ -52,6 +54,8 @@ struct gerber_layer
     gerber::gl_drawer *drawer{};
     gerber::gl_drawer drawers[2]{};
     int current_drawer{ 0 };
+
+    gerber::gpu_drawer_resources gpu_resources{};
 
     gerber_lib::gerber_file file;
 
@@ -209,6 +213,25 @@ struct gerber_explorer : gl_window
     gl::render_target layer_render_target{};
 
     int max_multisamples{ 1 };
+
+    // SDL_GPU backend (parallel to GL) — use_gpu_backend is inherited from gl_window
+    gpu::device gpu_dev{};
+    gpu::pipelines gpu_pipelines{};
+    gpu::render_target gpu_render_target{};
+    gpu::drawlist gpu_overlay{};
+    SDL_GPUBuffer *gpu_quad_vbo{};           // 4-vertex quad for instanced line rendering
+    SDL_GPUBuffer *gpu_overlay_vbo{};        // dynamic overlay vertex buffer
+    int gpu_current_msaa{};                  // track current MSAA to detect changes
+
+    // Per-frame GPU state (shared between gpu_render and on_gpu_imgui)
+    SDL_GPUCommandBuffer *gpu_cmd{};
+    SDL_GPUTexture *gpu_swapchain_texture{};
+
+    void gpu_render();
+    void gpu_render_layer(SDL_GPUCommandBuffer *cmd, gerber_layer &layer, gerber_layer *outline_layer);
+    void gpu_render_selection(SDL_GPUCommandBuffer *cmd);
+    void gpu_render_overlay(SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *swapchain_texture);
+    void on_gpu_imgui() override;
 
     // when window size changes, zoom to fit (cleared if they pan/zoom etc manually)
     bool should_fit_to_viewport{ false };
