@@ -24,10 +24,14 @@ float4 main(PSInput input) : SV_Target
     float radius = thickness * 0.5;
     float half_len = input.v_length_px * 0.5;
 
+    // For short lines, reduce the effective radius by up to 1 pixel to limit cap overlap
+    float t = saturate(input.v_length_px / thickness);
+    float effective_radius = radius - (1.0 - t);
+
     float proj = clamp(input.v_local_pos.x, -half_len, half_len);
     float dist = length(input.v_local_pos - float2(proj, 0.0));
 
-    float alpha = 1.0 - smoothstep(radius - 1.0, radius + 1.0, dist);
+    float alpha = 1.0 - smoothstep(effective_radius - 1.0, effective_radius + 1.0, dist);
 
     if (alpha <= 0.0) discard;
 

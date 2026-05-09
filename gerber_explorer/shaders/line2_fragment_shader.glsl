@@ -14,11 +14,14 @@ void main() {
     float radius = thickness * 0.5;
     float half_len = v_length_px * 0.5;
 
-    // Find the closest point on the segment line
+    // For short lines, reduce the effective radius by up to 1 pixel to limit cap overlap
+    float t = clamp(v_length_px / thickness, 0.0, 1.0);
+    float effective_radius = radius - (1.0 - t);
+
     float proj = clamp(v_local_pos.x, -half_len, half_len);
     float dist = length(v_local_pos - vec2(proj, 0.0));
 
-    float alpha = 1.0 - smoothstep(radius - 1.0, radius + 1, dist);
+    float alpha = 1.0 - smoothstep(effective_radius - 1.0, effective_radius + 1, dist);
 
     if (alpha <= 0) discard;
 
