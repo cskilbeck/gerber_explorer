@@ -12,19 +12,22 @@ LOG_CONTEXT("gpu_base", info);
 
 CMRC_DECLARE(my_shaders_spv);
 
+#if HAS_DXIL_SHADERS
+CMRC_DECLARE(my_shaders_dxil);
+#endif
+
 namespace
 {
-    struct spv_data
+    struct shader_bytecode
     {
         char const *data;
         size_t size;
     };
 
-    spv_data load_spv(char const *name)
+    shader_bytecode load_resource(cmrc::embedded_filesystem &fs, char const *name)
     {
-        auto fs = cmrc::my_shaders_spv::get_filesystem();
         if(!fs.is_file(name)) {
-            LOG_ERROR("SPIR-V shader not found: {}", name);
+            LOG_ERROR("Shader not found: {}", name);
             return { nullptr, 0 };
         }
         auto f = fs.open(name);
@@ -41,20 +44,31 @@ namespace gpu
     {
         window = win;
 
-        LOG_INFO("Initializing SDL_shadercross");
-        if(!SDL_ShaderCross_Init()) {
-            LOG_ERROR("SDL_ShaderCross_Init failed: {}", SDL_GetError());
-            return false;
-        }
+        // Request all shader formats we have pre-compiled
+        SDL_GPUShaderFormat formats = SDL_GPU_SHADERFORMAT_SPIRV;
+#if HAS_DXIL_SHADERS
+        formats |= SDL_GPU_SHADERFORMAT_DXIL;
+#endif
 
         LOG_INFO("Creating SDL_GPU device");
-        gpu = SDL_CreateGPUDevice(SDL_ShaderCross_GetSPIRVShaderFormats(), true, nullptr);
+        // Prefer D3D12 on Windows, falls back to Vulkan
+        char const *preferred_driver = nullptr;
+#ifdef _WIN32
+        preferred_driver = "direct3d12";
+#endif
+        gpu = SDL_CreateGPUDevice(formats, true, preferred_driver);
         if(!gpu) {
             LOG_ERROR("SDL_CreateGPUDevice failed: {}", SDL_GetError());
             return false;
         }
 
         LOG_INFO("GPU driver: {}", SDL_GetGPUDeviceDriver(gpu));
+        shader_formats = SDL_GetGPUShaderFormats(gpu);
+        LOG_INFO("Shader formats: SPIRV={} DXIL={} DXBC={} MSL={}",
+                 (shader_formats & SDL_GPU_SHADERFORMAT_SPIRV) != 0,
+                 (shader_formats & SDL_GPU_SHADERFORMAT_DXIL) != 0,
+                 (shader_formats & SDL_GPU_SHADERFORMAT_DXBC) != 0,
+                 (shader_formats & SDL_GPU_SHADERFORMAT_MSL) != 0);
 
         if(!SDL_ClaimWindowForGPUDevice(gpu, window)) {
             LOG_ERROR("SDL_ClaimWindowForGPUDevice failed: {}", SDL_GetError());
@@ -73,35 +87,58 @@ namespace gpu
             SDL_DestroyGPUDevice(gpu);
             gpu = nullptr;
         }
-        SDL_ShaderCross_Quit();
     }
 
-    SDL_GPUShader *device::compile_shader(char const *spv_name, char const *entry_point, SDL_GPUShaderStage stage,
-                                           int num_samplers, int num_storage_textures, int num_storage_buffers, int num_uniform_buffers)
+    SDL_GPUShader *device::load_shader(char const *shader_name, char const *entry_point, SDL_GPUShaderStage stage,
+                                        int num_samplers, int num_storage_textures, int num_storage_buffers, int num_uniform_buffers)
     {
-        auto spv = load_spv(spv_name);
-        if(!spv.data) {
+        SDL_GPUShaderFormat format = SDL_GPU_SHADERFORMAT_INVALID;
+        shader_bytecode code{};
+
+#if HAS_DXIL_SHADERS
+        if(shader_formats & SDL_GPU_SHADERFORMAT_DXIL) {
+            // Build DXIL resource name: "solid.vert.dxil" from "solid.vert"
+            std::string dxil_name = std::string(shader_name) + ".dxil";
+            auto fs = cmrc::my_shaders_dxil::get_filesystem();
+            code = load_resource(fs, dxil_name.c_str());
+            if(code.data) {
+                format = SDL_GPU_SHADERFORMAT_DXIL;
+            }
+        }
+#endif
+
+        if(format == SDL_GPU_SHADERFORMAT_INVALID) {
+            // Fall back to SPIR-V
+            std::string spv_name = std::string(shader_name) + ".spv";
+            auto fs = cmrc::my_shaders_spv::get_filesystem();
+            code = load_resource(fs, spv_name.c_str());
+            if(code.data) {
+                format = SDL_GPU_SHADERFORMAT_SPIRV;
+            }
+        }
+
+        if(!code.data) {
+            LOG_ERROR("No shader bytecode found for '{}'", shader_name);
             return nullptr;
         }
 
-        LOG_INFO("  Loading SPIR-V '{}': {} bytes", spv_name, spv.size);
+        LOG_INFO("  Loading '{}' ({}, {} bytes)", shader_name,
+                 (format == SDL_GPU_SHADERFORMAT_DXIL) ? "DXIL" : "SPIR-V", code.size);
 
-        SDL_ShaderCross_SPIRV_Info spirv_info{};
-        spirv_info.bytecode = reinterpret_cast<Uint8 const *>(spv.data);
-        spirv_info.bytecode_size = spv.size;
-        spirv_info.entrypoint = entry_point;
-        spirv_info.shader_stage = (stage == SDL_GPU_SHADERSTAGE_VERTEX) ? SDL_SHADERCROSS_SHADERSTAGE_VERTEX : SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT;
-        spirv_info.props = 0;
+        SDL_GPUShaderCreateInfo ci{};
+        ci.code = reinterpret_cast<Uint8 const *>(code.data);
+        ci.code_size = code.size;
+        ci.entrypoint = entry_point;
+        ci.format = format;
+        ci.stage = stage;
+        ci.num_samplers = num_samplers;
+        ci.num_storage_textures = num_storage_textures;
+        ci.num_storage_buffers = num_storage_buffers;
+        ci.num_uniform_buffers = num_uniform_buffers;
 
-        SDL_ShaderCross_GraphicsShaderResourceInfo resource_info{};
-        resource_info.num_samplers = num_samplers;
-        resource_info.num_storage_textures = num_storage_textures;
-        resource_info.num_storage_buffers = num_storage_buffers;
-        resource_info.num_uniform_buffers = num_uniform_buffers;
-
-        SDL_GPUShader *shader = SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(gpu, &spirv_info, &resource_info, 0);
+        SDL_GPUShader *shader = SDL_CreateGPUShader(gpu, &ci);
         if(!shader) {
-            LOG_ERROR("SPIR-V→GPU shader failed for '{}': {}", spv_name, SDL_GetError());
+            LOG_ERROR("SDL_CreateGPUShader failed for '{}': {}", shader_name, SDL_GetError());
         }
         return shader;
     }
@@ -246,36 +283,36 @@ namespace gpu
         // Load pre-compiled SPIR-V shaders and create GPU shader objects
         // solid: VS(0 samplers, 0 storage tex, 0 storage buf, 1 uniform) + common FS(0,0,0,0)
         LOG_INFO("Loading solid shaders");
-        auto solid_vs = dev.compile_shader("solid.vert.spv", "main", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0, 0, 1);
-        auto common_fs = dev.compile_shader("common.frag.spv", "main", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0);
+        auto solid_vs = dev.load_shader("solid.vert", "main", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0, 0, 1);
+        auto common_fs = dev.load_shader("common.frag", "main", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0);
         if(!solid_vs || !common_fs) return false;
 
         // color: VS(0,0,0,1) + common FS
         LOG_INFO("Loading color shaders");
-        auto color_vs = dev.compile_shader("color.vert.spv", "main", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0, 0, 1);
+        auto color_vs = dev.load_shader("color.vert", "main", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0, 0, 1);
         if(!color_vs) return false;
 
         // layer: VS(0,0,1 storage buf,1 uniform) + FS(0,0,0,1 uniform)
         LOG_INFO("Loading layer shaders");
-        auto layer_vs = dev.compile_shader("layer.vert.spv", "main", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0, 1, 1);
-        auto layer_fs = dev.compile_shader("layer.frag.spv", "main", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 1);
+        auto layer_vs = dev.load_shader("layer.vert", "main", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0, 1, 1);
+        auto layer_fs = dev.load_shader("layer.frag", "main", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 1);
         if(!layer_vs || !layer_fs) return false;
 
         // line2: VS(0,0,3 storage bufs,1 uniform) + FS(0,0,0,1 uniform)
         LOG_INFO("Loading line2 shaders");
-        auto line2_vs = dev.compile_shader("line2.vert.spv", "main", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0, 3, 1);
-        auto line2_fs = dev.compile_shader("line2.frag.spv", "main", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 1);
+        auto line2_vs = dev.load_shader("line2.vert", "main", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0, 3, 1);
+        auto line2_fs = dev.load_shader("line2.frag", "main", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 1);
         if(!line2_vs || !line2_fs) return false;
 
         // blit: VS(0,0,0,0) + FS(1 sampler, 0, 0, 1 uniform)
         LOG_INFO("Loading blit shaders");
-        auto blit_vs = dev.compile_shader("blit.vert.spv", "main", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0, 0, 0);
-        auto blit_fs = dev.compile_shader("blit.frag.spv", "main", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 0, 1);
+        auto blit_vs = dev.load_shader("blit.vert", "main", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0, 0, 0);
+        auto blit_fs = dev.load_shader("blit.frag", "main", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 0, 1);
         if(!blit_vs || !blit_fs) return false;
 
         // selection: same VS as blit, FS(1 sampler, 0, 0, 1 uniform)
         LOG_INFO("Loading selection shaders");
-        auto selection_fs = dev.compile_shader("selection.frag.spv", "main", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 0, 1);
+        auto selection_fs = dev.load_shader("selection.frag", "main", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 0, 1);
         if(!selection_fs) return false;
 
         // Create a nearest-neighbor sampler for the MSAA resolve texture

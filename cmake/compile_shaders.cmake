@@ -1,4 +1,4 @@
-# Compile HLSL shaders to SPIR-V at build time using DXC
+# Compile HLSL shaders to SPIR-V and DXIL at build time using DXC
 # Usage: include this after FetchContent for DXC binary
 
 include(FetchContent)
@@ -26,7 +26,7 @@ endif()
 
 message(STATUS "DXC compiler: ${DXC_EXE}")
 
-# Function to compile a single HLSL shader to SPIR-V
+# Function to compile a single HLSL shader to SPIR-V (for Vulkan)
 function(compile_hlsl_to_spirv SHADER_SOURCE SHADER_STAGE ENTRY_POINT OUTPUT_SPV)
     if(SHADER_STAGE STREQUAL "vertex")
         set(DXC_TARGET "vs_6_0")
@@ -43,7 +43,28 @@ function(compile_hlsl_to_spirv SHADER_SOURCE SHADER_STAGE ENTRY_POINT OUTPUT_SPV
                 -Fo ${OUTPUT_SPV}
                 ${SHADER_SOURCE}
         DEPENDS ${SHADER_SOURCE}
-        COMMENT "Compiling ${SHADER_SOURCE} -> ${OUTPUT_SPV}"
+        COMMENT "HLSL -> SPIR-V: ${SHADER_SOURCE}"
+        VERBATIM
+    )
+endfunction()
+
+# Function to compile a single HLSL shader to DXIL (for D3D12)
+function(compile_hlsl_to_dxil SHADER_SOURCE SHADER_STAGE ENTRY_POINT OUTPUT_DXIL)
+    if(SHADER_STAGE STREQUAL "vertex")
+        set(DXC_TARGET "vs_6_0")
+    elseif(SHADER_STAGE STREQUAL "fragment")
+        set(DXC_TARGET "ps_6_0")
+    else()
+        message(FATAL_ERROR "Unknown shader stage: ${SHADER_STAGE}")
+    endif()
+
+    add_custom_command(
+        OUTPUT ${OUTPUT_DXIL}
+        COMMAND ${DXC_EXE} -T ${DXC_TARGET} -E ${ENTRY_POINT}
+                -Fo ${OUTPUT_DXIL}
+                ${SHADER_SOURCE}
+        DEPENDS ${SHADER_SOURCE}
+        COMMENT "HLSL -> DXIL: ${SHADER_SOURCE}"
         VERBATIM
     )
 endfunction()

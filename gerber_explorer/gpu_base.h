@@ -9,7 +9,6 @@
 #include <vector>
 
 #include <SDL3/SDL.h>
-#include <SDL3_shadercross/SDL_shadercross.h>
 
 #include "gerber_2d.h"
 #include "gpu_colors.h"
@@ -69,13 +68,14 @@ namespace gpu
     {
         SDL_GPUDevice *gpu{};
         SDL_Window *window{};
+        SDL_GPUShaderFormat shader_formats{};
 
         bool init(SDL_Window *win);
         void shutdown();
 
-        // Load pre-compiled SPIR-V and create GPU shader (SPIRV-Cross translates to backend)
-        SDL_GPUShader *compile_shader(char const *spv_name, char const *entry_point, SDL_GPUShaderStage stage,
-                                      int num_samplers, int num_storage_textures, int num_storage_buffers, int num_uniform_buffers);
+        // Load pre-compiled shader bytecode (DXIL on D3D12, SPIR-V on Vulkan)
+        SDL_GPUShader *load_shader(char const *shader_name, char const *entry_point, SDL_GPUShaderStage stage,
+                                   int num_samplers, int num_storage_textures, int num_storage_buffers, int num_uniform_buffers);
 
         // Buffer creation
         SDL_GPUBuffer *create_buffer(SDL_GPUBufferUsageFlags usage, uint32_t size, char const *name = nullptr);

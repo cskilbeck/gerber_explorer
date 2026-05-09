@@ -12,54 +12,49 @@ cmrc_add_resource_library(my_assets
         "assets/MaterialIcons-Regular.ttf")
 
 ######################################################################
-### Compile HLSL -> SPIR-V at build time
+### Compile HLSL shaders at build time
 
 include(${CMAKE_SOURCE_DIR}/cmake/compile_shaders.cmake)
 
+set(HLSL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders_hlsl")
+
+# Shader names (stem only)
+set(VERT_SHADERS solid color layer line line2 arc blit)
+set(FRAG_SHADERS common layer line line2 arc blit selection)
+
+# ---- SPIR-V (Vulkan) ----
 set(SHADER_SPV_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders_spv")
 file(MAKE_DIRECTORY ${SHADER_SPV_DIR})
 
-set(HLSL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders_hlsl")
+set(ALL_SPV_FILES "")
+foreach(S ${VERT_SHADERS})
+    compile_hlsl_to_spirv(${HLSL_DIR}/${S}.vert.hlsl vertex main ${SHADER_SPV_DIR}/${S}.vert.spv)
+    list(APPEND ALL_SPV_FILES ${SHADER_SPV_DIR}/${S}.vert.spv)
+endforeach()
+foreach(S ${FRAG_SHADERS})
+    compile_hlsl_to_spirv(${HLSL_DIR}/${S}.frag.hlsl fragment main ${SHADER_SPV_DIR}/${S}.frag.spv)
+    list(APPEND ALL_SPV_FILES ${SHADER_SPV_DIR}/${S}.frag.spv)
+endforeach()
 
-# vertex shaders
-compile_hlsl_to_spirv(${HLSL_DIR}/solid.vert.hlsl vertex main ${SHADER_SPV_DIR}/solid.vert.spv)
-compile_hlsl_to_spirv(${HLSL_DIR}/color.vert.hlsl vertex main ${SHADER_SPV_DIR}/color.vert.spv)
-compile_hlsl_to_spirv(${HLSL_DIR}/layer.vert.hlsl vertex main ${SHADER_SPV_DIR}/layer.vert.spv)
-compile_hlsl_to_spirv(${HLSL_DIR}/line.vert.hlsl vertex main ${SHADER_SPV_DIR}/line.vert.spv)
-compile_hlsl_to_spirv(${HLSL_DIR}/line2.vert.hlsl vertex main ${SHADER_SPV_DIR}/line2.vert.spv)
-compile_hlsl_to_spirv(${HLSL_DIR}/arc.vert.hlsl vertex main ${SHADER_SPV_DIR}/arc.vert.spv)
-compile_hlsl_to_spirv(${HLSL_DIR}/blit.vert.hlsl vertex main ${SHADER_SPV_DIR}/blit.vert.spv)
+cmrc_add_resource_library(my_shaders_spv WHENCE "${SHADER_SPV_DIR}" ${ALL_SPV_FILES})
 
-# fragment shaders
-compile_hlsl_to_spirv(${HLSL_DIR}/common.frag.hlsl fragment main ${SHADER_SPV_DIR}/common.frag.spv)
-compile_hlsl_to_spirv(${HLSL_DIR}/layer.frag.hlsl fragment main ${SHADER_SPV_DIR}/layer.frag.spv)
-compile_hlsl_to_spirv(${HLSL_DIR}/line.frag.hlsl fragment main ${SHADER_SPV_DIR}/line.frag.spv)
-compile_hlsl_to_spirv(${HLSL_DIR}/line2.frag.hlsl fragment main ${SHADER_SPV_DIR}/line2.frag.spv)
-compile_hlsl_to_spirv(${HLSL_DIR}/arc.frag.hlsl fragment main ${SHADER_SPV_DIR}/arc.frag.spv)
-compile_hlsl_to_spirv(${HLSL_DIR}/blit.frag.hlsl fragment main ${SHADER_SPV_DIR}/blit.frag.spv)
-compile_hlsl_to_spirv(${HLSL_DIR}/selection.frag.hlsl fragment main ${SHADER_SPV_DIR}/selection.frag.spv)
+# ---- DXIL (D3D12, Windows only) ----
+if(WIN32)
+    set(SHADER_DXIL_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders_dxil")
+    file(MAKE_DIRECTORY ${SHADER_DXIL_DIR})
 
-set(ALL_SPV_FILES
-    ${SHADER_SPV_DIR}/solid.vert.spv
-    ${SHADER_SPV_DIR}/color.vert.spv
-    ${SHADER_SPV_DIR}/common.frag.spv
-    ${SHADER_SPV_DIR}/layer.vert.spv
-    ${SHADER_SPV_DIR}/layer.frag.spv
-    ${SHADER_SPV_DIR}/line.vert.spv
-    ${SHADER_SPV_DIR}/line.frag.spv
-    ${SHADER_SPV_DIR}/line2.vert.spv
-    ${SHADER_SPV_DIR}/line2.frag.spv
-    ${SHADER_SPV_DIR}/arc.vert.spv
-    ${SHADER_SPV_DIR}/arc.frag.spv
-    ${SHADER_SPV_DIR}/blit.vert.spv
-    ${SHADER_SPV_DIR}/blit.frag.spv
-    ${SHADER_SPV_DIR}/selection.frag.spv
-)
+    set(ALL_DXIL_FILES "")
+    foreach(S ${VERT_SHADERS})
+        compile_hlsl_to_dxil(${HLSL_DIR}/${S}.vert.hlsl vertex main ${SHADER_DXIL_DIR}/${S}.vert.dxil)
+        list(APPEND ALL_DXIL_FILES ${SHADER_DXIL_DIR}/${S}.vert.dxil)
+    endforeach()
+    foreach(S ${FRAG_SHADERS})
+        compile_hlsl_to_dxil(${HLSL_DIR}/${S}.frag.hlsl fragment main ${SHADER_DXIL_DIR}/${S}.frag.dxil)
+        list(APPEND ALL_DXIL_FILES ${SHADER_DXIL_DIR}/${S}.frag.dxil)
+    endforeach()
 
-# Embed compiled SPIR-V bytecode via CMRC
-cmrc_add_resource_library(my_shaders_spv
-        WHENCE "${SHADER_SPV_DIR}"
-        ${ALL_SPV_FILES})
+    cmrc_add_resource_library(my_shaders_dxil WHENCE "${SHADER_DXIL_DIR}" ${ALL_DXIL_FILES})
+endif()
 
 ######################################################################
 # MAIN
@@ -226,6 +221,11 @@ endif()
 target_include_directories(${PROJECT} PRIVATE ${CMRC_INCLUDE_DIR})
 
 target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets my_shaders_spv project_options)
+
+if(WIN32)
+    target_link_libraries(${PROJECT} PRIVATE my_shaders_dxil)
+    target_compile_definitions(${PROJECT} PRIVATE HAS_DXIL_SHADERS=1)
+endif()
 
 target_enable_ipo(${PROJECT})
 

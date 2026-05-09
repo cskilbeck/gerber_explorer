@@ -241,7 +241,6 @@ endif()
 
 target_link_libraries(third_party INTERFACE
         gerber_gpu
-        SDL3_shadercross::SDL3_shadercross-static
         cpptrace::cpptrace
         DirectXMath
         nfd
