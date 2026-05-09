@@ -1,4 +1,3 @@
-#include <glad/glad.h>
 #include <SDL3/SDL.h>
 
 #ifdef _WIN32
@@ -12,34 +11,24 @@
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
-#include "imgui_impl_opengl3.h"
 #include "imgui_impl_sdlgpu3.h"
 
 #include "gerber_log.h"
 #include "util.h"
-#include "gl_window.h"
+#include "gpu_window.h"
 
-LOG_CONTEXT("gl_window", debug);
+LOG_CONTEXT("gpu_window", info);
 
 CMRC_DECLARE(my_assets);
 
 namespace
 {
-    using gerber_lib::rect;
-    using gerber_lib::vec2d;
-
     std::string const imgui_ini_filename = config_path("gerber_explorer", "imgui.ini").string();
-
-    void APIENTRY log_gl([[maybe_unused]] GLenum source, [[maybe_unused]] GLenum type, [[maybe_unused]] GLuint id, [[maybe_unused]] GLenum severity,
-                         [[maybe_unused]] GLsizei length, const GLchar *message, [[maybe_unused]] const void *userParam)
-    {
-        LOG_INFO("{}:{}", id, message);
-    }
 }    // namespace
 
 //////////////////////////////////////////////////////////////////////
 
-void gl_window::set_icon(uint8_t const *png_data, size_t png_size) const
+void gpu_window::set_icon(uint8_t const *png_data, size_t png_size) const
 {
     int w, h;
     uint8_t *pixels = stbi_load_from_memory(png_data, (int)png_size, &w, &h, nullptr, 4);
@@ -55,7 +44,7 @@ void gl_window::set_icon(uint8_t const *png_data, size_t png_size) const
 
 //////////////////////////////////////////////////////////////////////
 
-void gl_window::on_window_size(int w, int h)
+void gpu_window::on_window_size(int w, int h)
 {
     if(!(SDL_GetWindowFlags(window) & (SDL_WINDOW_MAXIMIZED | SDL_WINDOW_MINIMIZED))) {
         window_state.width = w;
@@ -65,7 +54,7 @@ void gl_window::on_window_size(int w, int h)
 
 //////////////////////////////////////////////////////////////////////
 
-void gl_window::on_window_pos(int x, int y)
+void gpu_window::on_window_pos(int x, int y)
 {
     if(!(SDL_GetWindowFlags(window) & (SDL_WINDOW_MAXIMIZED | SDL_WINDOW_MINIMIZED))) {
         window_state.x = x;
@@ -75,7 +64,7 @@ void gl_window::on_window_pos(int x, int y)
 
 //////////////////////////////////////////////////////////////////////
 
-gl_window::window_state_t gl_window::get_window_state()
+gpu_window::window_state_t gpu_window::get_window_state()
 {
     window_state_t current_state;
     Uint32 flags = SDL_GetWindowFlags(window);
@@ -96,27 +85,27 @@ gl_window::window_state_t gl_window::get_window_state()
 //////////////////////////////////////////////////////////////////////
 // Helper methods for subclasses
 
-void gl_window::get_window_size(int *w, int *h) const
+void gpu_window::get_window_size(int *w, int *h) const
 {
     SDL_GetWindowSize(window, w, h);
 }
 
-void gl_window::get_framebuffer_size(int *w, int *h) const
+void gpu_window::get_framebuffer_size(int *w, int *h) const
 {
     SDL_GetWindowSizeInPixels(window, w, h);
 }
 
-void gl_window::set_should_close()
+void gpu_window::set_should_close()
 {
     should_close = true;
 }
 
-void gl_window::set_cursor_pos(double x, double y)
+void gpu_window::set_cursor_pos(double x, double y)
 {
     SDL_WarpMouseInWindow(window, (float)x, (float)y);
 }
 
-void gl_window::set_input_mode_cursor_normal()
+void gpu_window::set_input_mode_cursor_normal()
 {
     if(cursor_hidden) {
         SDL_SetWindowRelativeMouseMode(window, false);
@@ -126,7 +115,7 @@ void gl_window::set_input_mode_cursor_normal()
     }
 }
 
-void gl_window::set_input_mode_cursor_disabled()
+void gpu_window::set_input_mode_cursor_disabled()
 {
     if(!cursor_hidden) {
         SDL_GetMouseState(&saved_cursor_x, &saved_cursor_y);
@@ -135,17 +124,17 @@ void gl_window::set_input_mode_cursor_disabled()
     }
 }
 
-SDL_Cursor *gl_window::create_system_cursor(SDL_SystemCursor id)
+SDL_Cursor *gpu_window::create_system_cursor(SDL_SystemCursor id)
 {
     return SDL_CreateSystemCursor(id);
 }
 
-void gl_window::set_cursor(SDL_Cursor *cursor)
+void gpu_window::set_cursor(SDL_Cursor *cursor)
 {
     SDL_SetCursor(cursor);
 }
 
-void *gl_window::get_native_window_handle() const
+void *gpu_window::get_native_window_handle() const
 {
 #ifdef _WIN32
     return (void *)SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
@@ -156,36 +145,11 @@ void *gl_window::get_native_window_handle() const
 
 //////////////////////////////////////////////////////////////////////
 
-void gl_window::init()
+void gpu_window::init()
 {
     SDL_Init(SDL_INIT_VIDEO);
 
-    if(use_gpu_backend) {
-        // SDL_GPU mode - no GL context needed, just create a plain window
-        window = SDL_CreateWindow(window_name().c_str(), 800, 600, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
-    } else {
-        // OpenGL mode
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
-
-        window = SDL_CreateWindow(window_name().c_str(), 800, 600, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
-        gl_context = SDL_GL_CreateContext(window);
-        SDL_GL_MakeCurrent(window, gl_context);
-        SDL_GL_SetSwapInterval(1);
-
-        if(!gladLoadGL()) {
-            LOG_ERROR("GLAD LOAD FAILED, Exiting...");
-        }
-
-        if(GLAD_GL_ARB_debug_output) {
-            GL_CHECK(glDebugMessageCallbackARB(log_gl, nullptr));
-            GL_CHECK(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB));
-            GL_CHECK(glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, nullptr, GL_FALSE));
-            GL_CHECK(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB));
-        }
-    }
+    window = SDL_CreateWindow(window_name().c_str(), 800, 600, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -213,16 +177,9 @@ void gl_window::init()
 
     io.IniFilename = imgui_ini_filename.c_str();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    if(!use_gpu_backend) {
-        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-    }
     ImGui::StyleColorsDark();
-    if(use_gpu_backend) {
-        // ImGui platform + renderer are initialized later in on_init() after GPU device is created
-    } else {
-        ImGui_ImplSDL3_InitForOpenGL(window, gl_context);
-        ImGui_ImplOpenGL3_Init("#version 410");
-    }
+
+    // ImGui platform + renderer backends initialized in on_init() after GPU device is created
 
     if(!on_init()) {
         should_close = true;
@@ -280,42 +237,25 @@ void gl_window::init()
 
 //////////////////////////////////////////////////////////////////////
 
-void gl_window::on_frame()
+void gpu_window::on_frame()
 {
     if(!init_complete) {
         return;
     }
 
-    if(use_gpu_backend) {
-        ImGui_ImplSDLGPU3_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
-        ImGui::NewFrame();
-        on_render();    // calls gpu_render() which submits gerber rendering, then ui()
-        ImGui::Render();
-        on_gpu_imgui();    // virtual - submits ImGui draw data via GPU
-    } else {
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
-        ImGui::NewFrame();
-        on_render();
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        ImGuiIO &io = ImGui::GetIO();
-        if(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-            SDL_GLContext backup_context = SDL_GL_GetCurrentContext();
-            SDL_Window *backup_window = SDL_GL_GetCurrentWindow();
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-            SDL_GL_MakeCurrent(backup_window, backup_context);
-        }
-        SDL_GL_SwapWindow(window);
-    }
+    ImGui_ImplSDLGPU3_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+    ImGui::NewFrame();
+    on_render();
+    ImGui::Render();
+    on_gpu_imgui();
+
     frames += 1;
 }
 
 //////////////////////////////////////////////////////////////////////
 
-bool gl_window::update()
+bool gpu_window::update()
 {
     if(is_idle()) {
         SDL_WaitEvent(nullptr);
@@ -422,9 +362,6 @@ bool gl_window::update()
 
     if(should_close) {
         on_closed();
-        if(!use_gpu_backend && gl_context) {
-            SDL_GL_DestroyContext(gl_context);
-        }
         SDL_DestroyWindow(window);
         SDL_Quit();
         return false;
@@ -438,13 +375,9 @@ bool gl_window::update()
 
 //////////////////////////////////////////////////////////////////////
 
-void gl_window::on_closed()
+void gpu_window::on_closed()
 {
-    if(use_gpu_backend) {
-        ImGui_ImplSDLGPU3_Shutdown();
-    } else {
-        ImGui_ImplOpenGL3_Shutdown();
-    }
+    ImGui_ImplSDLGPU3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 }

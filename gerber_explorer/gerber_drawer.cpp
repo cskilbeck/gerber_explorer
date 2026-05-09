@@ -1,42 +1,19 @@
 //////////////////////////////////////////////////////////////////////
 
-#include <glad/glad.h>
-
 #include "tesselator.h"
 
 #include "gerber_lib.h"
 #include "log_drawer.h"
-#include "gl_drawer.h"
+#include "gerber_drawer.h"
 #include "gerber_explorer.h"
 
 #include "gerber_net.h"
 
-#include "gl_colors.h"
+#include "gpu_colors.h"
 
-LOG_CONTEXT("gl_drawer", info);
+LOG_CONTEXT("gerber_drawer", info);
 
 //////////////////////////////////////////////////////////////////////
-
-namespace
-{
-    void delete_texture(GLuint &texture_id)
-    {
-        if(texture_id != 0) {
-            GL_CHECK(glDeleteTextures(1, &texture_id));
-            texture_id = 0;
-        }
-    }
-
-    void delete_buffer(GLuint &buffer_id)
-    {
-        if(buffer_id != 0) {
-            GL_CHECK(glDeleteBuffers(1, &buffer_id));
-            buffer_id = 0;
-        }
-    }
-
-}    // namespace
-
 
 namespace gerber
 {
@@ -56,14 +33,14 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    std::string const &gl_drawer::name() const
+    std::string const &gerber_drawer::name() const
     {
         return this->layer->name;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::clear()
+    void gerber_drawer::clear()
     {
         // reset everything to prepare for new tesselation
 
@@ -85,11 +62,8 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::release()
+    void gerber_drawer::release()
     {
-        ready_to_draw = false;
-
-        // bin everything (including gl resources) for good and sure
         if(boundary_stesselator != nullptr) {
             tessDeleteTess(boundary_stesselator);
             boundary_stesselator = nullptr;
@@ -104,22 +78,11 @@ namespace gerber
         fill_vertices.release();
         fill_indices.release();
         entity_flags.release();
-
-        vertex_array.cleanup();
-        index_array.cleanup();
-
-        delete_texture(outline_lines_texture);
-        delete_texture(outline_vertices_texture);
-        delete_texture(flags_texture);
-
-        delete_buffer(outline_lines_buffer);
-        delete_buffer(outline_vertices_buffer);
-        delete_buffer(flags_buffer);
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_drawer::flag_touching_entities(rect const &world_rect, int clear_flags, int set_flags)
+    int gerber_drawer::flag_touching_entities(rect const &world_rect, int clear_flags, int set_flags)
     {
         int n = 0;
         for(auto &e : entities) {
@@ -159,7 +122,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_drawer::flag_enclosed_entities(rect const &world_rect, int clear_flags, int set_flags)
+    int gerber_drawer::flag_enclosed_entities(rect const &world_rect, int clear_flags, int set_flags)
     {
         int n = 0;
         for(auto &e : entities) {
@@ -174,7 +137,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    int gl_drawer::flag_entities_at_point(vec2d point, int clear_flags, int set_flags)
+    int gerber_drawer::flag_entities_at_point(vec2d point, int clear_flags, int set_flags)
     {
         int n = 0;
         vec2f pos = vec2f(point);
@@ -190,7 +153,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::clear_entity_flags(int flags)
+    void gerber_drawer::clear_entity_flags(int flags)
     {
         for(auto &e : entities) {
             e.flags &= ~flags;
@@ -199,7 +162,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::find_entities_at_point(vec2d point, std::vector<int> &indices)
+    void gerber_drawer::find_entities_at_point(vec2d point, std::vector<int> &indices)
     {
         vec2f pos = vec2f(point);
         int n = (int)entities.size();
@@ -213,7 +176,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::select_hovered_entities()
+    void gerber_drawer::select_hovered_entities()
     {
         for(auto &e : entities) {
             if((e.flags & entity_flags_t::hovered)) {
@@ -226,9 +189,8 @@ namespace gerber
     // gl resources cannot be initialized here - that must happen on the
     // main thread so do that in create_gl_resources()
 
-    void gl_drawer::set_gerber(gerber_file *g)
+    void gerber_drawer::set_gerber(gerber_file *g)
     {
-        ready_to_draw = false;
         current_entity_id = -1;
 
         clear();
@@ -260,7 +222,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::finish_entity()
+    void gerber_drawer::finish_entity()
     {
         if(boundary_stesselator != nullptr) {
 
@@ -323,9 +285,9 @@ namespace gerber
                 int const p1 = p[1];
                 int const p2 = p[2];
                 if(p0 != TESS_UNDEF && p1 != TESS_UNDEF && p2 != TESS_UNDEF) {
-                    fill_indices.push_back(static_cast<GLuint>(p0 + base));
-                    fill_indices.push_back(static_cast<GLuint>(p1 + base));
-                    fill_indices.push_back(static_cast<GLuint>(p2 + base));
+                    fill_indices.push_back(static_cast<uint32_t>(p0 + base));
+                    fill_indices.push_back(static_cast<uint32_t>(p1 + base));
+                    fill_indices.push_back(static_cast<uint32_t>(p2 + base));
                 }
             }
 
@@ -342,7 +304,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::finalize()
+    void gerber_drawer::finalize()
     {
         finish_entity();
         // LOG_INFO("{}%,{}% {}", boundary_arena.percent_committed(), interior_arena.percent_committed(), name());
@@ -350,7 +312,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::new_entity(gerber_net *net, int flags)
+    void gerber_drawer::new_entity(gerber_net *net, int flags)
     {
         finish_entity();
 
@@ -364,14 +326,14 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::append_points(size_t offset)
+    void gerber_drawer::append_points(size_t offset)
     {
         tessAddContour(boundary_stesselator, 2, temp_points.data() + offset, sizeof(float) * 2, (int)(temp_points.size() - offset));
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gl_drawer::fill_elements(gerber_draw_element const *elements, size_t num_elements, gerber_polarity polarity, gerber_net *gnet)
+    gerber_error_code gerber_drawer::fill_elements(gerber_draw_element const *elements, size_t num_elements, gerber_polarity polarity, gerber_net *gnet)
     {
         using gerber_lib::gerber_draw_element;
 
@@ -476,7 +438,11 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::release_gl_resources()
+    // GL rendering functions (release_gl_resources, create_gl_resources, fill, update_flags_buffer, outline) removed
+    // GPU rendering is handled by gpu_drawer_resources and gpu_render.cpp
+
+#if 0  // removed GL code
+    void gerber_drawer::release_gl_resources_REMOVED()
     {
         vertex_array.cleanup();
         index_array.cleanup();
@@ -492,7 +458,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::create_gl_resources()
+    void gerber_drawer::create_gl_resources()
     {
         if(ready_to_draw) {
             return;
@@ -510,7 +476,7 @@ namespace gerber
 
         GL_CHECK(glGenBuffers(1, &outline_lines_buffer));
         GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, outline_lines_buffer));
-        GL_CHECK(glBufferData(GL_TEXTURE_BUFFER, outline_lines.size() * sizeof(gl::line2_program::line), outline_lines.data(), GL_STATIC_DRAW));
+        GL_CHECK(glBufferData(GL_TEXTURE_BUFFER, outline_lines.size() * sizeof(gpu::line2_program::line), outline_lines.data(), GL_STATIC_DRAW));
 
         GL_CHECK(glGenBuffers(1, &outline_vertices_buffer));
         GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, outline_vertices_buffer));
@@ -538,14 +504,14 @@ namespace gerber
 
         index_array.init(static_cast<GLsizei>(fill_indices.size()));
         index_array.activate();
-        gl::update_buffer<GL_ELEMENT_ARRAY_BUFFER>(fill_indices);
+        gpu::update_buffer<GL_ELEMENT_ARRAY_BUFFER>(fill_indices);
 
         ready_to_draw = true;
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, uint8_t draw_flags) const
+    void gerber_drawer::fill(gpu::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, uint8_t draw_flags) const
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
@@ -577,7 +543,7 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::update_flags_buffer()
+    void gerber_drawer::update_flags_buffer()
     {
         bool update = false;
         for(auto const &e : entities) {
@@ -593,21 +559,21 @@ namespace gerber
         }
         if(update) {
             GL_CHECK(glBindBuffer(GL_TEXTURE_BUFFER, flags_buffer)); //%a %b %d %H:%M:%S %Z
-            gl::update_buffer<GL_TEXTURE_BUFFER>(entity_flags);
+            gpu::update_buffer<GL_TEXTURE_BUFFER>(entity_flags);
         }
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_drawer::outline(float outline_thickness, gl::matrix const &matrix, vec2d const &viewport_size) const
+    void gerber_drawer::outline(float outline_thickness, gpu::matrix const &matrix, vec2d const &viewport_size) const
     {
         if(vertex_array.num_verts == 0 || index_array.num_indices == 0) {
             return;
         }
 
-        gl::colorf4 active_color(gl::colors::red);
-        gl::colorf4 select_color(gl::colors::green);
-        gl::colorf4 hover_color(gl::colors::blue);
+        gpu::colorf4 active_color(gpu::colors::red);
+        gpu::colorf4 select_color(gpu::colors::green);
+        gpu::colorf4 hover_color(gpu::colors::blue);
 
         gerber_explorer::line2_program.activate();
         gerber_explorer::line2_program.quad_points_array.activate();
@@ -633,11 +599,13 @@ namespace gerber
         GL_CHECK(glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei)outline_lines.size()));
     }
 
+#endif  // removed GL code
+
     //////////////////////////////////////////////////////////////////////
     // Given some entities, create a shape which encloses them
     // This is used for drawing inverted layers...
 
-    void gl_drawer::create_mask()
+    void gerber_drawer::create_mask()
     {
         using namespace Clipper2Lib;
 

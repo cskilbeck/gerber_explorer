@@ -41,7 +41,7 @@
 //
 // fix select/hover/active highlighting
 // make the gerber parser interruptible with stop_token
-// share arenas where possible in gl_drawer (pool of arenas reused?)
+// share arenas where possible in gerber_drawer (pool of arenas reused?)
 // make status bar more informative
 // use native menus on MacOS
 // dynamic tesselation
@@ -93,7 +93,7 @@ int output_debug_string(char const *s)
 }
 #endif
 
-int main(int argc, char **argv)
+int main(int, char **)
 {
 #ifdef _DEBUG
     log_set_level(gerber_lib::log_level_debug);
@@ -122,13 +122,7 @@ int main(int argc, char **argv)
 #endif
 
     gerber_explorer window;
-
-    for(int i = 1; i < argc; ++i) {
-        if(strcmp(argv[i], "--gpu") == 0) {
-            window.use_gpu_backend = true;
-        }
-    }
-
+    window.use_gpu_backend = true;
     window.init();
 
     while(window.update()) {}

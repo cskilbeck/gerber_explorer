@@ -3,11 +3,9 @@
 // This file contains the gpu_render() function and helpers.
 // It parallels the GL rendering in on_render() (gerber_explorer.cpp).
 
-#include <glad/glad.h>    // needed because gerber_explorer.h pulls gl_base.h
-
 #include "gerber_explorer.h"
 #include "gerber_net.h"
-#include "gl_matrix.h"
+#include "gpu_matrix.h"
 #include "imgui.h"
 #include "imgui_impl_sdlgpu3.h"
 
@@ -196,8 +194,8 @@ void gerber_explorer::gpu_render()
                 float fill_color[4];
                 float other_color[4];
             } blit_uniforms;
-            gl::colorf4 fc(layer.fill_color);
-            gl::colorf4 oc(gl::colors::black);
+            gpu::colorf4 fc(layer.fill_color);
+            gpu::colorf4 oc(gpu::colors::black);
             memcpy(blit_uniforms.fill_color, fc.f, sizeof(float) * 4);
             memcpy(blit_uniforms.other_color, oc.f, sizeof(float) * 4);
             SDL_PushGPUFragmentUniformData(cmd, 0, &blit_uniforms, sizeof(blit_uniforms));
@@ -270,7 +268,7 @@ void gerber_explorer::gpu_render_layer(SDL_GPUCommandBuffer *cmd, gerber_layer &
 
             // Push uniforms: transform + color
             struct {
-                gl::matrix transform;
+                gpu::matrix transform;
                 float color[4];
             } solid_uniforms;
             solid_uniforms.transform = world_matrix;
@@ -296,7 +294,7 @@ void gerber_explorer::gpu_render_layer(SDL_GPUCommandBuffer *cmd, gerber_layer &
 
         // Vertex uniforms: transform + draw_flags
         struct {
-            gl::matrix transform;
+            gpu::matrix transform;
             int32_t draw_flags;
             int32_t _pad[3];
         } layer_vs_uniforms;
@@ -371,7 +369,7 @@ void gerber_explorer::gpu_render_selection(SDL_GPUCommandBuffer *cmd, SDL_GPUTex
         SDL_BindGPUGraphicsPipeline(pass, gpu_pipelines.layer_fill);
 
         // Vertex uniforms: world_matrix + draw_flags (only selection-flagged entities)
-        struct { gl::matrix transform; int32_t draw_flags; int32_t _pad[3]; } vs_uni;
+        struct { gpu::matrix transform; int32_t draw_flags; int32_t _pad[3]; } vs_uni;
         vs_uni.transform = world_matrix;
         vs_uni.draw_flags = draw_flags;
         SDL_PushGPUVertexUniformData(cmd, 0, &vs_uni, sizeof(vs_uni));
@@ -399,9 +397,9 @@ void gerber_explorer::gpu_render_selection(SDL_GPUCommandBuffer *cmd, SDL_GPUTex
 
     // ---- Step 2: Blit selection fill to swapchain ----
     {
-        gl::color hovered_color = 0x80ffffff;
-        gl::color selected_color = 0x90ffffff;
-        gl::color active_color = 0xb0ffffff;
+        gpu::color hovered_color = 0x80ffffff;
+        gpu::color selected_color = 0x90ffffff;
+        gpu::color active_color = 0xb0ffffff;
 
         SDL_GPUColorTargetInfo blit_ct{};
         blit_ct.texture = swapchain_texture;
@@ -416,7 +414,7 @@ void gerber_explorer::gpu_render_selection(SDL_GPUCommandBuffer *cmd, SDL_GPUTex
         SDL_BindGPUGraphicsPipeline(pass, gpu_pipelines.selection);
 
         struct { float red[4], green[4], blue[4]; } sel_uni;
-        gl::colorf4 rc(hovered_color), gc(selected_color), bc(active_color);
+        gpu::colorf4 rc(hovered_color), gc(selected_color), bc(active_color);
         memcpy(sel_uni.red, rc.f, 16);
         memcpy(sel_uni.green, gc.f, 16);
         memcpy(sel_uni.blue, bc.f, 16);
@@ -453,7 +451,7 @@ void gerber_explorer::gpu_render_selection(SDL_GPUCommandBuffer *cmd, SDL_GPUTex
 
             // Line2 vertex uniforms
             struct {
-                gl::matrix transform;
+                gpu::matrix transform;
                 float viewport_size[2];
                 float thickness;
                 uint32_t red_flag;
@@ -474,9 +472,9 @@ void gerber_explorer::gpu_render_selection(SDL_GPUCommandBuffer *cmd, SDL_GPUTex
             // Line2 fragment uniforms
             // Line2 fragment colors: pure R/G/B so they write to separate RT channels
             // The selection blit then applies the actual outline colors from those channels
-            gl::colorf4 red_c(gl::colors::red);
-            gl::colorf4 green_c(gl::colors::green);
-            gl::colorf4 blue_c(gl::colors::blue);
+            gpu::colorf4 red_c(gpu::colors::red);
+            gpu::colorf4 green_c(gpu::colors::green);
+            gpu::colorf4 blue_c(gpu::colors::blue);
             struct { float thickness; float _pad[3]; float red[4], green[4], blue[4]; } line_fs;
             line_fs.thickness = settings.outline_width;
             line_fs._pad[0] = line_fs._pad[1] = line_fs._pad[2] = 0;
@@ -502,12 +500,12 @@ void gerber_explorer::gpu_render_selection(SDL_GPUCommandBuffer *cmd, SDL_GPUTex
         {
             // Outline blit colors from settings
             auto const &oc = settings.outline_color;
-            gl::color outline_color = ((uint32_t)(oc.r * 255) & 0xff)
+            gpu::color outline_color = ((uint32_t)(oc.r * 255) & 0xff)
                                     | (((uint32_t)(oc.g * 255) & 0xff) << 8)
                                     | (((uint32_t)(oc.b * 255) & 0xff) << 16);
-            gl::colorf4 rc(gl::set_alpha(outline_color, 0.9f));    // active
-            gl::colorf4 gc(gl::set_alpha(outline_color, 0.75f));   // selected
-            gl::colorf4 bc(gl::set_alpha(outline_color, 0.5f));    // hovered
+            gpu::colorf4 rc(gpu::set_alpha(outline_color, 0.9f));    // active
+            gpu::colorf4 gc(gpu::set_alpha(outline_color, 0.75f));   // selected
+            gpu::colorf4 bc(gpu::set_alpha(outline_color, 0.5f));    // hovered
 
             SDL_GPUColorTargetInfo blit_ct{};
             blit_ct.texture = swapchain_texture;
@@ -557,19 +555,19 @@ void gerber_explorer::gpu_render_overlay(SDL_GPUCommandBuffer *cmd, SDL_GPUTextu
 
     if(settings.show_axes) {
         gpu_overlay.lines();
-        gpu_overlay.add_line({ 0, origin.y }, { viewport_size.x, origin.y }, gl::colors::cyan);
-        gpu_overlay.add_line({ origin.x, 0 }, { origin.x, viewport_size.y }, gl::colors::cyan);
+        gpu_overlay.add_line({ 0, origin.y }, { viewport_size.x, origin.y }, gpu::colors::cyan);
+        gpu_overlay.add_line({ origin.x, 0 }, { origin.x, viewport_size.y }, gpu::colors::cyan);
     }
 
     if(settings.show_extent && selected_layer != nullptr && selected_layer->is_valid()) {
         if(active_entity != nullptr) {
             rect s = viewport_rect_from_board_rect(active_entity->bounds);
-            gpu_overlay.add_outline_rect(s, gl::colors::yellow);
+            gpu_overlay.add_outline_rect(s, gpu::colors::yellow);
         } else {
             rect ext = selected_layer->extent();
             if(ext.width() != 0 && ext.height() != 0) {
                 rect s{ viewport_pos_from_world_pos(ext.min_pos), viewport_pos_from_world_pos(ext.max_pos) };
-                gpu_overlay.add_outline_rect(s, gl::colors::yellow);
+                gpu_overlay.add_outline_rect(s, gpu::colors::yellow);
             }
         }
     }
@@ -588,7 +586,7 @@ void gerber_explorer::gpu_render_overlay(SDL_GPUCommandBuffer *cmd, SDL_GPUTextu
         vec2d start_screen = viewport_pos_from_world_pos(measure_start_world);
         vec2d end_screen = viewport_pos_from_world_pos(measure_end_world);
         gpu_overlay.lines();
-        gpu_overlay.add_line(start_screen, end_screen, gl::colors::yellow);
+        gpu_overlay.add_line(start_screen, end_screen, gpu::colors::yellow);
     }
 
     if(gpu_overlay.verts.empty()) {

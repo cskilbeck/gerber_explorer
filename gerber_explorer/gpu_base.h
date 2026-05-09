@@ -12,7 +12,7 @@
 #include <SDL3_shadercross/SDL_shadercross.h>
 
 #include "gerber_2d.h"
-#include "gl_colors.h"
+#include "gpu_colors.h"
 
 //////////////////////////////////////////////////////////////////////
 
@@ -39,7 +39,7 @@ namespace gpu
     };
 
     //////////////////////////////////////////////////////////////////////
-    // Line instance data (matches gl::line2_program::line)
+    // Line instance data (matches gpu::line2_program::line)
 
     struct line_instance
     {
@@ -50,7 +50,7 @@ namespace gpu
     };
 
     //////////////////////////////////////////////////////////////////////
-    // Arc instance data (matches gl::arc_program::arc)
+    // Arc instance data (matches gpu::arc_program::arc)
 
     struct arc_instance
     {
@@ -99,7 +99,7 @@ namespace gpu
     };
 
     //////////////////////////////////////////////////////////////////////
-    // Render target (replaces gl::render_target)
+    // Render target (replaces gpu::render_target)
 
     struct render_target
     {
@@ -138,7 +138,7 @@ namespace gpu
     };
 
     //////////////////////////////////////////////////////////////////////
-    // Drawlist for overlay graphics (replaces gl::drawlist)
+    // Drawlist for overlay graphics (replaces gpu::drawlist)
 
     struct drawlist
     {
@@ -159,12 +159,12 @@ namespace gpu
 
         void reset();
 
-        void add_vertex(vec2d const &pos, gl::color color);
+        void add_vertex(vec2d const &pos, gpu::color color);
 
         void lines();
-        void add_line(vec2d const &start, vec2d const &end, gl::color color);
-        void add_outline_rect(rect const &r, gl::color color);
-        void add_rect(rect const &r, gl::color color);
+        void add_line(vec2d const &start, vec2d const &end, gpu::color color);
+        void add_outline_rect(rect const &r, gpu::color color);
+        void add_rect(rect const &r, gpu::color color);
     };
 
 }    // namespace gpu

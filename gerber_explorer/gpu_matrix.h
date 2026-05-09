@@ -2,7 +2,7 @@
 
 #include "gerber_2d.h"
 
-namespace gl
+namespace gpu
 {
     struct alignas(16) matrix
     {

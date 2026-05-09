@@ -1,8 +1,13 @@
 #pragma once
 
+#include <cstdint>
+#include <format>
+#include <string>
+#include <cctype>
+
 // 0xAABBGGRR (RGBA in memory)
 
-namespace gl
+namespace gpu
 {
     using color = uint32_t;
 
@@ -327,4 +332,4 @@ namespace gl
         return c;
     }
 
-}    // namespace gl
+}    // namespace gpu

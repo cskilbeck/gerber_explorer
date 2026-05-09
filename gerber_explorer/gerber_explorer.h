@@ -4,13 +4,12 @@
 #include <mutex>
 #include <atomic>
 
-#include "gl_window.h"
-#include "gl_base.h"
-#include "gl_colors.h"
-#include "gl_matrix.h"
+#include "gpu_window.h"
+#include "gpu_colors.h"
+#include "gpu_matrix.h"
 #include "gpu_base.h"
 #include "gpu_drawer.h"
-#include "gl_drawer.h"
+#include "gerber_drawer.h"
 
 #include "job_pool.h"
 
@@ -56,11 +55,11 @@ struct gerber_layer
         drawers[1].init(this);
     }
 
-    // have two gl_drawer instances and a pointer to one of them
+    // have two gerber_drawer instances and a pointer to one of them
     // tesselate into the idle one and swap it over when that's complete (in the main thread)
 
-    gerber::gl_drawer *drawer{};
-    gerber::gl_drawer drawers[2]{};
+    gerber::gerber_drawer *drawer{};
+    gerber::gerber_drawer drawers[2]{};
     int current_drawer{ 0 };
 
     gerber::gpu_drawer_resources gpu_resources{};
@@ -82,8 +81,8 @@ struct gerber_layer
 
     std::string name;
     layer_order_t layer_order{ layer_order_t::all };
-    gl::color fill_color;
-    gl::color clear_color;
+    gpu::color fill_color;
+    gpu::color clear_color;
 
     gerber_lib::layer::type_t layer_type() const
     {
@@ -121,7 +120,7 @@ struct gerber_layer
 };
 
 
-struct gerber_explorer : gl_window
+struct gerber_explorer : gpu_window
 {
     using rect = gerber_lib::rect;
     using vec2d = gerber_lib::vec2d;
@@ -185,8 +184,8 @@ struct gerber_explorer : gl_window
     rect viewport_rect{};
 
     // transform matrices
-    gl::matrix world_matrix{};
-    gl::matrix ortho_screen_matrix{};
+    gpu::matrix world_matrix{};
+    gpu::matrix ortho_screen_matrix{};
 
     // gerber layers
     std::list<gerber_layer *> layers;    // active
@@ -199,30 +198,15 @@ struct gerber_explorer : gl_window
     bool zoom_anim{ false };
     std::chrono::time_point<std::chrono::high_resolution_clock> target_view_time{};
 
-    // overlay graphics (selection rectangle etc)
-    gl::drawlist overlay;
-
     // mouse moves are handled in the render function
     bool mouse_did_move{ false };
     vec2d mouse_pos{};
     vec2d prev_mouse_pos{};
     vec2d world_mouse_pos{};
 
-    // glsl programs
-    static gl::solid_program solid_program;
-    static gl::color_program color_program;
-    static gl::layer_program layer_program;
-    static gl::blit_program blit_program;
-    static gl::selection_program selection_program;
-    static gl::arc_program arc_program;
-    static gl::line2_program line2_program;
-
-    // for drawing things offscreen and then blending them to the final composition
-    gl::render_target layer_render_target{};
-
     int max_multisamples{ 1 };
 
-    // SDL_GPU backend (parallel to GL) — use_gpu_backend is inherited from gl_window
+    // SDL_GPU backend (parallel to GL) — use_gpu_backend is inherited from gpu_window
     gpu::device gpu_dev{};
     gpu::pipelines gpu_pipelines{};
     gpu::render_target gpu_render_target{};
@@ -317,9 +301,6 @@ struct gerber_explorer : gl_window
 
     bool layer_is_visible(gerber_layer const *layer) const;
     void next_view();
-
-    void blend_layer(gl::color color_fill, gl::color color_other, int num_samples) const;
-    void blend_selection(gl::color red, gl::color green, gl::color blue, int num_samples) const;
 
     void add_gerber(settings::layer_t const &layer);
 

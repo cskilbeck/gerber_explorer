@@ -9,21 +9,6 @@ if(MSVC)
 endif()
 
 ######################################################################
-# OPENGL
-set(OpenGL_GL_PREFERENCE GLVND)
-
-find_package(OpenGL REQUIRED)
-
-######################################################################
-# GLAD
-
-set(GLAD_DIR ${CMAKE_CURRENT_LIST_DIR}/glad)
-
-add_library(glad STATIC ${GLAD_DIR}/src/glad.c)
-
-target_include_directories(glad PUBLIC ${GLAD_DIR}/include)
-
-######################################################################
 # SDL3
 
 FetchContent_Declare(
@@ -52,13 +37,12 @@ FetchContent_MakeAvailable(imgui)
 file(GLOB IMGUI_CORE_SOURCES "${imgui_SOURCE_DIR}/*.cpp")
 set(IMGUI_BACKEND_SOURCES
         ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
         ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp
 )
 
 add_library(imgui_lib STATIC ${IMGUI_CORE_SOURCES} ${IMGUI_BACKEND_SOURCES})
 
-target_link_libraries(imgui_lib PUBLIC SDL3::SDL3-static OpenGL::GL)
+target_link_libraries(imgui_lib PUBLIC SDL3::SDL3-static)
 
 if(UNIX AND NOT APPLE)
     find_package(X11 REQUIRED)
@@ -72,13 +56,12 @@ target_include_directories(imgui_lib PUBLIC
 target_compile_definitions(imgui_lib PUBLIC IMGUI_USE_WCHAR32)
 
 ######################################################################
-# main GL stuff
+# main rendering libs
 
-add_library(gerber_gl INTERFACE)
+add_library(gerber_gpu INTERFACE)
 
-target_link_libraries(gerber_gl INTERFACE
-        imgui_lib # gl and SDL3 are added via imgui_lib...
-        glad)
+target_link_libraries(gerber_gpu INTERFACE
+        imgui_lib)
 
 ######################################################################
 # cpptrace
@@ -230,7 +213,6 @@ target_silence_warnings(Clipper2Zutils)
 
 set(IPO_LIBS
         SDL3-static
-        glad
         imgui_lib
         DirectXMath
         nfd
@@ -258,7 +240,7 @@ else()
 endif()
 
 target_link_libraries(third_party INTERFACE
-        gerber_gl
+        gerber_gpu
         SDL3_shadercross::SDL3_shadercross-static
         cpptrace::cpptrace
         DirectXMath

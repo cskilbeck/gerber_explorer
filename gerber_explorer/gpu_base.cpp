@@ -555,7 +555,7 @@ namespace gpu
         entries.clear();
     }
 
-    void drawlist::add_vertex(vec2d const &pos, gl::color c)
+    void drawlist::add_vertex(vec2d const &pos, gpu::color c)
     {
         if(entries.empty() || verts.size() >= max_verts) {
             return;
@@ -569,13 +569,13 @@ namespace gpu
         entries.emplace_back(SDL_GPU_PRIMITIVETYPE_LINELIST, static_cast<uint32_t>(verts.size()), 0);
     }
 
-    void drawlist::add_line(vec2d const &start, vec2d const &end, gl::color c)
+    void drawlist::add_line(vec2d const &start, vec2d const &end, gpu::color c)
     {
         add_vertex(start, c);
         add_vertex(end, c);
     }
 
-    void drawlist::add_outline_rect(rect const &r, gl::color c)
+    void drawlist::add_outline_rect(rect const &r, gpu::color c)
     {
         // 4 individual lines (8 verts) instead of line strip
         entries.emplace_back(SDL_GPU_PRIMITIVETYPE_LINELIST, static_cast<uint32_t>(verts.size()), 0);
@@ -589,7 +589,7 @@ namespace gpu
         add_vertex(r.min_pos, c);
     }
 
-    void drawlist::add_rect(rect const &r, gl::color c)
+    void drawlist::add_rect(rect const &r, gpu::color c)
     {
         // Two triangles (6 verts) instead of triangle fan/strip
         entries.emplace_back(SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, static_cast<uint32_t>(verts.size()), 0);

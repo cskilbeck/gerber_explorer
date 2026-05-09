@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////
 // SDL_GPU drawer - manages GPU buffers for a single gerber layer
-// Parallel to the GL parts of gl_drawer. Shares CPU-side tesselation data.
+// Parallel to the GL parts of gerber_drawer. Shares CPU-side tesselation data.
 
 #pragma once
 
@@ -9,7 +9,7 @@
 
 namespace gerber
 {
-    struct gl_drawer;    // forward - we read its arenas
+    struct gerber_drawer;    // forward - we read its arenas
 
     struct gpu_drawer_resources
     {
@@ -31,9 +31,9 @@ namespace gerber
 
         bool ready{};
 
-        void create(gpu::device &dev, gl_drawer const &drawer);
+        void create(gpu::device &dev, gerber_drawer const &drawer);
         void release(gpu::device &dev);
-        void update_flags(gpu::device &dev, gl_drawer const &drawer);
+        void update_flags(gpu::device &dev, gerber_drawer const &drawer);
     };
 
 }    // namespace gerber

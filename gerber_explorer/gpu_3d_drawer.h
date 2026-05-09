@@ -33,7 +33,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    struct gl_3d_drawer : gerber_lib::gerber_draw_interface
+    struct gpu_3d_drawer : gerber_lib::gerber_draw_interface
     {
         struct vec3f
         {
@@ -46,7 +46,7 @@ namespace gerber_3d
             gerber_lib::gerber_polarity polarity;
         };
 
-        gl_3d_drawer() = default;
+        gpu_3d_drawer() = default;
 
         void init();
 

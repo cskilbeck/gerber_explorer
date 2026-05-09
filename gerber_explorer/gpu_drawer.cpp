@@ -1,14 +1,13 @@
 //////////////////////////////////////////////////////////////////////
 
-#include <glad/glad.h>    // needed because gl_drawer.h depends on GL types
 #include "gpu_drawer.h"
-#include "gl_drawer.h"
+#include "gerber_drawer.h"
 
 LOG_CONTEXT("gpu_drawer", info);
 
 namespace gerber
 {
-    void gpu_drawer_resources::create(gpu::device &dev, gl_drawer const &drawer)
+    void gpu_drawer_resources::create(gpu::device &dev, gerber_drawer const &drawer)
     {
         if(ready) {
             return;
@@ -24,7 +23,7 @@ namespace gerber
 
         // Fill geometry
         {
-            uint32_t vb_size = static_cast<uint32_t>(drawer.fill_vertices.size() * sizeof(gl::vertex_entity));
+            uint32_t vb_size = static_cast<uint32_t>(drawer.fill_vertices.size() * sizeof(gpu::vertex_entity));
             vertex_buffer = dev.create_buffer(SDL_GPU_BUFFERUSAGE_VERTEX, vb_size, "fill_verts");
             dev.upload_to_buffer(vertex_buffer, drawer.fill_vertices.data(), vb_size);
 
@@ -63,7 +62,7 @@ namespace gerber
 
         // Mask geometry (for inverted layers)
         if(drawer.got_mask && !drawer.mask.vertices.empty() && !drawer.mask.indices.empty()) {
-            uint32_t mvb_size = static_cast<uint32_t>(drawer.mask.vertices.size() * sizeof(gl::vertex_solid));
+            uint32_t mvb_size = static_cast<uint32_t>(drawer.mask.vertices.size() * sizeof(gpu::vertex_solid));
             mask_vertex_buffer = dev.create_buffer(SDL_GPU_BUFFERUSAGE_VERTEX, mvb_size, "mask_verts");
             dev.upload_to_buffer(mask_vertex_buffer, drawer.mask.vertices.data(), mvb_size);
 
@@ -94,7 +93,7 @@ namespace gerber
         ready = false;
     }
 
-    void gpu_drawer_resources::update_flags(gpu::device &dev, gl_drawer const &drawer)
+    void gpu_drawer_resources::update_flags(gpu::device &dev, gerber_drawer const &drawer)
     {
         if(!flags_buffer || drawer.entity_flags.empty()) {
             return;

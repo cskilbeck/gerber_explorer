@@ -1,9 +1,9 @@
 
-#include "gl_matrix.h"
+#include "gpu_matrix.h"
 
 #include "dx_math.h"
 
-namespace gl
+namespace gpu
 {
     using namespace DirectX;
     using gerber_lib::vec2f;

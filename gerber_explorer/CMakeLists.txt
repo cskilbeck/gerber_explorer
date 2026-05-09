@@ -12,26 +12,6 @@ cmrc_add_resource_library(my_assets
         "assets/MaterialIcons-Regular.ttf")
 
 ######################################################################
-### GL Shader sources
-
-cmrc_add_resource_library(my_shaders
-        WHENCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders"
-        "shaders/color_vertex_shader.glsl"
-        "shaders/common_fragment_shader.glsl"
-        "shaders/layer_fragment_shader.glsl"
-        "shaders/layer_vertex_shader.glsl"
-        "shaders/line_fragment_shader.glsl"
-        "shaders/line_vertex_shader.glsl"
-        "shaders/line2_fragment_shader.glsl"
-        "shaders/line2_vertex_shader.glsl"
-        "shaders/arc_fragment_shader.glsl"
-        "shaders/arc_vertex_shader.glsl"
-        "shaders/solid_vertex_shader.glsl"
-        "shaders/blit_fragment_shader.glsl"
-        "shaders/selection_fragment_shader.glsl"
-        "shaders/blit_vertex_shader.glsl")
-
-######################################################################
 ### Compile HLSL -> SPIR-V at build time
 
 include(${CMAKE_SOURCE_DIR}/cmake/compile_shaders.cmake)
@@ -88,19 +68,17 @@ set(PROJECT gerber_explorer)
 
 set(PROJECT_SOURCES
         main.cpp
-        gl_colors.h
+        gpu_colors.h
         log_drawer.h
         log_drawer.cpp
-        gl_base.h
-        gl_base.cpp
-        gl_matrix.h
-        gl_matrix.cpp
-        gl_drawer.h
-        gl_drawer.cpp
-        gl_3d_drawer.h
-        gl_3d_drawer.cpp
-        gl_window.h
-        gl_window.cpp
+        gpu_matrix.h
+        gpu_matrix.cpp
+        gerber_drawer.h
+        gerber_drawer.cpp
+        gpu_3d_drawer.h
+        gpu_3d_drawer.cpp
+        gpu_window.h
+        gpu_window.cpp
         gpu_base.h
         gpu_base.cpp
         gpu_drawer.h
@@ -247,7 +225,7 @@ endif()
 
 target_include_directories(${PROJECT} PRIVATE ${CMRC_INCLUDE_DIR})
 
-target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets my_shaders my_shaders_spv project_options)
+target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets my_shaders_spv project_options)
 
 target_enable_ipo(${PROJECT})
 

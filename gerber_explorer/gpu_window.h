@@ -1,12 +1,10 @@
 #pragma once
 
-#include <glad/glad.h>
 #include <SDL3/SDL.h>
-#include "gl_drawer.h"
 
 //////////////////////////////////////////////////////////////////////
 
-struct gl_window
+struct gpu_window
 {
     struct window_state_t
     {
@@ -15,8 +13,8 @@ struct gl_window
         bool isMaximized;
     };
 
-    gl_window() = default;
-    virtual ~gl_window() = default;
+    gpu_window() = default;
+    virtual ~gpu_window() = default;
 
     void init();
     bool update();
@@ -90,11 +88,10 @@ struct gl_window
     void *get_native_window_handle() const;
 
     SDL_Window *window{};
-    SDL_GLContext gl_context{};
     window_state_t window_state;
     bool window_focused{false};
     bool should_close{false};
-    bool use_gpu_backend{false};    // true = SDL_GPU, false = OpenGL
+    bool use_gpu_backend{false};    // TODO: remove once GL path is fully gone
     bool init_complete{false};
     float saved_cursor_x{};
     float saved_cursor_y{};

@@ -19,9 +19,9 @@
 
 #include "gerber_aperture.h"
 #include "gerber_net.h"
-#include "gl_3d_drawer.h"
-#include "gl_matrix.h"
-#include "gl_colors.h"
+#include "gpu_3d_drawer.h"
+#include "gpu_matrix.h"
+#include "gpu_colors.h"
 #include "util.h"
 
 #include "assets/matsym_codepoints_utf8.h"
@@ -46,9 +46,9 @@ namespace
 
     double const drag_select_offset_start_distance = 16;
 
-    gl::color layer_colors[] = { (gl::color)gl::colors::dark_green, (gl::color)gl::colors::dark_cyan,     (gl::color)gl::colors::green,
-                                 (gl::color)gl::colors::lime_green, (gl::color)gl::colors::antique_white, (gl::color)gl::colors::corn_flower_blue,
-                                 (gl::color)gl::colors::gold };
+    gpu::color layer_colors[] = { (gpu::color)gpu::colors::dark_green, (gpu::color)gpu::colors::dark_cyan,     (gpu::color)gpu::colors::green,
+                                 (gpu::color)gpu::colors::lime_green, (gpu::color)gpu::colors::antique_white, (gpu::color)gpu::colors::corn_flower_blue,
+                                 (gpu::color)gpu::colors::gold };
 
     size_t next_layer_color{ 0 };
 
@@ -88,7 +88,7 @@ namespace
         gerber_lib::layer::type_t layer_type;
         bool is_inverted;
         layer_order_t layer_order;
-        gl::color color;
+        gpu::color color;
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -97,25 +97,25 @@ namespace
     bool constexpr layer_inverted = true;
 
     layer_defaults_t layer_defaults[] = {
-        { gerber_lib::layer::unknown, layer_normal, layer_order_t::other, gl::colors::yellow },
-        { gerber_lib::layer::vcut, layer_normal, layer_order_t::other, gl::colors::magenta },
-        { gerber_lib::layer::board, layer_normal, layer_order_t::other, gl::colors::black },
-        { gerber_lib::layer::outline, layer_normal, layer_order_t::other, gl::colors::black },
-        { gerber_lib::layer::mechanical, layer_normal, layer_order_t::other, gl::colors::cyan },
-        { gerber_lib::layer::info, layer_normal, layer_order_t::other, gl::colors::white },
-        { gerber_lib::layer::keepout, layer_normal, layer_order_t::other, gl::colors::magenta },
-        { gerber_lib::layer::drill, layer_normal, layer_order_t::drill, gl::colors::black },
-        { gerber_lib::layer::pads_top, layer_normal, layer_order_t::top_pads, gl::colors::silver },
-        { gerber_lib::layer::paste_top, layer_normal, layer_order_t::top_outer, gl::colors::silver },
-        { gerber_lib::layer::overlay_top, layer_normal, layer_order_t::top_outer, gl::colors::white },
-        { gerber_lib::layer::soldermask_top, layer_inverted, layer_order_t::top_outer, gl::set_alpha(gl::colors::dark_green, 0.75f) },
+        { gerber_lib::layer::unknown, layer_normal, layer_order_t::other, gpu::colors::yellow },
+        { gerber_lib::layer::vcut, layer_normal, layer_order_t::other, gpu::colors::magenta },
+        { gerber_lib::layer::board, layer_normal, layer_order_t::other, gpu::colors::black },
+        { gerber_lib::layer::outline, layer_normal, layer_order_t::other, gpu::colors::black },
+        { gerber_lib::layer::mechanical, layer_normal, layer_order_t::other, gpu::colors::cyan },
+        { gerber_lib::layer::info, layer_normal, layer_order_t::other, gpu::colors::white },
+        { gerber_lib::layer::keepout, layer_normal, layer_order_t::other, gpu::colors::magenta },
+        { gerber_lib::layer::drill, layer_normal, layer_order_t::drill, gpu::colors::black },
+        { gerber_lib::layer::pads_top, layer_normal, layer_order_t::top_pads, gpu::colors::silver },
+        { gerber_lib::layer::paste_top, layer_normal, layer_order_t::top_outer, gpu::colors::silver },
+        { gerber_lib::layer::overlay_top, layer_normal, layer_order_t::top_outer, gpu::colors::white },
+        { gerber_lib::layer::soldermask_top, layer_inverted, layer_order_t::top_outer, gpu::set_alpha(gpu::colors::dark_green, 0.75f) },
         { gerber_lib::layer::copper_top, layer_normal, layer_order_t::top_copper, 0xFF34AAAC },
         { gerber_lib::layer::copper_inner, layer_normal, layer_order_t::inner_copper, 0xFF34AAAC },
         { gerber_lib::layer::copper_bottom, layer_normal, layer_order_t::bottom_copper, 0xFF34AAAC },
-        { gerber_lib::layer::soldermask_bottom, layer_inverted, layer_order_t::bottom_outer, gl::set_alpha(gl::colors::dark_green, 0.75f) },
-        { gerber_lib::layer::overlay_bottom, layer_normal, layer_order_t::bottom_outer, gl::colors::white },
-        { gerber_lib::layer::paste_bottom, layer_normal, layer_order_t::bottom_outer, gl::colors::silver },
-        { gerber_lib::layer::pads_bottom, layer_normal, layer_order_t::bottom_pads, gl::colors::silver },
+        { gerber_lib::layer::soldermask_bottom, layer_inverted, layer_order_t::bottom_outer, gpu::set_alpha(gpu::colors::dark_green, 0.75f) },
+        { gerber_lib::layer::overlay_bottom, layer_normal, layer_order_t::bottom_outer, gpu::colors::white },
+        { gerber_lib::layer::paste_bottom, layer_normal, layer_order_t::bottom_outer, gpu::colors::silver },
+        { gerber_lib::layer::pads_bottom, layer_normal, layer_order_t::bottom_pads, gpu::colors::silver },
     };
 
     //////////////////////////////////////////////////////////////////////
@@ -147,13 +147,7 @@ namespace
 
 }    // namespace
 
-gl::solid_program gerber_explorer::solid_program{};
-gl::color_program gerber_explorer::color_program{};
-gl::layer_program gerber_explorer::layer_program{};
-gl::blit_program gerber_explorer::blit_program{};
-gl::selection_program gerber_explorer::selection_program{};
-gl::arc_program gerber_explorer::arc_program{};
-gl::line2_program gerber_explorer::line2_program{};
+// GL program statics removed - GPU path only
 
 //////////////////////////////////////////////////////////////////////
 // If zoom_anim or any jobs in the pool, or user interacting, it's not idle
@@ -691,7 +685,7 @@ void gerber_explorer::on_closed()
     if(crosshair_cursor != nullptr) {
         SDL_DestroyCursor(crosshair_cursor);
     }
-    gl_window::on_closed();    // shuts down ImGui backends before we destroy GPU resources
+    gpu_window::on_closed();    // shuts down ImGui backends before we destroy GPU resources
     if(use_gpu_backend) {
         for(auto *l : layers) {
             l->gpu_resources.release(gpu_dev);
@@ -725,7 +719,7 @@ void gerber_explorer::load_settings(std::filesystem::path const &path)
 
 void gerber_explorer::on_window_size(int w, int h)
 {
-    gl_window::on_window_size(w, h);
+    gpu_window::on_window_size(w, h);
     window_width = w;
     window_height = h;
 }
@@ -734,7 +728,7 @@ void gerber_explorer::on_window_size(int w, int h)
 
 void gerber_explorer::on_window_refresh()
 {
-    gl_window::on_window_refresh();
+    gpu_window::on_window_refresh();
     if(use_gpu_backend && frames == 0) {
         return;    // GPU backend needs a proper first frame before refresh renders
     }
@@ -814,7 +808,7 @@ void gerber_explorer::save_settings(std::filesystem::path const &path, bool save
         for(auto it = layers.crbegin(); it != layers.crend(); ++it) {
             gerber_layer *layer = *it;
             if(layer->is_valid()) {
-                settings.files.emplace_back(layer->filename(), gl::color_to_string(layer->fill_color), layer->visible, layer->invert, index);
+                settings.files.emplace_back(layer->filename(), gpu::color_to_string(layer->fill_color), layer->visible, layer->invert, index);
                 LOG_INFO("> {}", layer->filename());
                 index += 1;
             }
@@ -948,23 +942,9 @@ bool gerber_explorer::on_init()
         }
     }
 
-    if(!use_gpu_backend) {
-        solid_program.init();
-        color_program.init();
-        layer_program.init();
-        blit_program.init();
-        selection_program.init();
-        arc_program.init();
-        line2_program.init();
-
-        overlay.init();
-    }
-
     crosshair_cursor = create_system_cursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
 
-    if(!use_gpu_backend) {
-        glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &max_multisamples);
-    } else {
+    {
         // Query max supported MSAA for our RT format
         max_multisamples = 1;
         SDL_GPUSampleCount test_counts[] = { SDL_GPU_SAMPLECOUNT_2, SDL_GPU_SAMPLECOUNT_4, SDL_GPU_SAMPLECOUNT_8 };
@@ -1004,7 +984,7 @@ void gerber_explorer::file_open()
                     next_layer_color += 1;
                     next_layer_color %= std::size(layer_colors);
                     // index -1 means try to determine from layer classification
-                    add_gerber(settings::layer_t{ outPath, gl::colorf4(layer_colors[next_layer_color]).to_string(), true, false, -1 });
+                    add_gerber(settings::layer_t{ outPath, gpu::colorf4(layer_colors[next_layer_color]).to_string(), true, false, -1 });
                     // NFD_FreePathU8(outPath);
                 }
             }
@@ -1099,7 +1079,7 @@ void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t
             layer->retesselating = true;
         }
 
-        gl_drawer *other_drawer = &layer->drawers[d];
+        gerber_drawer *other_drawer = &layer->drawers[d];
         using namespace gerber_lib;
         auto layer_type = layer->layer_type();
         layer->is_outline_layer = force_outline || is_layer_type(layer_type, layer::type_t::board) || is_layer_type(layer_type, layer::type_t::outline);
@@ -1113,7 +1093,7 @@ void gerber_explorer::tesselate_layer(gerber_layer *layer, tesselation_options_t
         // NOTE: only transfer selection flags - fill/clear come from the new tesselation
         // and must not be overwritten (old_drawer->entity_flags is zero for layers that
         // were never rendered, which would wipe out the fill/clear flags)
-        gl_drawer *old_drawer = &layer->drawers[layer->current_drawer];
+        gerber_drawer *old_drawer = &layer->drawers[layer->current_drawer];
         for(auto &e : other_drawer->entities) {
             int id = e.entity_id();
             if(id >= 0 && id < (int)old_drawer->entity_flags.size()) {
@@ -1145,7 +1125,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
     layer->index = layer_to_load.index;
     layer->name = std::format("{}", std::filesystem::path(g.filename).filename().string());
     layer->visible = layer_to_load.visible;
-    layer->clear_color = gl::colors::black;
+    layer->clear_color = gpu::colors::black;
     layer->drawer = &layer->drawers[0];
 
     layer_defaults_t d = get_defaults_for_layer_type(g.layer_type);
@@ -1160,7 +1140,7 @@ void gerber_explorer::load_gerber(settings::layer_t const &layer_to_load)
         layer->fill_color = d.color;
     } else {
         layer->invert = layer_to_load.inverted;
-        layer->fill_color = gl::color_from_string(layer_to_load.color);
+        layer->fill_color = gpu::color_from_string(layer_to_load.color);
     }
     next_index = std::max(layer->index + 1, next_index);
     layer->layer_order = d.layer_order;
@@ -1281,7 +1261,7 @@ void gerber_explorer::export_stl(std::filesystem::path filepath, gerber_layer *l
         }
         LOG_CONTEXT("export", debug);
         LOG_INFO("Export {} as {}", l->name, filepath.string());
-        gerber_3d::gl_3d_drawer drawer;
+        gerber_3d::gpu_3d_drawer drawer;
         drawer.init();
         drawer.tesselation_quality = settings.tesselation_quality;
         drawer.set_gerber(&l->file);
@@ -1291,7 +1271,7 @@ void gerber_explorer::export_stl(std::filesystem::path filepath, gerber_layer *l
             Paths64 outline;
             if(outline_layer != nullptr) {
                 // resolve outline layer with fine arc tessellation to get clean board shape
-                gerber_3d::gl_3d_drawer outline_drawer;
+                gerber_3d::gpu_3d_drawer outline_drawer;
                 outline_drawer.init();
                 outline_drawer.tesselation_quality = settings.tesselation_quality;
                 outline_drawer.set_gerber(&outline_layer->file);
@@ -1301,7 +1281,7 @@ void gerber_explorer::export_stl(std::filesystem::path filepath, gerber_layer *l
                 }
                 outline_drawer.release();
             } else {
-                int64_t S = gerber_3d::gl_3d_drawer::CLIPPER_SCALE;
+                int64_t S = gerber_3d::gpu_3d_drawer::CLIPPER_SCALE;
                 outline.push_back({
                     {static_cast<int64_t>(board_ext.min_pos.x * S), static_cast<int64_t>(board_ext.min_pos.y * S)},
                     {static_cast<int64_t>(board_ext.max_pos.x * S), static_cast<int64_t>(board_ext.min_pos.y * S)},
@@ -1640,13 +1620,13 @@ void gerber_explorer::ui()
                 //     ImGui::SetItemTooltip("Solid/Mixed/Outline only");
                 // }
                 ImGui::SameLine();
-                gl::colorf4 e(l->fill_color);
+                gpu::colorf4 e(l->fill_color);
                 auto color_flags = ImGuiColorEditFlags_NoInputs |    //
                                    ImGuiColorEditFlags_NoLabel |     //
                                    ImGuiColorEditFlags_AlphaBar |    //
                                    ImGuiColorEditFlags_AlphaPreview;
                 if(ImGui::ColorEdit4("##clr", e.f, color_flags)) {
-                    l->fill_color = (gl::color)e;
+                    l->fill_color = (gpu::color)e;
                 }
                 ImGui::SameLine();
                 if(IconButton("##del", MATSYM_close)) {
@@ -1773,53 +1753,6 @@ void gerber_explorer::update_board_extent()
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::blend_layer(gl::color color_fill, gl::color color_other, int num_samples) const
-{
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-    GL_CHECK(glViewport(viewport_xpos, window_height - (viewport_height + viewport_ypos), viewport_width, viewport_height));
-    GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-
-    blit_program.activate();
-    layer_render_target.bind_textures();
-
-    if(num_samples == 0) {
-        num_samples = layer_render_target.num_samples;
-    }
-
-    GL_CHECK(glUniform4fv(blit_program.u_fill_color, 1, gl::colorf4(color_fill).f));
-    GL_CHECK(glUniform4fv(blit_program.u_other_color, 1, gl::colorf4(color_other).f));
-    GL_CHECK(glUniform1i(blit_program.u_num_samples, num_samples));
-    GL_CHECK(glUniform1i(blit_program.u_cover_sampler, 0));
-
-    GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
-}
-
-//////////////////////////////////////////////////////////////////////
-
-void gerber_explorer::blend_selection(gl::color red, gl::color green, gl::color blue, int num_samples) const
-{
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-    GL_CHECK(glViewport(viewport_xpos, window_height - (viewport_height + viewport_ypos), viewport_width, viewport_height));
-    GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-
-    selection_program.activate();
-    layer_render_target.bind_textures();
-
-    if(num_samples == 0) {
-        num_samples = layer_render_target.num_samples;
-    }
-
-    GL_CHECK(glUniform4fv(selection_program.u_red_color, 1, gl::colorf4(red).f));
-    GL_CHECK(glUniform4fv(selection_program.u_green_color, 1, gl::colorf4(green).f));
-    GL_CHECK(glUniform4fv(selection_program.u_blue_color, 1, gl::colorf4(blue).f));
-    GL_CHECK(glUniform1i(selection_program.u_num_samples, num_samples));
-    GL_CHECK(glUniform1i(selection_program.u_cover_sampler, 0));
-
-    GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
-}
-
 //////////////////////////////////////////////////////////////////////
 
 void gerber_explorer::set_outline_layer(gerber_layer *new_outline_layer)
@@ -1829,10 +1762,7 @@ void gerber_explorer::set_outline_layer(gerber_layer *new_outline_layer)
             l->is_outline_layer = false;
             l->got_mask = false;
             l->drawer->got_mask = false;
-            if(!use_gpu_backend) {
-                l->drawer->mask.release_gl_resources();
-            }
-            l->gpu_resources.ready = false;    // force GPU resource recreation
+            l->gpu_resources.ready = false;
             l->drawer->mask.release();
         }
     }
@@ -2062,27 +1992,27 @@ void gerber_explorer::on_render()
 
     flip_xy = { settings.flip_x ? -1.0 : 1.0, settings.flip_y ? -1.0 : 1.0 };
 
-    ortho_screen_matrix = gl::make_ortho(viewport_width, viewport_height);
+    ortho_screen_matrix = gpu::make_ortho(viewport_width, viewport_height);
 
     // world matrix has optional x/y flip around board center
-    gl::matrix flip_m = gl::make_identity();
+    gpu::matrix flip_m = gpu::make_identity();
     flip_m.m[0] = (float)flip_xy.x;
     flip_m.m[5] = (float)flip_xy.y;
     flip_m.m[12] = (float)(board_center.x - flip_xy.x * board_center.x);
     flip_m.m[13] = (float)(board_center.y - flip_xy.y * board_center.y);
 
-    gl::matrix view_m = gl::make_identity();
+    gpu::matrix view_m = gpu::make_identity();
     view_m.m[0] = (float)view_scale.x;
     view_m.m[5] = (float)view_scale.y;
     view_m.m[12] = (float)(-(view_rect.min_pos.x * view_scale.x));
     view_m.m[13] = (float)(-(view_rect.min_pos.y * view_scale.y));
-    gl::matrix temp = matrix_multiply(view_m, flip_m);
+    gpu::matrix temp = matrix_multiply(view_m, flip_m);
     world_matrix = matrix_multiply(ortho_screen_matrix, temp);
 
     // For Vulkan/SDL_GPU: flip Y in clip space after all view transforms.
     // This keeps view_rect/zoom/pan math identical to the GL path.
     if(use_gpu_backend) {
-        gl::matrix clip_y_flip = gl::make_identity();
+        gpu::matrix clip_y_flip = gpu::make_identity();
         clip_y_flip.m[5] = -1.0f;    // negate clip Y
         world_matrix = matrix_multiply(clip_y_flip, world_matrix);
     }
@@ -2090,27 +2020,16 @@ void gerber_explorer::on_render()
     //////////////////////////////////////////////////////////////////////
     // Draw stuff
 
-    // resize the offscreen render target if the window size changed
-    if(!use_gpu_backend) {
-        if(layer_render_target.width != viewport_width || layer_render_target.height != viewport_height ||
-           layer_render_target.num_samples != settings.multisamples) {
-            layer_render_target.cleanup();
-            layer_render_target.init(viewport_width, viewport_height, settings.multisamples, 1);
-        }
-    }
+    // render target resize is handled in gpu_render()
 
     // update which drawer being used (in case retesselation happened)
     {
         std::lock_guard l(layer_drawer_mutex);
         for(auto &layer : layers) {
-            gl_drawer *old_drawer = layer->drawer;
+            gerber_drawer *old_drawer = layer->drawer;
             layer->drawer = &layer->drawers[layer->current_drawer];
             layer->got_mask = layer->drawer->got_mask;
             if(layer->drawer != old_drawer) {
-                if(!use_gpu_backend) {
-                    old_drawer->release_gl_resources();
-                }
-                // GPU resources for old drawer will be recreated on demand
                 layer->gpu_resources.ready = false;
             }
         }
@@ -2129,9 +2048,6 @@ void gerber_explorer::on_render()
         // first valid outline layer is it
         if(outline_layer == nullptr && layer->is_outline_layer && layer->got_mask) {
             outline_layer = layer;
-            if(!use_gpu_backend) {
-                outline_layer->drawer->mask.create_gl_resources();
-            }
         }
     }
 
@@ -2158,16 +2074,17 @@ void gerber_explorer::on_render()
 
     double t = get_time();
 
-    if(use_gpu_backend) {
-        gpu_render();
-        ui();
-        last_frame_cpu_time = get_time() - t;
-        if(zoom_anim) {
-            SDL_Event e{}; e.type = SDL_EVENT_USER; SDL_PushEvent(&e);
-        }
-        return;
+    gpu_render();
+    ui();
+    last_frame_cpu_time = get_time() - t;
+    if(zoom_anim) {
+        SDL_Event e{}; e.type = SDL_EVENT_USER; SDL_PushEvent(&e);
     }
+}
 
+// GL rendering path removed — see gpu_render.cpp
+
+#if 0  // removed GL rendering code
     GL_CHECK(glClearColor(settings.background_color.r, settings.background_color.g, settings.background_color.b, 1.0f));
 
     GL_CHECK(glDisable(GL_DEPTH_TEST));
@@ -2227,7 +2144,7 @@ void gerber_explorer::on_render()
         GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         layer.drawer->fill(world_matrix, fill_flag, clear_flag, 0, draw_flags);
         GL_CHECK(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-        blend_layer(layer.fill_color, gl::colors::black, settings.multisamples);
+        blend_layer(layer.fill_color, gpu::colors::black, settings.multisamples);
     }
 
     // draw overlay/ouline of selected & hovered entities in selected layer on top of all other layers
@@ -2240,9 +2157,9 @@ void gerber_explorer::on_render()
         GL_CHECK(glBlendFunc(GL_ONE, GL_ONE));
         uint8_t draw_flags = entity_flags_t::selected | entity_flags_t::active | entity_flags_t::hovered;
         selected_layer->drawer->fill(world_matrix, entity_flags_t::hovered, entity_flags_t::selected, entity_flags_t::active, draw_flags);
-        gl::color hovered = 0x80ffffff;
-        gl::color selected = 0x90ffffff;
-        gl::color active = 0xb0ffffff;
+        gpu::color hovered = 0x80ffffff;
+        gpu::color selected = 0x90ffffff;
+        gpu::color active = 0xb0ffffff;
         GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         blend_selection(hovered, selected, active, settings.multisamples);
 
@@ -2256,12 +2173,12 @@ void gerber_explorer::on_render()
             selected_layer->drawer->outline(settings.outline_width, world_matrix, viewport_size);
             GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
             auto const &oc = settings.outline_color;
-            gl::color outline_color = ((uint32_t)(oc.r * 255) & 0xff)
+            gpu::color outline_color = ((uint32_t)(oc.r * 255) & 0xff)
                                     | (((uint32_t)(oc.g * 255) & 0xff) << 8)
                                     | (((uint32_t)(oc.b * 255) & 0xff) << 16);
-            gl::color selected_color = gl::set_alpha(outline_color, 0.75f);
-            gl::color active_color = gl::set_alpha(outline_color, 0.9f);
-            gl::color hover_color = gl::set_alpha(outline_color, 0.5f);
+            gpu::color selected_color = gpu::set_alpha(outline_color, 0.75f);
+            gpu::color active_color = gpu::set_alpha(outline_color, 0.9f);
+            gpu::color hover_color = gpu::set_alpha(outline_color, 0.5f);
             blend_selection(active_color, selected_color, hover_color, settings.multisamples);
         }
     }
@@ -2279,8 +2196,8 @@ void gerber_explorer::on_render()
 
     vec2d origin = viewport_pos_from_world_pos({ 0, 0 });
 
-    gl::color axes_color = gl::colors::cyan;
-    gl::color extent_color = gl::colors::yellow;
+    gpu::color axes_color = gpu::colors::cyan;
+    gpu::color extent_color = gpu::colors::yellow;
 
     if(settings.show_axes) {
         overlay.lines();
@@ -2316,7 +2233,7 @@ void gerber_explorer::on_render()
         vec2d start_screen = viewport_pos_from_world_pos(measure_start_world);
         vec2d end_screen = viewport_pos_from_world_pos(measure_end_world);
         overlay.lines();
-        overlay.add_line(start_screen, end_screen, gl::colors::yellow);
+        overlay.add_line(start_screen, end_screen, gpu::colors::yellow);
     }
 
     color_program.activate();
@@ -2324,13 +2241,5 @@ void gerber_explorer::on_render()
     GL_CHECK(glViewport(viewport_xpos, window_height - (viewport_height + viewport_ypos), viewport_width, viewport_height));
     GL_CHECK(glUniformMatrix4fv(color_program.u_transform, 1, false, ortho_screen_matrix.m));
 
-    overlay.draw();
-
-    ui();
-
-    last_frame_cpu_time = get_time() - t;
-
-    if(zoom_anim) {
-        SDL_Event e{}; e.type = SDL_EVENT_USER; SDL_PushEvent(&e);
-    }
-}
+    // end of removed GL code
+#endif

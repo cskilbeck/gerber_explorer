@@ -3,13 +3,14 @@
 #pragma once
 
 #include <cstring>
+#include <cstdint>
 
-#include "gl_base.h"
 #include "gerber_lib.h"
 #include "gerber_draw.h"
 #include "gerber_net.h"
 #include "gerber_arena.h"
-#include "gl_matrix.h"
+#include "gpu_matrix.h"
+#include "gpu_base.h"
 
 #include "clipper2/clipper.h"
 
@@ -105,93 +106,34 @@ namespace gerber
 
     //////////////////////////////////////////////////////////////////////
 
-    template <typename vertex_array_type> struct drawable_shape
+    struct solid_shape
     {
-        LOG_CONTEXT("drawable", debug);
+        typed_arena<gpu::vertex_solid> vertices;
+        typed_arena<uint32_t> indices;
 
-        using vertex_type = vertex_array_type::vertex_type;
-
-        typed_arena<vertex_type> vertices;
-        typed_arena<GLuint> indices;
-        vertex_array_type vertex_array;
-        gl::index_buffer index_array;
-        bool ready_to_draw{ false };
-
-        // init cpu buffers
         void init()
         {
             vertices.init();
             indices.init();
         }
 
-        // release cpu buffers
         void release()
         {
             vertices.release();
             indices.release();
-            ready_to_draw = false;
-        }
-
-        // setup GPU buffers
-        void create_gl_resources()
-        {
-            if(!ready_to_draw) {
-                release_gl_resources();
-                if(!vertices.empty() && !indices.empty()) {
-                    GL_CHECK(vertex_array.init(vertices.size()));
-                    GL_CHECK(index_array.init(indices.size()));
-                    update();
-                }
-            }
-        }
-
-        // release GPU buffers
-        void release_gl_resources()
-        {
-            vertex_array.cleanup();
-            index_array.cleanup();
-            ready_to_draw = false;
-        }
-
-        // update cpu data -> GPU buffers
-        void update()
-        {
-            if(!vertices.empty()) {
-                GL_CHECK(vertex_array.activate());
-                GL_CHECK(gl::update_buffer<GL_ARRAY_BUFFER>(vertices));
-            }
-
-            if(!indices.empty()) {
-                GL_CHECK(index_array.activate());
-                GL_CHECK(gl::update_buffer<GL_ELEMENT_ARRAY_BUFFER>(indices));
-            }
-            ready_to_draw = true;
-        }
-
-        // render it
-        void draw()
-        {
-            GL_CHECK(vertex_array.activate());
-            GL_CHECK(index_array.activate());
-            GL_CHECK(glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr));
         }
     };
 
-    using solid_shape = drawable_shape<gl::vertex_array_solid>;
-
     //////////////////////////////////////////////////////////////////////
 
-    struct gl_drawer : gerber_lib::gerber_draw_interface
+    struct gerber_drawer : gerber_lib::gerber_draw_interface
     {
         using vec2f = gerber_lib::vec2f;
         using vert = vec2f;
 
-        gl_drawer() = default;
+        gerber_drawer() = default;
 
-        ~gl_drawer()
-        {
-            release_gl_resources();
-        }
+        ~gerber_drawer() = default;
 
         void init(gerber_layer const *for_layer)
         {
@@ -222,13 +164,6 @@ namespace gerber
         void finish_entity();
         void finalize();
 
-        // setup/teardown anything GL related that has to be done in the main thread
-        void create_gl_resources();
-        void release_gl_resources();
-
-        void fill(gl::matrix const &matrix, uint8_t r_flags, uint8_t g_flags, uint8_t b_flags, uint8_t draw_flags) const;
-        void outline(float outline_thickness, gl::matrix const &matrix, gerber_lib::vec2d const &viewport_size) const;
-
         // picking/selection
         void clear_entity_flags(int flags);
         int flag_entities_at_point(gerber_lib::vec2d point, int clear_flags, int set_flags);
@@ -239,11 +174,9 @@ namespace gerber
 
         void release();
         void create_mask();
-        void update_flags_buffer();
 
         gerber_layer const *layer{};
         bool got_mask{ false };
-        bool ready_to_draw{ false };
         std::string const &name() const;
         solid_shape mask{};    // only used if it's an outline layer
 
@@ -259,21 +192,11 @@ namespace gerber
         typed_arena<tesselator_entity> entities;
         typed_arena<int> contour_sizes;
         typed_arena<vec2f> temp_points;
-        typed_arena<gl::line2_program::line> outline_lines;
+        typed_arena<gpu::line_instance> outline_lines;
         typed_arena<vec2f> outline_vertices;
         typed_arena<uint8_t> entity_flags;    // one byte per entity
-        typed_arena<gl::vertex_entity> fill_vertices;
-        typed_arena<GLuint> fill_indices;
-
-        // ===== GL: RENDERING =====
-        gl::vertex_array_entity vertex_array;
-        gl::index_buffer index_array;
-        GLuint outline_lines_buffer{};
-        GLuint outline_vertices_buffer{};
-        GLuint flags_buffer{};
-        GLuint outline_lines_texture{};
-        GLuint outline_vertices_texture{};
-        GLuint flags_texture{};
+        typed_arena<gpu::vertex_entity> fill_vertices;
+        typed_arena<uint32_t> fill_indices;
     };
 
 }    // namespace gerber

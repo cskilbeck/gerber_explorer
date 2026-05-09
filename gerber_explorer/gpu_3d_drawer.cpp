@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////
 
-#include "gl_3d_drawer.h"
+#include "gpu_3d_drawer.h"
 
 #include "gerber_explorer.h"
 #include "gerber_lib.h"
@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <limits>
 
-LOG_CONTEXT("gl_3d_drawer", info);
+LOG_CONTEXT("gpu_3d_drawer", info);
 
 //////////////////////////////////////////////////////////////////////
 
@@ -44,7 +44,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::init()
+    void gpu_3d_drawer::init()
     {
         mesh_vertices.init();
         mesh_indices.init();
@@ -52,7 +52,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::clear()
+    void gpu_3d_drawer::clear()
     {
         pending_contours.clear();
         resolved_tree.Clear();
@@ -64,7 +64,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::release()
+    void gpu_3d_drawer::release()
     {
         pending_contours.clear();
         pending_contours.shrink_to_fit();
@@ -77,7 +77,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::set_gerber(gerber_file *g)
+    void gpu_3d_drawer::set_gerber(gerber_file *g)
     {
         clear();
         g->draw(*this);
@@ -86,7 +86,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    gerber_error_code gl_3d_drawer::fill_elements(gerber_draw_element const *elements, size_t num_elements, gerber_polarity polarity, gerber_net *gnet)
+    gerber_error_code gpu_3d_drawer::fill_elements(gerber_draw_element const *elements, size_t num_elements, gerber_polarity polarity, gerber_net *gnet)
     {
         double constexpr THRESHOLD = 1e-38;
 
@@ -189,7 +189,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::resolve_2d()
+    void gpu_3d_drawer::resolve_2d()
     {
         using namespace Clipper2Lib;
 
@@ -249,14 +249,14 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::extrude(double depth)
+    void gpu_3d_drawer::extrude(double depth)
     {
         extrude(0.0, depth);
     }
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::extrude(double z_bot, double z_top)
+    void gpu_3d_drawer::extrude(double z_bot, double z_top)
     {
         mesh_vertices.clear();
         mesh_indices.clear();
@@ -271,7 +271,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::process_polytree_children(Clipper2Lib::PolyPath64 const &node, float z_bot, float z_top)
+    void gpu_3d_drawer::process_polytree_children(Clipper2Lib::PolyPath64 const &node, float z_bot, float z_top)
     {
         for(auto const &child : node) {
             // each top-level child is an outer boundary
@@ -286,7 +286,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::extrude_polygon(Clipper2Lib::PolyPath64 const &outer_node, float z_bot, float z_top)
+    void gpu_3d_drawer::extrude_polygon(Clipper2Lib::PolyPath64 const &outer_node, float z_bot, float z_top)
     {
         double const inv_scale = 1.0 / CLIPPER_SCALE;
 
@@ -516,7 +516,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::extrude_flat_region(Clipper2Lib::Paths64 const &paths, float z_bot, float z_top)
+    void gpu_3d_drawer::extrude_flat_region(Clipper2Lib::Paths64 const &paths, float z_bot, float z_top)
     {
         using namespace Clipper2Lib;
 
@@ -537,7 +537,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::extrude_conformal_region(Clipper2Lib::Paths64 const &band_paths,
+    void gpu_3d_drawer::extrude_conformal_region(Clipper2Lib::Paths64 const &band_paths,
                                                 Clipper2Lib::Paths64 const &reference_paths,
                                                 double draft_width,
                                                 float z_bot_on, float z_top_on,
@@ -703,7 +703,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::extrude_two_shell(Clipper2Lib::Paths64 const &reference_paths,
+    void gpu_3d_drawer::extrude_two_shell(Clipper2Lib::Paths64 const &reference_paths,
                                          double z_bot_on_ref, double z_top_on_ref,
                                          double z_bot_off_ref, double z_top_off_ref)
     {
@@ -788,7 +788,7 @@ namespace gerber_3d
 
     //////////////////////////////////////////////////////////////////////
 
-    void gl_3d_drawer::export_stl(std::string const &filename) const
+    void gpu_3d_drawer::export_stl(std::string const &filename) const
     {
         if(!has_mesh) {
             LOG_ERROR("export_stl: no mesh data");

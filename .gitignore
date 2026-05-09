@@ -9,3 +9,4 @@ out/build/
 vc*.pdb
 CMakeSettings.json
 .DS_Store
+out/
