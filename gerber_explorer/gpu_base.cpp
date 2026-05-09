@@ -10,14 +10,12 @@
 
 LOG_CONTEXT("gpu_base", info);
 
-#if HAS_MSL_SHADERS
+#if HAS_DXIL_SHADERS
+CMRC_DECLARE(my_shaders_dxil);
+#elif HAS_MSL_SHADERS
 CMRC_DECLARE(my_shaders_msl);
 #else
 CMRC_DECLARE(my_shaders_spv);
-#endif
-
-#if HAS_DXIL_SHADERS
-CMRC_DECLARE(my_shaders_dxil);
 #endif
 
 namespace
@@ -48,15 +46,14 @@ namespace gpu
     {
         window = win;
 
-        // Request all shader formats we have pre-compiled
+        // Request the shader format we have pre-compiled for this platform
         SDL_GPUShaderFormat formats = 0;
-#if HAS_MSL_SHADERS
+#if HAS_DXIL_SHADERS
+        formats |= SDL_GPU_SHADERFORMAT_DXIL;
+#elif HAS_MSL_SHADERS
         formats |= SDL_GPU_SHADERFORMAT_MSL;
 #else
         formats |= SDL_GPU_SHADERFORMAT_SPIRV;
-#endif
-#if HAS_DXIL_SHADERS
-        formats |= SDL_GPU_SHADERFORMAT_DXIL;
 #endif
 
         LOG_INFO("Creating SDL_GPU device");
@@ -127,9 +124,11 @@ namespace gpu
                 format = SDL_GPU_SHADERFORMAT_MSL;
             }
         }
-#else
+#endif
+
+#if !HAS_DXIL_SHADERS && !HAS_MSL_SHADERS
+        // Linux: Vulkan with SPIR-V
         if(format == SDL_GPU_SHADERFORMAT_INVALID) {
-            // Fall back to SPIR-V
             std::string spv_name = std::string(shader_name) + ".spv";
             auto fs = cmrc::my_shaders_spv::get_filesystem();
             code = load_resource(fs, spv_name.c_str());

@@ -84,32 +84,9 @@ set(CPPTRACE_DISABLE_CXX_20_MODULES ON CACHE BOOL "Disable modules for cpptrace"
 FetchContent_MakeAvailable(cpptrace)
 
 ######################################################################
-# SDL_shadercross
-
-FetchContent_Declare(
-        SDL_shadercross
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL_shadercross.git
-        GIT_TAG main)
-
-set(SDLSHADERCROSS_SHARED OFF CACHE BOOL "" FORCE)
-set(SDLSHADERCROSS_STATIC ON CACHE BOOL "" FORCE)
-set(SDLSHADERCROSS_CLI OFF CACHE BOOL "" FORCE)
-set(SDLSHADERCROSS_VENDORED ON CACHE BOOL "" FORCE)
-set(SDLSHADERCROSS_SPIRVCROSS_SHARED OFF CACHE BOOL "" FORCE)
-set(SDLSHADERCROSS_DXC OFF CACHE BOOL "" FORCE)
-
-FetchContent_MakeAvailable(SDL_shadercross)
-
-if(APPLE)
-    # Silence warnings in SDL_shadercross and its vendored SPIRV-Cross / SPIRV-Tools deps
-    foreach(_t SDL3_shadercross-static
-               spirv-cross-c spirv-cross-core spirv-cross-glsl spirv-cross-hlsl
-               spirv-cross-msl spirv-cross-cpp spirv-cross-reflect spirv-cross-util
-               SPIRV-Tools-static SPIRV-Tools-opt SPIRV-Tools-reduce
-               SPIRV-Tools-link SPIRV-Tools-lint SPIRV-Tools-diff)
-        target_silence_warnings(${_t})
-    endforeach()
-endif()
+# NOTE: SDL_shadercross was removed — shaders are pre-compiled to
+# native formats at build time (DXIL on Windows, metallib on macOS,
+# SPIR-V on Linux). No runtime shader translation is needed.
 
 ######################################################################
 # DirectXMath

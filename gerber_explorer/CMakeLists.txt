@@ -29,10 +29,6 @@ set(FRAG_SHADERS_USED common layer line2 blit selection)
 
 if(APPLE)
     # ---- MSL source (Metal, macOS only) ----
-    # We embed the .metal text directly and let SDL_GPU compile it with
-    # MTLLibrary's source compiler at runtime. This makes shader errors
-    # actionable (the alternative, .metallib, surfaces XPC failures from
-    # the GPU pipeline compiler with no useful diagnostics).
     set(MSL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders_msl")
 
     set(ALL_MSL_FILES "")
@@ -44,8 +40,9 @@ if(APPLE)
     endforeach()
 
     cmrc_add_resource_library(my_shaders_msl WHENCE "${MSL_DIR}" ${ALL_MSL_FILES})
-else()
-    # ---- SPIR-V (Vulkan) ----
+elseif(NOT WIN32)
+    # ---- SPIR-V (Vulkan, Linux only) ----
+    # Windows uses DXIL (below), macOS uses MSL (above)
     set(SHADER_SPV_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders_spv")
     file(MAKE_DIRECTORY ${SHADER_SPV_DIR})
 
@@ -261,13 +258,12 @@ target_link_libraries(${PROJECT} PRIVATE gerber_lib third_party my_assets projec
 if(APPLE)
     target_link_libraries(${PROJECT} PRIVATE my_shaders_msl)
     target_compile_definitions(${PROJECT} PRIVATE HAS_MSL_SHADERS=1)
-else()
-    target_link_libraries(${PROJECT} PRIVATE my_shaders_spv)
-endif()
-
-if(WIN32)
+elseif(WIN32)
     target_link_libraries(${PROJECT} PRIVATE my_shaders_dxil)
     target_compile_definitions(${PROJECT} PRIVATE HAS_DXIL_SHADERS=1)
+else()
+    # Linux: Vulkan with SPIR-V
+    target_link_libraries(${PROJECT} PRIVATE my_shaders_spv)
 endif()
 
 target_enable_ipo(${PROJECT})
