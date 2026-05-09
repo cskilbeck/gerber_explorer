@@ -685,17 +685,15 @@ void gerber_explorer::on_closed()
     if(crosshair_cursor != nullptr) {
         SDL_DestroyCursor(crosshair_cursor);
     }
-    gpu_window::on_closed();    // shuts down ImGui backends before we destroy GPU resources
-    if(use_gpu_backend) {
-        for(auto *l : layers) {
-            l->gpu_resources.release(gpu_dev);
-        }
-        gpu_dev.release_buffer(gpu_quad_vbo);
-        gpu_dev.release_buffer(gpu_overlay_vbo);
-        gpu_render_target.cleanup(gpu_dev);
-        gpu_pipelines.cleanup(gpu_dev);
-        gpu_dev.shutdown();
+    gpu_window::on_closed();
+    for(auto *l : layers) {
+        l->gpu_resources.release(gpu_dev);
     }
+    gpu_dev.release_buffer(gpu_quad_vbo);
+    gpu_dev.release_buffer(gpu_overlay_vbo);
+    gpu_render_target.cleanup(gpu_dev);
+    gpu_pipelines.cleanup(gpu_dev);
+    gpu_dev.shutdown();
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -729,8 +727,8 @@ void gerber_explorer::on_window_size(int w, int h)
 void gerber_explorer::on_window_refresh()
 {
     gpu_window::on_window_refresh();
-    if(use_gpu_backend && frames == 0) {
-        return;    // GPU backend needs a proper first frame before refresh renders
+    if(frames == 0) {
+        return;    // needs a proper first frame before refresh renders
     }
     on_frame();
     if(should_fit_to_viewport) {
@@ -917,30 +915,27 @@ bool gerber_explorer::on_init()
     view_rect = viewport_rect;
     viewport_size = viewport_rect.size();
 
-    if(use_gpu_backend) {
-        if(!gpu_dev.init(window)) {
-            LOG_ERROR("GPU device init failed, falling back to OpenGL");
-            use_gpu_backend = false;
-        } else {
-            SDL_GPUTextureFormat swapchain_format = SDL_GetGPUSwapchainTextureFormat(gpu_dev.gpu, window);
-
-            if(!gpu_pipelines.init(gpu_dev, swapchain_format, SDL_GPU_SAMPLECOUNT_1)) {
-                // Start with SAMPLECOUNT_1; will be recreated when settings are loaded
-                LOG_ERROR("GPU pipeline init failed, falling back to OpenGL");
-                gpu_dev.shutdown();
-                use_gpu_backend = false;
-            } else {
-                // Initialize ImGui backends now that GPU device and pipelines are ready
-                ImGui_ImplSDL3_InitForOther(window);
-
-                ImGui_ImplSDLGPU3_InitInfo imgui_gpu_info{};
-                imgui_gpu_info.Device = gpu_dev.gpu;
-                imgui_gpu_info.ColorTargetFormat = swapchain_format;
-                imgui_gpu_info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;
-                ImGui_ImplSDLGPU3_Init(&imgui_gpu_info);
-            }
-        }
+    if(!gpu_dev.init(window)) {
+        LOG_ERROR("GPU device init failed");
+        return false;
     }
+
+    SDL_GPUTextureFormat swapchain_format = SDL_GetGPUSwapchainTextureFormat(gpu_dev.gpu, window);
+
+    if(!gpu_pipelines.init(gpu_dev, swapchain_format, SDL_GPU_SAMPLECOUNT_1)) {
+        LOG_ERROR("GPU pipeline init failed");
+        gpu_dev.shutdown();
+        return false;
+    }
+
+    // Initialize ImGui backends
+    ImGui_ImplSDL3_InitForOther(window);
+
+    ImGui_ImplSDLGPU3_InitInfo imgui_gpu_info{};
+    imgui_gpu_info.Device = gpu_dev.gpu;
+    imgui_gpu_info.ColorTargetFormat = swapchain_format;
+    imgui_gpu_info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;
+    ImGui_ImplSDLGPU3_Init(&imgui_gpu_info);
 
     crosshair_cursor = create_system_cursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
 
@@ -2009,13 +2004,10 @@ void gerber_explorer::on_render()
     gpu::matrix temp = matrix_multiply(view_m, flip_m);
     world_matrix = matrix_multiply(ortho_screen_matrix, temp);
 
-    // For Vulkan/SDL_GPU: flip Y in clip space after all view transforms.
-    // This keeps view_rect/zoom/pan math identical to the GL path.
-    if(use_gpu_backend) {
-        gpu::matrix clip_y_flip = gpu::make_identity();
-        clip_y_flip.m[5] = -1.0f;    // negate clip Y
-        world_matrix = matrix_multiply(clip_y_flip, world_matrix);
-    }
+    // Flip Y in clip space: gerber world coords are Y-up, GPU clip space is Y-down
+    gpu::matrix clip_y_flip = gpu::make_identity();
+    clip_y_flip.m[5] = -1.0f;
+    world_matrix = matrix_multiply(clip_y_flip, world_matrix);
 
     //////////////////////////////////////////////////////////////////////
     // Draw stuff

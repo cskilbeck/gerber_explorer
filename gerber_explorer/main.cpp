@@ -122,7 +122,6 @@ int main(int, char **)
 #endif
 
     gerber_explorer window;
-    window.use_gpu_backend = true;
     window.init();
 
     while(window.update()) {}

@@ -206,7 +206,7 @@ struct gerber_explorer : gpu_window
 
     int max_multisamples{ 1 };
 
-    // SDL_GPU backend (parallel to GL) — use_gpu_backend is inherited from gpu_window
+    // SDL_GPU backend
     gpu::device gpu_dev{};
     gpu::pipelines gpu_pipelines{};
     gpu::render_target gpu_render_target{};

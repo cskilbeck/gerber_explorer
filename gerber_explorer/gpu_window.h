@@ -91,7 +91,6 @@ struct gpu_window
     window_state_t window_state;
     bool window_focused{false};
     bool should_close{false};
-    bool use_gpu_backend{false};    // TODO: remove once GL path is fully gone
     bool init_complete{false};
     float saved_cursor_x{};
     float saved_cursor_y{};
