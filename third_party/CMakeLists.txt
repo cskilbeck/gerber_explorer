@@ -23,8 +23,10 @@ set(SDL_TESTS OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(SDL3)
 
-target_silence_warnings(SDL3-static)
-target_silence_warnings(SDL_uclibc)
+if(APPLE)
+    target_silence_warnings(SDL3-static)
+    target_silence_warnings(SDL_uclibc)
+endif()
 
 ######################################################################
 # IMGUI
@@ -98,14 +100,16 @@ set(SDLSHADERCROSS_DXC OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(SDL_shadercross)
 
-# Silence warnings in SDL_shadercross and its vendored SPIRV-Cross / SPIRV-Tools deps
-foreach(_t SDL3_shadercross-static
-           spirv-cross-c spirv-cross-core spirv-cross-glsl spirv-cross-hlsl
-           spirv-cross-msl spirv-cross-cpp spirv-cross-reflect spirv-cross-util
-           SPIRV-Tools-static SPIRV-Tools-opt SPIRV-Tools-reduce
-           SPIRV-Tools-link SPIRV-Tools-lint SPIRV-Tools-diff)
-    target_silence_warnings(${_t})
-endforeach()
+if(APPLE)
+    # Silence warnings in SDL_shadercross and its vendored SPIRV-Cross / SPIRV-Tools deps
+    foreach(_t SDL3_shadercross-static
+               spirv-cross-c spirv-cross-core spirv-cross-glsl spirv-cross-hlsl
+               spirv-cross-msl spirv-cross-cpp spirv-cross-reflect spirv-cross-util
+               SPIRV-Tools-static SPIRV-Tools-opt SPIRV-Tools-reduce
+               SPIRV-Tools-link SPIRV-Tools-lint SPIRV-Tools-diff)
+        target_silence_warnings(${_t})
+    endforeach()
+endif()
 
 ######################################################################
 # DirectXMath
