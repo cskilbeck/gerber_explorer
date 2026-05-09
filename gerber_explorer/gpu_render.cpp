@@ -102,6 +102,13 @@ void gerber_explorer::gpu_render()
         SDL_EndGPURenderPass(pass);
     }
 
+    // Create quad VBO for line2 instanced rendering (once)
+    if(!gpu_quad_vbo) {
+        gpu::vertex_solid quad_verts[] = { {-0.5f,-0.5f}, {0.5f,-0.5f}, {-0.5f,0.5f}, {0.5f,0.5f} };
+        gpu_quad_vbo = gpu_dev.create_buffer(SDL_GPU_BUFFERUSAGE_VERTEX, sizeof(quad_verts), "quad_vbo");
+        gpu_dev.upload_to_buffer(gpu_quad_vbo, quad_verts, sizeof(quad_verts));
+    }
+
     // ---- Render each layer ----
     gerber_layer *outline_layer = get_outline_layer();
 
@@ -185,7 +192,7 @@ void gerber_explorer::gpu_render()
 
     // ---- Selection overlay ----
     if(selected_layer != nullptr && !selected_layer->drawer->entities.empty() && selected_layer->gpu_resources.ready) {
-        gpu_render_selection(cmd);
+        gpu_render_selection(cmd, swapchain_texture);
     }
 
     // ---- Overlay graphics (axes, selection rect, measure line) ----
@@ -311,9 +318,200 @@ void gerber_explorer::gpu_render_layer(SDL_GPUCommandBuffer *cmd, gerber_layer &
 
 //////////////////////////////////////////////////////////////////////
 
-void gerber_explorer::gpu_render_selection(SDL_GPUCommandBuffer *cmd)
+void gerber_explorer::gpu_render_selection(SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *swapchain_texture)
 {
-    // TODO: implement selection rendering
+    auto &res = selected_layer->gpu_resources;
+    auto &rt = gpu_render_target;
+
+    if(!rt.color_texture || !res.ready) return;
+
+    uint8_t draw_flags = entity_flags_t::selected | entity_flags_t::active | entity_flags_t::hovered;
+
+    // ---- Step 1: Selection fill to MSAA RT ----
+    {
+        SDL_GPUColorTargetInfo ct{};
+        ct.texture = rt.color_texture;
+        ct.load_op = SDL_GPU_LOADOP_CLEAR;
+        ct.clear_color = { 0, 0, 0, 0 };
+        if(rt.sample_count != SDL_GPU_SAMPLECOUNT_1) {
+            ct.store_op = SDL_GPU_STOREOP_RESOLVE_AND_STORE;
+            ct.resolve_texture = rt.resolve_texture;
+        } else {
+            ct.store_op = SDL_GPU_STOREOP_STORE;
+        }
+
+        SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(cmd, &ct, 1, nullptr);
+
+        SDL_BindGPUGraphicsPipeline(pass, gpu_pipelines.layer_fill);
+
+        // Vertex uniforms: world_matrix + draw_flags (only selection-flagged entities)
+        struct { gl::matrix transform; int32_t draw_flags; int32_t _pad[3]; } vs_uni;
+        vs_uni.transform = world_matrix;
+        vs_uni.draw_flags = draw_flags;
+        SDL_PushGPUVertexUniformData(cmd, 0, &vs_uni, sizeof(vs_uni));
+
+        // Fragment uniforms: map hovered→R, selected→G, active→B
+        struct { int32_t red_flags, green_flags, blue_flags, _pad; float value[4]; } fs_uni;
+        fs_uni.red_flags = entity_flags_t::hovered;
+        fs_uni.green_flags = entity_flags_t::selected;
+        fs_uni.blue_flags = entity_flags_t::active;
+        fs_uni._pad = 0;
+        fs_uni.value[0] = fs_uni.value[1] = fs_uni.value[2] = fs_uni.value[3] = 1.0f;
+        SDL_PushGPUFragmentUniformData(cmd, 0, &fs_uni, sizeof(fs_uni));
+
+        SDL_BindGPUVertexStorageBuffers(pass, 0, &res.flags_buffer, 1);
+
+        SDL_GPUBufferBinding vb{}; vb.buffer = res.vertex_buffer;
+        SDL_BindGPUVertexBuffers(pass, 0, &vb, 1);
+        SDL_GPUBufferBinding ib{}; ib.buffer = res.index_buffer;
+        SDL_BindGPUIndexBuffer(pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+        SDL_DrawGPUIndexedPrimitives(pass, res.num_indices, 1, 0, 0, 0);
+
+        SDL_EndGPURenderPass(pass);
+    }
+
+    // ---- Step 2: Blit selection fill to swapchain ----
+    {
+        gl::color hovered_color = 0x80ffffff;
+        gl::color selected_color = 0x90ffffff;
+        gl::color active_color = 0xb0ffffff;
+
+        SDL_GPUColorTargetInfo blit_ct{};
+        blit_ct.texture = swapchain_texture;
+        blit_ct.load_op = SDL_GPU_LOADOP_LOAD;
+        blit_ct.store_op = SDL_GPU_STOREOP_STORE;
+
+        SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(cmd, &blit_ct, 1, nullptr);
+        SDL_GPUViewport vp{ (float)viewport_xpos, (float)viewport_ypos,
+                            (float)viewport_width, (float)viewport_height, 0, 1 };
+        SDL_SetGPUViewport(pass, &vp);
+
+        SDL_BindGPUGraphicsPipeline(pass, gpu_pipelines.selection);
+
+        struct { float red[4], green[4], blue[4]; } sel_uni;
+        gl::colorf4 rc(hovered_color), gc(selected_color), bc(active_color);
+        memcpy(sel_uni.red, rc.f, 16);
+        memcpy(sel_uni.green, gc.f, 16);
+        memcpy(sel_uni.blue, bc.f, 16);
+        SDL_PushGPUFragmentUniformData(cmd, 0, &sel_uni, sizeof(sel_uni));
+
+        SDL_GPUTexture *sample_tex = (rt.sample_count != SDL_GPU_SAMPLECOUNT_1) ? rt.resolve_texture : rt.color_texture;
+        SDL_GPUTextureSamplerBinding tsb{};
+        tsb.texture = sample_tex;
+        tsb.sampler = gpu_pipelines.nearest_sampler;
+        SDL_BindGPUFragmentSamplers(pass, 0, &tsb, 1);
+
+        SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
+
+        SDL_EndGPURenderPass(pass);
+    }
+
+    // ---- Step 3: Outline pass (if outline_width > 0) ----
+    if(settings.outline_width > 0.0f && res.line_instance_buffer && res.num_lines > 0) {
+        {
+            SDL_GPUColorTargetInfo ct{};
+            ct.texture = rt.color_texture;
+            ct.load_op = SDL_GPU_LOADOP_CLEAR;
+            ct.clear_color = { 0, 0, 0, 0 };
+            if(rt.sample_count != SDL_GPU_SAMPLECOUNT_1) {
+                ct.store_op = SDL_GPU_STOREOP_RESOLVE_AND_STORE;
+                ct.resolve_texture = rt.resolve_texture;
+            } else {
+                ct.store_op = SDL_GPU_STOREOP_STORE;
+            }
+
+            SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(cmd, &ct, 1, nullptr);
+
+            SDL_BindGPUGraphicsPipeline(pass, gpu_pipelines.line2);
+
+            // Line2 vertex uniforms
+            struct {
+                gl::matrix transform;
+                float viewport_size[2];
+                float thickness;
+                uint32_t red_flag;
+                uint32_t green_flag;
+                uint32_t blue_flag;
+                float _pad[2];
+            } line_uni;
+            line_uni.transform = world_matrix;
+            line_uni.viewport_size[0] = (float)viewport_width;
+            line_uni.viewport_size[1] = (float)viewport_height;
+            line_uni.thickness = settings.outline_width;
+            line_uni.red_flag = entity_flags_t::active;
+            line_uni.green_flag = entity_flags_t::selected;
+            line_uni.blue_flag = entity_flags_t::hovered;
+            line_uni._pad[0] = line_uni._pad[1] = 0;
+            SDL_PushGPUVertexUniformData(cmd, 0, &line_uni, sizeof(line_uni));
+
+            // Line2 fragment uniforms
+            // Line2 fragment colors: pure R/G/B so they write to separate RT channels
+            // The selection blit then applies the actual outline colors from those channels
+            gl::colorf4 red_c(gl::colors::red);
+            gl::colorf4 green_c(gl::colors::green);
+            gl::colorf4 blue_c(gl::colors::blue);
+            struct { float thickness; float _pad[3]; float red[4], green[4], blue[4]; } line_fs;
+            line_fs.thickness = settings.outline_width;
+            line_fs._pad[0] = line_fs._pad[1] = line_fs._pad[2] = 0;
+            memcpy(line_fs.red, red_c.f, 16);
+            memcpy(line_fs.green, green_c.f, 16);
+            memcpy(line_fs.blue, blue_c.f, 16);
+            SDL_PushGPUFragmentUniformData(cmd, 0, &line_fs, sizeof(line_fs));
+
+            // Bind 3 storage buffers for vertex shader
+            SDL_GPUBuffer *storage_bufs[] = { res.line_instance_buffer, res.line_vertex_buffer, res.flags_buffer };
+            SDL_BindGPUVertexStorageBuffers(pass, 0, storage_bufs, 3);
+
+            // Bind quad VBO
+            SDL_GPUBufferBinding qvb{}; qvb.buffer = gpu_quad_vbo;
+            SDL_BindGPUVertexBuffers(pass, 0, &qvb, 1);
+
+            SDL_DrawGPUPrimitives(pass, 4, res.num_lines, 0, 0);
+
+            SDL_EndGPURenderPass(pass);
+        }
+
+        // ---- Step 4: Blit outline to swapchain ----
+        {
+            // Outline blit colors from settings
+            auto const &oc = settings.outline_color;
+            gl::color outline_color = ((uint32_t)(oc.r * 255) & 0xff)
+                                    | (((uint32_t)(oc.g * 255) & 0xff) << 8)
+                                    | (((uint32_t)(oc.b * 255) & 0xff) << 16);
+            gl::colorf4 rc(gl::set_alpha(outline_color, 0.9f));    // active
+            gl::colorf4 gc(gl::set_alpha(outline_color, 0.75f));   // selected
+            gl::colorf4 bc(gl::set_alpha(outline_color, 0.5f));    // hovered
+
+            SDL_GPUColorTargetInfo blit_ct{};
+            blit_ct.texture = swapchain_texture;
+            blit_ct.load_op = SDL_GPU_LOADOP_LOAD;
+            blit_ct.store_op = SDL_GPU_STOREOP_STORE;
+
+            SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(cmd, &blit_ct, 1, nullptr);
+            SDL_GPUViewport vp{ (float)viewport_xpos, (float)viewport_ypos,
+                                (float)viewport_width, (float)viewport_height, 0, 1 };
+            SDL_SetGPUViewport(pass, &vp);
+
+            SDL_BindGPUGraphicsPipeline(pass, gpu_pipelines.selection);
+
+            struct { float red[4], green[4], blue[4]; } sel_uni;
+            memcpy(sel_uni.red, rc.f, 16);
+            memcpy(sel_uni.green, gc.f, 16);
+            memcpy(sel_uni.blue, bc.f, 16);
+            SDL_PushGPUFragmentUniformData(cmd, 0, &sel_uni, sizeof(sel_uni));
+
+            SDL_GPUTexture *sample_tex = (rt.sample_count != SDL_GPU_SAMPLECOUNT_1) ? rt.resolve_texture : rt.color_texture;
+            SDL_GPUTextureSamplerBinding tsb{};
+            tsb.texture = sample_tex;
+            tsb.sampler = gpu_pipelines.nearest_sampler;
+            SDL_BindGPUFragmentSamplers(pass, 0, &tsb, 1);
+
+            SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
+
+            SDL_EndGPURenderPass(pass);
+        }
+    }
 }
 
 //////////////////////////////////////////////////////////////////////

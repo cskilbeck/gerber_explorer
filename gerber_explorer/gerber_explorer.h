@@ -229,7 +229,7 @@ struct gerber_explorer : gl_window
 
     void gpu_render();
     void gpu_render_layer(SDL_GPUCommandBuffer *cmd, gerber_layer &layer, gerber_layer *outline_layer);
-    void gpu_render_selection(SDL_GPUCommandBuffer *cmd);
+    void gpu_render_selection(SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *swapchain_texture);
     void gpu_render_overlay(SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *swapchain_texture);
     void on_gpu_imgui() override;
 

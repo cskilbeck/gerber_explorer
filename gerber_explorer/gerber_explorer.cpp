@@ -2255,7 +2255,10 @@ void gerber_explorer::on_render()
             GL_CHECK(glBlendFunc(GL_ONE, GL_ONE));
             selected_layer->drawer->outline(settings.outline_width, world_matrix, viewport_size);
             GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-            gl::color outline_color = 0x00000000;
+            auto const &oc = settings.outline_color;
+            gl::color outline_color = ((uint32_t)(oc.r * 255) & 0xff)
+                                    | (((uint32_t)(oc.g * 255) & 0xff) << 8)
+                                    | (((uint32_t)(oc.b * 255) & 0xff) << 16);
             gl::color selected_color = gl::set_alpha(outline_color, 0.75f);
             gl::color active_color = gl::set_alpha(outline_color, 0.9f);
             gl::color hover_color = gl::set_alpha(outline_color, 0.5f);
