@@ -109,14 +109,40 @@ void gerber_explorer::gpu_render()
         gpu_dev.upload_to_buffer(gpu_quad_vbo, quad_verts, sizeof(quad_verts));
     }
 
-    // ---- Render each layer ----
+    // ---- Render each layer (use the sorted order from on_render) ----
     gerber_layer *outline_layer = get_outline_layer();
 
+    // Ensure outline layer's GPU resources exist even if it's not visible
+    // (needed for inverted layer mask rendering)
+    if(outline_layer != nullptr && outline_layer->got_mask && outline_layer->drawer != nullptr) {
+        outline_layer->gpu_resources.create(gpu_dev, *outline_layer->drawer);
+    }
+
+    // Build ordered_layers and sort them the same way on_render() does
     std::vector<gerber_layer *> ordered_layers;
     for(auto *l : layers) {
         if(layer_is_visible(l) && l->is_valid()) {
             ordered_layers.push_back(l);
         }
+    }
+    if(settings.board_view != board_view_all) {
+        std::sort(ordered_layers.begin(), ordered_layers.end(), [this](gerber_layer const *a, gerber_layer const *b) {
+            using namespace gerber_lib;
+            layer::type_t drill_ordered = layer::type_t::drill_top;
+            if(settings.board_view == board_view_bottom) {
+                drill_ordered = layer::type_t::drill_bottom;
+                std::swap(a, b);
+            }
+            int ta = a->file.layer_type;
+            int tb = b->file.layer_type;
+            if(is_layer_type(ta, layer::type_t::drill)) {
+                ta = drill_ordered;
+            }
+            if(is_layer_type(tb, layer::type_t::drill)) {
+                tb = drill_ordered;
+            }
+            return ta > tb;
+        });
     }
 
     for(auto *layer_ptr : ordered_layers) {

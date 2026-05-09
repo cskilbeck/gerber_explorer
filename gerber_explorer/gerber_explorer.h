@@ -18,6 +18,14 @@
 
 #include <expected>
 
+enum board_view_t
+{
+    board_view_all = 0,
+    board_view_top = 1,
+    board_view_bottom = 2,
+    board_view_num_views = 3
+};
+
 enum class layer_order_t
 {
     all,

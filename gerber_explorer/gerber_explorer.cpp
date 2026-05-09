@@ -34,13 +34,7 @@ namespace
 {
     using namespace gerber;
 
-    enum board_view_t
-    {
-        board_view_all = 0,
-        board_view_top = 1,
-        board_view_bottom = 2,
-        board_view_num_views = 3
-    };
+
 
     char const *const board_view_names[board_view_num_views] = { "All", "Front", "Back" };
 
@@ -1835,7 +1829,10 @@ void gerber_explorer::set_outline_layer(gerber_layer *new_outline_layer)
             l->is_outline_layer = false;
             l->got_mask = false;
             l->drawer->got_mask = false;
-            l->drawer->mask.release_gl_resources();
+            if(!use_gpu_backend) {
+                l->drawer->mask.release_gl_resources();
+            }
+            l->gpu_resources.ready = false;    // force GPU resource recreation
             l->drawer->mask.release();
         }
     }
@@ -1845,6 +1842,7 @@ void gerber_explorer::set_outline_layer(gerber_layer *new_outline_layer)
             new_outline_layer->job_count.fetch_add(1);
             if(!st.stop_requested()) {
                 new_outline_layer->drawer->create_mask();
+                new_outline_layer->gpu_resources.ready = false;    // force GPU recreation with mask
             }
             new_outline_layer->job_count.fetch_sub(1);
         });
@@ -2131,7 +2129,9 @@ void gerber_explorer::on_render()
         // first valid outline layer is it
         if(outline_layer == nullptr && layer->is_outline_layer && layer->got_mask) {
             outline_layer = layer;
-            outline_layer->drawer->mask.create_gl_resources();
+            if(!use_gpu_backend) {
+                outline_layer->drawer->mask.create_gl_resources();
+            }
         }
     }
 
