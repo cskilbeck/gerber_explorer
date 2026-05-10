@@ -156,7 +156,7 @@ void gpu_window::init()
 {
     SDL_Init(SDL_INIT_VIDEO);
 
-    window = SDL_CreateWindow(window_name().c_str(), 800, 600, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
+    window = SDL_CreateWindow(window_name().c_str(), 1600, 900, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -194,10 +194,10 @@ void gpu_window::init()
         return;
     }
     if(window_state.width == 0 || window_state.height == 0) {
-        window_state.width = 800;
-        window_state.height = 600;
-        window_state.x = 200;
-        window_state.y = 200;
+        window_state.width = 1600;
+        window_state.height = 900;
+        window_state.x = 100;
+        window_state.y = 100;
     }
 
     // If the saved position is not on any connected monitor, reset to a safe default

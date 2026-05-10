@@ -1592,7 +1592,7 @@ void gerber_explorer::ui()
     gerber_layer *item_to_delete = nullptr;
     bool move_before = false;
 
-    ImGui::Begin("Files");
+    ImGui::Begin("Layers");
     {
         bool any_item_hovered = false;
         int constexpr num_controls = 3;
@@ -1819,11 +1819,13 @@ void gerber_explorer::ui()
 
     job_pool::pool_info info = pool.get_info();
 
+#ifdef _DEBUG
     ImGui::Begin("Job Pool");
     {
         ImGui::Text("Active: %5zu, Queued: %5zu", info.active, info.queued);
     }
     ImGui::End();
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1948,21 +1950,21 @@ void gerber_explorer::on_render()
         // Top toolbar (full width)
         ImGuiID dock_top_id;
         ImGuiID dock_rest_id;
-        ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Up, 0.04f, &dock_top_id, &dock_rest_id);
+        ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Up, 0.045f, &dock_top_id, &dock_rest_id);
 
-        // Bottom info bar (full width)
-        ImGuiID dock_bottom_id;
+        // Right info panel (25% width)
+        ImGuiID dock_right_id;
         ImGuiID dock_middle_id;
-        ImGui::DockBuilderSplitNode(dock_rest_id, ImGuiDir_Down, 0.06f, &dock_bottom_id, &dock_middle_id);
+        ImGui::DockBuilderSplitNode(dock_rest_id, ImGuiDir_Right, 0.25f, &dock_right_id, &dock_middle_id);
 
-        // Left files panel (sandwiched between toolbar and info)
+        // Left files panel
         ImGuiID dock_left_id;
         ImGuiID dock_center_id;
-        ImGui::DockBuilderSplitNode(dock_middle_id, ImGuiDir_Left, 0.2f, &dock_left_id, &dock_center_id);
+        ImGui::DockBuilderSplitNode(dock_middle_id, ImGuiDir_Left, 0.25f, &dock_left_id, &dock_center_id);
 
         ImGui::DockBuilderDockWindow("Toolbar", dock_top_id);
-        ImGui::DockBuilderDockWindow("Info", dock_bottom_id);
-        ImGui::DockBuilderDockWindow("Files", dock_left_id);
+        ImGui::DockBuilderDockWindow("Info", dock_right_id);
+        ImGui::DockBuilderDockWindow("Layers", dock_left_id);
 #ifdef _DEBUG
         ImGui::DockBuilderDockWindow("Job Pool", dock_left_id);
 #endif
@@ -1974,7 +1976,7 @@ void gerber_explorer::on_render()
             }
         };
         hide_tab_bar(dock_top_id);
-        hide_tab_bar(dock_bottom_id);
+        hide_tab_bar(dock_right_id);
         hide_tab_bar(dock_left_id);
 
         ImGui::DockBuilderFinish(dockspace_id);
