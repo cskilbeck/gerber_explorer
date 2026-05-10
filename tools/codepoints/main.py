@@ -141,9 +141,12 @@ def main():
 
     os.makedirs(assets_dir, exist_ok=True)
 
-    # Temp files in script directory
-    variable_ttf = os.path.join(script_dir, f"MaterialSymbols_{args.style}_variable.ttf")
-    codepoints_file = os.path.join(script_dir, f"MaterialSymbols_{args.style}.codepoints")
+    # Downloaded files go into a 'downloads' subfolder (gitignored)
+    download_dir = os.path.join(script_dir, "downloads")
+    os.makedirs(download_dir, exist_ok=True)
+
+    variable_ttf = os.path.join(download_dir, f"MaterialSymbols_{args.style}_variable.ttf")
+    codepoints_file = os.path.join(download_dir, f"MaterialSymbols_{args.style}.codepoints")
 
     # Output files
     static_ttf = os.path.join(assets_dir, "MaterialSymbols.ttf")
