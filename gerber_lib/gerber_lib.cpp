@@ -2446,6 +2446,7 @@ namespace gerber_lib
                                 update_net_bounds(bounding_box, points);
                             }
                             update_image_bounds(bounding_box, repeat_offset.x, repeat_offset.y, image);
+                            net->bounding_box = bounding_box;
                         } else {
 
                             vec2d ap_size{};

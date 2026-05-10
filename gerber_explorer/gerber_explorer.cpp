@@ -1303,8 +1303,8 @@ void gerber_explorer::set_active_entity(tesselator_entity *entity)
     }
     info.push_back(std::format("Polarity: {}", polarity_str));
 
-    // Bounding box
-    rect const &bb = active_entity->bounds;
+    // Bounding box (from parsed gerber data, not tesselation)
+    rect const &bb = net->bounding_box;
     if(!bb.is_empty_rect()) {
         info.push_back(std::format("Bounds: {:.4f} x {:.4f} {}", coord(bb.width()), coord(bb.height()), units));
     }
