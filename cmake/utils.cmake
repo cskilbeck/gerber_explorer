@@ -46,7 +46,6 @@ function(target_silence_warnings TARGET_NAME)
 
         if(MSVC)
             # Remove existing warning flags and add /w
-            # Note: CMAKE_C/CXX_FLAGS /W[0..4] are removed in third_party/CMakeLists.txt to avoid D9025
             get_target_property(TARGET_OPTIONS ${TARGET_NAME} COMPILE_OPTIONS)
             if(TARGET_OPTIONS)
                 set(FILTERED_OPTIONS "")

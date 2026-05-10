@@ -9,40 +9,40 @@ namespace gpu
     using gerber_lib::vec2f;
     using gerber_lib::vec2d;
 
-    // gl_matrix is alignas(16)
-    inline XMMATRIX load_gl(const matrix& m) {
+    // matrix is alignas(16)
+    inline XMMATRIX load_matrix(const matrix& m) {
         return XMLoadFloat4x4A(reinterpret_cast<const XMFLOAT4X4A*>(m.m));
     }
 
-    inline void store_gl(matrix& dest, FXMMATRIX src) {
+    inline void store_matrix(matrix& dest, FXMMATRIX src) {
         XMStoreFloat4x4A(reinterpret_cast<XMFLOAT4X4A*>(dest.m), src);
     }
 
     matrix make_identity()
     {
         matrix t;
-        store_gl(t, XMMatrixIdentity());
+        store_matrix(t, XMMatrixIdentity());
         return t;
     }
 
     matrix make_translate(float x, float y)
     {
         matrix t;
-        store_gl(t, XMMatrixTranslation(x, y, 0.0f));
+        store_matrix(t, XMMatrixTranslation(x, y, 0.0f));
         return t;
     }
 
     matrix make_scale(float x, float y)
     {
         matrix t;
-        store_gl(t, XMMatrixScaling(x, y, 1.0f));
+        store_matrix(t, XMMatrixScaling(x, y, 1.0f));
         return t;
     }
 
     matrix make_ortho(int w, int h)
     {
         matrix t;
-        store_gl(t, XMMatrixSet(
+        store_matrix(t, XMMatrixSet(
             2.0f / w, 0.0f,     0.0f,  0.0f,
             0.0f,     2.0f / h, 0.0f,  0.0f,
             0.0f,     0.0f,    -1.0f,  0.0f,
@@ -65,18 +65,18 @@ namespace gpu
 
     matrix matrix_multiply(matrix const &a, matrix const &b)
     {
-        XMMATRIX mA = load_gl(a);
-        XMMATRIX mB = load_gl(b);
+        XMMATRIX mA = load_matrix(a);
+        XMMATRIX mB = load_matrix(b);
 
         // OpenGL (Col-Major) A * B == DirectXMath (Row-Major) B * A
         matrix t;
-        store_gl(t, XMMatrixMultiply(mB, mA));
+        store_matrix(t, XMMatrixMultiply(mB, mA));
         return t;
     }
 
     vec2f matrix_apply(vec2f const &v, matrix const &matrix)
     {
-        XMMATRIX m = load_gl(matrix);
+        XMMATRIX m = load_matrix(matrix);
         XMVECTOR vector = XMVectorSet(v.x, v.y, 0.0f, 1.0f);
         XMVECTOR result = XMVector2Transform(vector, m);
         return { XMVectorGetX(result), XMVectorGetY(result) };
@@ -84,7 +84,7 @@ namespace gpu
 
     vec2d matrix_apply(vec2d const &v, matrix const &matrix)
     {
-        XMMATRIX m = load_gl(matrix);
+        XMMATRIX m = load_matrix(matrix);
         XMVECTOR vector = XMVectorSet((float)v.x, (float)v.y, 0.0f, 1.0f);
         XMVECTOR result = XMVector2Transform(vector, m);
         return { (double)XMVectorGetX(result), (double)XMVectorGetY(result) };

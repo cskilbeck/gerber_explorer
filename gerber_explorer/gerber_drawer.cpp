@@ -17,7 +17,6 @@ LOG_CONTEXT("gerber_drawer", info);
 
 namespace gerber
 {
-    struct gl_matrix;
     using namespace gerber_lib;
 
     template <typename T> bool is_clockwise(T const &points, size_t start, size_t end)

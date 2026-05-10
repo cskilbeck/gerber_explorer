@@ -24,8 +24,14 @@ set(SDL_TESTS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(SDL3)
 
 if(APPLE)
+    # Apple Clang warns about SDL internals — silence everything
     target_silence_warnings(SDL3-static)
     target_silence_warnings(SDL_uclibc)
+elseif(MSVC)
+    # C5286: enum conversion in SDL's Vulkan renderer
+    target_compile_options(SDL3-static PRIVATE /wd5286)
+    # Note: D9025 from SDL_mslibc.c (/GL vs /GL-) is intentional and harmless — SDL
+    # deliberately disables LTO for that file. Not worth disabling IPO for all of SDL3.
 endif()
 
 ######################################################################
