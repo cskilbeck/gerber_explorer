@@ -1500,6 +1500,10 @@ void gerber_explorer::ui()
                                     tesselation_quality_name(settings.tesselation_quality))) {
                     retesselate = true;
                 }
+                int delay_ms = static_cast<int>(settings.tesselation_delay * 1000.0f);
+                if(ImGui::SliderInt("Delay", &delay_ms, 20, 200, "%d ms")) {
+                    settings.tesselation_delay = delay_ms / 1000.0f;
+                }
                 ImGui::EndMenu();
             }
             if(ImGui::BeginMenu("Outline")) {
@@ -2080,7 +2084,7 @@ void gerber_explorer::on_render()
         if(dynamic_tess_pending) {
             set_active();    // keep the main loop polling so we don't miss the timer
             double elapsed = get_time() - dynamic_tess_debounce_start;
-            if(elapsed >= 0.2) {
+            if(elapsed >= settings.tesselation_delay) {
                 dynamic_tess_pending = false;
                 pool.abort_jobs(job_type_tesselate);
                 // non-blocking: don't wait for old jobs, old drawers remain visible

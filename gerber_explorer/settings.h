@@ -57,6 +57,7 @@ namespace settings
     X(int, window_ypos, 100)                   \
     X(int, multisamples, 1)                    \
     X(int, tesselation_quality, 1)             \
+    X(float, tesselation_delay, 0.05f)         \
     X(bool, dynamic_tesselation, false)        \
     X(bool, view_toolbar, true)                \
     X(int, board_view, 0)                      \
