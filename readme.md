@@ -94,33 +94,50 @@ Note that debug builds create a bare executable, release builds create an app pa
 
 You need CMake 3.24+, Ninja (or Make), and a C++23-capable compiler (GCC 13+ or Clang 21+).
 
-**Debian/Ubuntu:**
+The project uses SDL3 (built statically from source via FetchContent) for windowing and the GPU backend, which targets Vulkan on Linux. The native file dialog uses GTK3. All other dependencies are fetched automatically by CMake.
+
+**Debian/Ubuntu** (tested on Ubuntu 24.04):
 
 ```
-$ sudo apt install build-essential cmake ninja-build \
-    libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
-    libxcursor-dev libxi-dev libxkbcommon-dev \
-    libwayland-dev libgtk-3-dev pkg-config
+$ sudo apt install build-essential cmake ninja-build pkg-config \
+    libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
+    libxi-dev libxfixes-dev libxss-dev \
+    libxkbcommon-dev libxkbcommon-x11-dev \
+    libwayland-dev wayland-protocols libdecor-0-dev \
+    libdrm-dev libgbm-dev libudev-dev libdbus-1-dev libibus-1.0-dev \
+    libasound2-dev libpulse-dev libpipewire-0.3-dev \
+    libgtk-3-dev \
+    libvulkan-dev mesa-vulkan-drivers
 ```
 
-**Fedora:**
+`vulkan-tools` (provides `vulkaninfo`) is optional but useful to confirm Vulkan is working.
+
+**Fedora** (untested — package names translated from the Ubuntu list):
 
 ```
-$ sudo dnf install gcc-c++ cmake ninja-build \
-    mesa-libGL-devel libX11-devel libXrandr-devel libXinerama-devel \
-    libXcursor-devel libXi-devel libxkbcommon-devel \
-    wayland-devel gtk3-devel pkg-config
+$ sudo dnf install gcc-c++ cmake ninja-build pkgconf-pkg-config \
+    libX11-devel libXext-devel libXrandr-devel libXcursor-devel \
+    libXi-devel libXfixes-devel libXScrnSaver-devel \
+    libxkbcommon-devel libxkbcommon-x11-devel \
+    wayland-devel wayland-protocols-devel libdecor-devel \
+    libdrm-devel mesa-libgbm-devel systemd-devel dbus-devel ibus-devel \
+    alsa-lib-devel pulseaudio-libs-devel pipewire-devel \
+    gtk3-devel \
+    vulkan-loader-devel vulkan-headers mesa-vulkan-drivers
 ```
 
-**Arch:**
+**Arch** (untested — package names translated from the Ubuntu list):
 
 ```
-$ sudo pacman -S base-devel cmake ninja \
-    mesa libx11 libxrandr libxinerama libxcursor libxi \
-    libxkbcommon wayland gtk3 pkg-config
+$ sudo pacman -S base-devel cmake ninja pkgconf \
+    libx11 libxext libxrandr libxcursor libxi libxfixes libxss \
+    libxkbcommon \
+    wayland wayland-protocols libdecor \
+    libdrm libudev0-shim dbus libibus \
+    alsa-lib libpulse pipewire \
+    gtk3 \
+    vulkan-icd-loader vulkan-headers vulkan-mesa-layers
 ```
-
-These provide: OpenGL (required by the renderer), X11/Wayland headers (required by GLFW), and GTK3 (required by the native file dialog). All other dependencies are fetched automatically by CMake via FetchContent.
 
 #### Clone and build
 
@@ -132,3 +149,5 @@ $ cmake --build build
 ```
 
 The executable will be at `build/gerber_explorer/gerber_explorer`.
+
+The first configure pulls down ~10 dependencies via CMake FetchContent (SDL3, Dear ImGui, cpptrace, libtess2, Clipper2, nativefiledialog-extended, nlohmann/json, stb, DirectXMath, and a prebuilt DXC binary used at build time to compile HLSL shaders to SPIR-V). It takes a few minutes the first time; subsequent builds are incremental.
