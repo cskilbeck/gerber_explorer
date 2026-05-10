@@ -74,10 +74,37 @@ gpu_window::window_state_t gpu_window::get_window_state()
         SDL_GetWindowPosition(window, &current_state.x, &current_state.y);
         SDL_GetWindowSize(window, &current_state.width, &current_state.height);
     } else {
-        current_state.x = window_state.x;
-        current_state.y = window_state.y;
+        // Preserve the last non-maximized size
         current_state.width = window_state.width;
         current_state.height = window_state.height;
+
+        // Check if the saved position is on the same monitor as the current window.
+        // If not, the user dragged the maximized window to a different monitor —
+        // move the saved position onto the current monitor so it restores there.
+        SDL_DisplayID current_display = SDL_GetDisplayForWindow(window);
+        SDL_Point pos{window_state.x, window_state.y };
+        SDL_DisplayID saved_display = SDL_GetDisplayForPoint(&pos);
+
+        if(current_display != saved_display && current_display != 0) {
+            // Map the relative position on the old monitor to the same
+            // relative position on the new monitor
+            SDL_Rect old_bounds, new_bounds;
+            if(saved_display != 0 &&
+               SDL_GetDisplayUsableBounds(saved_display, &old_bounds) &&
+               SDL_GetDisplayUsableBounds(current_display, &new_bounds)) {
+                float rx = (float)(window_state.x - old_bounds.x) / (float)old_bounds.w;
+                float ry = (float)(window_state.y - old_bounds.y) / (float)old_bounds.h;
+                current_state.x = new_bounds.x + (int)(rx * new_bounds.w);
+                current_state.y = new_bounds.y + (int)(ry * new_bounds.h);
+            } else {
+                current_state.x = window_state.x;
+                current_state.y = window_state.y;
+            }
+        } else {
+            // Same monitor — keep original non-maximized position
+            current_state.x = window_state.x;
+            current_state.y = window_state.y;
+        }
     }
     return current_state;
 }
