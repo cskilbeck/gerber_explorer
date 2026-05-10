@@ -108,8 +108,13 @@ void gpu_window::set_cursor_pos(double x, double y)
 void gpu_window::set_input_mode_cursor_normal()
 {
     if(cursor_hidden) {
-        SDL_SetWindowRelativeMouseMode(window, false);
+        // Warp BEFORE leaving relative mode: while relative mode is active,
+        // SDL_WarpMouseInWindow updates SDL's logical position without moving
+        // the OS cursor. SDL_SetWindowRelativeMouseMode(false) then performs
+        // a single warp to that logical position. Doing it the other way
+        // around races SDL's auto-warp on X11.
         SDL_WarpMouseInWindow(window, saved_cursor_x, saved_cursor_y);
+        SDL_SetWindowRelativeMouseMode(window, false);
         SDL_ShowCursor();
         cursor_hidden = false;
     }
