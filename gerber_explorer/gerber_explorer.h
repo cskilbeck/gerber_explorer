@@ -273,8 +273,9 @@ struct gerber_explorer : gpu_window
     // -1 or 1 for each x,y based on settings.flip_x/y
     vec2d flip_xy;
 
-    // scale window to view rect
-    vec2d view_scale;
+    // scale window to view rect — computed on the fly so it stays in sync
+    // with view_rect when multiple input events fire within a single frame
+    vec2d view_scale() const { return viewport_size.divide(view_rect.size()); }
 
     gerber_layer *get_outline_layer() const;
     void set_outline_layer(gerber_layer *new_outline_layer);

@@ -176,7 +176,7 @@ std::string gerber_explorer::window_name() const
 
 vec2d gerber_explorer::world_pos_from_viewport_pos(vec2d const &p) const
 {
-    return vec2d{ p.x, p.y }.divide(view_scale).add(view_rect.min_pos);
+    return vec2d{ p.x, p.y }.divide(view_scale()).add(view_rect.min_pos);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -192,7 +192,7 @@ rect gerber_explorer::world_rect_from_viewport_rect(rect const &r) const
 
 vec2d gerber_explorer::viewport_pos_from_world_pos(vec2d const &p) const
 {
-    return p.subtract(view_rect.min_pos).multiply(view_scale);
+    return p.subtract(view_rect.min_pos).multiply(view_scale());
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -200,7 +200,7 @@ vec2d gerber_explorer::viewport_pos_from_world_pos(vec2d const &p) const
 vec2d gerber_explorer::viewport_pos_from_board_pos(vec2d const &p) const
 {
     vec2d b = board_pos_from_world_pos(p);
-    return b.subtract(view_rect.min_pos).multiply(view_scale);
+    return b.subtract(view_rect.min_pos).multiply(view_scale());
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -2044,7 +2044,7 @@ void gerber_explorer::on_render()
         return;
     }
 
-    view_scale = viewport_size.divide(view_rect.size());
+    vec2d const scale = view_scale();
 
     // --- explicit retesselation (quality slider changed) ---
     if(retesselate) {
@@ -2052,7 +2052,7 @@ void gerber_explorer::on_render()
         pool.abort_jobs(job_type_tesselate);
         // busy-wait for explicit changes (user expects immediate result)
         while(pool.get_info().active != 0) {}
-        double ppwu = settings.dynamic_tesselation ? std::min(view_scale.x, view_scale.y) : 0;
+        double ppwu = settings.dynamic_tesselation ? std::min(scale.x, scale.y) : 0;
         for(auto l : layers) {
             if(l->marked_for_deletion) continue;
             auto options = l->is_outline_layer ? tesselation_options_force_outline : tesselation_options_none;
@@ -2064,7 +2064,7 @@ void gerber_explorer::on_render()
 
     // --- dynamic retesselation (zoom-driven) ---
     if(settings.dynamic_tesselation && !layers.empty()) {
-        double ppwu = std::min(view_scale.x, view_scale.y);
+        double ppwu = std::min(scale.x, scale.y);
         double ratio = (last_tess_ppwu > 0) ? ppwu / last_tess_ppwu : 0;
         bool needs_retess = (ratio < 0.8 || ratio > 1.25) || last_tess_ppwu == 0;
         bool scale_changing = (ppwu != prev_frame_ppwu);
@@ -2112,10 +2112,10 @@ void gerber_explorer::on_render()
     flip_m.m[13] = (float)(board_center.y - flip_xy.y * board_center.y);
 
     gpu::matrix view_m = gpu::make_identity();
-    view_m.m[0] = (float)view_scale.x;
-    view_m.m[5] = (float)view_scale.y;
-    view_m.m[12] = (float)(-(view_rect.min_pos.x * view_scale.x));
-    view_m.m[13] = (float)(-(view_rect.min_pos.y * view_scale.y));
+    view_m.m[0] = (float)scale.x;
+    view_m.m[5] = (float)scale.y;
+    view_m.m[12] = (float)(-(view_rect.min_pos.x * scale.x));
+    view_m.m[13] = (float)(-(view_rect.min_pos.y * scale.y));
     gpu::matrix temp = matrix_multiply(view_m, flip_m);
     world_matrix = matrix_multiply(ortho_screen_matrix, temp);
 
