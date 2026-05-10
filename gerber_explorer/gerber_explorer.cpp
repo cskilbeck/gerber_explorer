@@ -613,7 +613,7 @@ void gerber_explorer::handle_mouse()
         case mouse_drag_zoom: {
             if(ignore_mouse_moves <= 0) {
                 vec2d d = mouse_pos.subtract(drag_mouse_cur_pos);
-                double factor = (d.x + d.y) * 0.01;
+                double factor = d.y * 0.01;
                 factor = std::max(-0.25, std::min(factor, 0.25));
                 zoom_at_point(mouse_world_pos, 1.0 - factor);
                 should_fit_to_viewport = false;
@@ -1538,6 +1538,20 @@ void gerber_explorer::ui()
             ImGui::SameLine();
             if(ImGui::Button("Fit " MATSYM_fit_screen)) {
                 fit_to_viewport();
+            }
+            ImGui::SameLine();
+            if(ImGui::Button("X " MATSYM_swap_horiz)) {
+                settings.flip_x = !settings.flip_x;
+            }
+            if(ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+                ImGui::SetItemTooltip("Flip X");
+            }
+            ImGui::SameLine();
+            if(ImGui::Button("Y " MATSYM_swap_vert)) {
+                settings.flip_y = !settings.flip_y;
+            }
+            if(ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+                ImGui::SetItemTooltip("Flip Y");
             }
             ImGui::SameLine();
             ImGui::AlignTextToFramePadding();

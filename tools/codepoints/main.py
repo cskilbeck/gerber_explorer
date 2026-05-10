@@ -1,53 +1,188 @@
+#!/usr/bin/env python3
+"""
+Download Material Symbols font from Google, create a static TTF instance,
+download codepoints, and generate C++ header files.
+
+Requirements:
+    pip install fonttools brotli requests
+
+Usage:
+    python main.py [--style outlined|rounded|sharp]
+                   [--fill 0|1] [--weight 100-700] [--grade -25..200] [--opsz 20-48]
+                   [--output-dir DIR]
+
+Defaults: outlined, fill=1, weight=400, grade=0, opsz=24
+"""
+
+import argparse
+import os
 import re
+import sys
+import urllib.request
+import shutil
+
+GITHUB_BASE = "https://raw.githubusercontent.com/google/material-design-icons/master"
+
+FONT_URLS = {
+    "outlined": f"{GITHUB_BASE}/variablefont/MaterialSymbolsOutlined%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf",
+    "rounded": f"{GITHUB_BASE}/variablefont/MaterialSymbolsRounded%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf",
+    "sharp": f"{GITHUB_BASE}/variablefont/MaterialSymbolsSharp%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf",
+}
+
+CODEPOINTS_URLS = {
+    "outlined": f"{GITHUB_BASE}/variablefont/MaterialSymbolsOutlined%5BFILL%2CGRAD%2Copsz%2Cwght%5D.codepoints",
+    "rounded": f"{GITHUB_BASE}/variablefont/MaterialSymbolsRounded%5BFILL%2CGRAD%2Copsz%2Cwght%5D.codepoints",
+    "sharp": f"{GITHUB_BASE}/variablefont/MaterialSymbolsSharp%5BFILL%2CGRAD%2Copsz%2Cwght%5D.codepoints",
+}
 
 
-def convert_header_to_utf8(input_filename, output_filename):
-    pattern = re.compile(r"#define\s+(\w+)\s+0x([0-9a-fA-F]+)")
+def download(url, dest):
+    """Download a file with progress indication."""
+    print(f"  Downloading {os.path.basename(dest)}...")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req) as response, open(dest, "wb") as out:
+        shutil.copyfileobj(response, out)
+    size_mb = os.path.getsize(dest) / (1024 * 1024)
+    print(f"  Downloaded {size_mb:.1f} MB")
 
-    # Range tracking
-    min_cp = float('inf')
-    max_cp = float('-inf')
 
+def create_static_font(variable_ttf, output_ttf, fill, weight, grade, opsz):
+    """Use fonttools to create a static font instance from a variable font."""
     try:
-        with open(input_filename, 'r') as infile:
-            lines = infile.readlines()
+        from fontTools.varLib.instancer import instantiateVariableFont
+        from fontTools.ttLib import TTFont
+    except ImportError:
+        print("ERROR: fonttools not installed. Run: pip install fonttools brotli")
+        sys.exit(1)
 
-        output_lines = ["#pragma once\n\n"]
+    print(f"  Creating static instance: FILL={fill} wght={weight} GRAD={grade} opsz={opsz}")
+    font = TTFont(variable_ttf)
+    instantiateVariableFont(font, {"FILL": fill, "wght": weight, "GRAD": grade, "opsz": opsz}, inplace=True)
+    font.save(output_ttf)
+    size_kb = os.path.getsize(output_ttf) / 1024
+    print(f"  Static font: {size_kb:.0f} KB")
 
-        for line in lines:
-            match = pattern.search(line)
-            if match:
-                name, hex_val = match.groups()
-                code_point = int(hex_val, 16)
 
-                # Update range
-                if code_point < min_cp: min_cp = code_point
-                if code_point > max_cp: max_cp = code_point
+def parse_codepoints(codepoints_file):
+    """Parse Google's codepoints file (name hex_value per line)."""
+    codepoints = {}
+    with open(codepoints_file, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split()
+            if len(parts) == 2:
+                name, hex_val = parts
+                codepoints[name] = int(hex_val, 16)
+    return codepoints
 
-                # Convert to UTF-8
-                utf8_bytes = chr(code_point).encode('utf-8')
-                escaped_str = "".join(f"\\x{b:02x}" for b in utf8_bytes)
 
-                output_lines.append(f'#define {name} "{escaped_str}"\t// U+{hex_val.lower()}\n')
-            else:
-                # Keep existing formatting/comments
-                if line.strip() != "#pragma once":  # Avoid double pragmas
-                    output_lines.append(line)
+def sanitize_name(name):
+    """Convert icon name to valid C identifier: lowercase, underscores, prefix with MATSYM_."""
+    # Replace hyphens and spaces with underscores
+    name = name.replace("-", "_").replace(" ", "_")
+    # Prefix numbers with underscore
+    if name[0].isdigit():
+        name = "_" + name
+    return f"MATSYM_{name}"
 
-        # Add the range defines at the bottom if we found any codepoints
-        if min_cp != float('inf'):
-            output_lines.append("\n// Range Information\n")
-            output_lines.append(f"#define MATSYM_MIN_CODEPOINT 0x{min_cp:04x}\n")
-            output_lines.append(f"#define MATSYM_MAX_CODEPOINT 0x{max_cp:04x}\n")
 
-        with open(output_filename, 'w') as outfile:
-            outfile.writelines(output_lines)
+def generate_hex_header(codepoints, output_file):
+    """Generate the intermediate hex codepoints header (matsym_codepoints.h)."""
+    with open(output_file, "w") as f:
+        for name in sorted(codepoints.keys()):
+            cp = codepoints[name]
+            c_name = sanitize_name(name)
+            f.write(f"#define {c_name} 0x{cp:04x}\n")
+    print(f"  Hex header: {len(codepoints)} icons -> {output_file}")
 
-        print(f"Success! Range: 0x{min_cp:04x} - 0x{max_cp:04x}")
 
-    except FileNotFoundError:
-        print(f"Error: The file '{input_filename}' was not found.")
+def generate_utf8_header(codepoints, output_file):
+    """Generate the UTF-8 encoded codepoints header for use in C++ code."""
+    min_cp = min(codepoints.values())
+    max_cp = max(codepoints.values())
+
+    with open(output_file, "w") as f:
+        f.write("#pragma once\n\n")
+        f.write(f"// Material Symbols codepoints ({len(codepoints)} icons)\n")
+        f.write(f"// Auto-generated by tools/codepoints/main.py\n\n")
+
+        for name in sorted(codepoints.keys()):
+            cp = codepoints[name]
+            c_name = sanitize_name(name)
+            utf8_bytes = chr(cp).encode("utf-8")
+            escaped = "".join(f"\\x{b:02x}" for b in utf8_bytes)
+            f.write(f'#define {c_name} "{escaped}"\t// U+{cp:04x}\n')
+
+        f.write(f"\n// Range Information\n")
+        f.write(f"#define MATSYM_MIN_CODEPOINT 0x{min_cp:04x}\n")
+        f.write(f"#define MATSYM_MAX_CODEPOINT 0x{max_cp:04x}\n")
+
+    print(f"  UTF-8 header: {len(codepoints)} icons, range 0x{min_cp:04x}-0x{max_cp:04x}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Download Material Symbols and generate headers")
+    parser.add_argument("--style", choices=["outlined", "rounded", "sharp"], default="outlined")
+    parser.add_argument("--fill", type=int, choices=[0, 1], default=1, help="Fill axis (0=outlined, 1=filled)")
+    parser.add_argument("--weight", type=int, default=400, help="Weight axis (100-700)")
+    parser.add_argument("--grade", type=int, default=0, help="Grade axis (-25 to 200)")
+    parser.add_argument("--opsz", type=int, default=24, help="Optical size axis (20-48)")
+    parser.add_argument("--output-dir", default=None, help="Output directory (default: ../../gerber_explorer/assets)")
+    args = parser.parse_args()
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    if args.output_dir:
+        assets_dir = args.output_dir
+    else:
+        assets_dir = os.path.normpath(os.path.join(script_dir, "../../gerber_explorer/assets"))
+
+    os.makedirs(assets_dir, exist_ok=True)
+
+    # Temp files in script directory
+    variable_ttf = os.path.join(script_dir, f"MaterialSymbols_{args.style}_variable.ttf")
+    codepoints_file = os.path.join(script_dir, f"MaterialSymbols_{args.style}.codepoints")
+
+    # Output files
+    static_ttf = os.path.join(assets_dir, "MaterialSymbols.ttf")
+    hex_header = os.path.join(script_dir, "matsym_codepoints.h")
+    utf8_header = os.path.join(assets_dir, "matsym_codepoints_utf8.h")
+
+    # Step 1: Download variable font
+    print(f"\n[1/4] Downloading Material Symbols {args.style} font...")
+    if not os.path.exists(variable_ttf):
+        download(FONT_URLS[args.style], variable_ttf)
+    else:
+        print(f"  Using cached {variable_ttf}")
+
+    # Step 2: Create static font instance
+    print(f"\n[2/4] Creating static font instance...")
+    create_static_font(variable_ttf, static_ttf,
+                       fill=args.fill, weight=args.weight, grade=args.grade, opsz=args.opsz)
+
+    # Step 3: Download codepoints
+    print(f"\n[3/4] Downloading codepoints...")
+    if not os.path.exists(codepoints_file):
+        download(CODEPOINTS_URLS[args.style], codepoints_file)
+    else:
+        print(f"  Using cached {codepoints_file}")
+
+    codepoints = parse_codepoints(codepoints_file)
+    print(f"  Parsed {len(codepoints)} icon codepoints")
+
+    # Step 4: Generate headers
+    print(f"\n[4/4] Generating headers...")
+    generate_hex_header(codepoints, hex_header)
+    generate_utf8_header(codepoints, utf8_header)
+
+    print(f"\nDone! Output files:")
+    print(f"  Font:       {static_ttf}")
+    print(f"  Hex header: {hex_header}")
+    print(f"  UTF-8 header: {utf8_header}")
+    print(f"\nUpdate gpu_window.cpp to load 'MaterialSymbols.ttf' instead of 'MaterialIcons-Regular.ttf'")
 
 
 if __name__ == "__main__":
-    convert_header_to_utf8("matsym_codepoints.h", "matsym_codepoints_utf8.h")
+    main()

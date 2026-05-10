@@ -9,7 +9,7 @@ cmrc_add_resource_library(my_assets
         WHENCE "${CMAKE_CURRENT_SOURCE_DIR}/assets"
         "assets/icon.png"
         "assets/Roboto-Medium.ttf"
-        "assets/MaterialIcons-Regular.ttf")
+        "assets/MaterialSymbols.ttf")
 
 ######################################################################
 ### Compile HLSL shaders at build time

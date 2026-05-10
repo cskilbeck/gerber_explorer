@@ -94,6 +94,8 @@ struct gpu_window
     bool init_complete{false};
     float saved_cursor_x{};
     float saved_cursor_y{};
+    float relative_mouse_x{};
+    float relative_mouse_y{};
     bool cursor_hidden{false};
 
     int64_t frames{};

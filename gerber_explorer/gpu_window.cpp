@@ -119,6 +119,8 @@ void gpu_window::set_input_mode_cursor_disabled()
 {
     if(!cursor_hidden) {
         SDL_GetMouseState(&saved_cursor_x, &saved_cursor_y);
+        relative_mouse_x = saved_cursor_x;
+        relative_mouse_y = saved_cursor_y;
         SDL_SetWindowRelativeMouseMode(window, true);
         cursor_hidden = true;
     }
@@ -157,7 +159,7 @@ void gpu_window::init()
 
     auto fs = cmrc::my_assets::get_filesystem();
     auto roboto_font_file = fs.open("Roboto-Medium.ttf");
-    auto matsym_font_file = fs.open("MaterialIcons-Regular.ttf");
+    auto matsym_font_file = fs.open("MaterialSymbols.ttf");
     void const *roboto_font_data_ptr = roboto_font_file.begin();
     void const *matsym_font_data_ptr = matsym_font_file.begin();
     size_t roboto_font_data_size = roboto_font_file.size();
@@ -168,12 +170,13 @@ void gpu_window::init()
     font_cfg.FontDataOwnedByAtlas = false;
     io.Fonts->AddFontFromMemoryTTF(const_cast<void *>(roboto_font_data_ptr), static_cast<int>(roboto_font_data_size), fontSize, &font_cfg);
 
+    float iconSize = fontSize * 1.3f;
     font_cfg.MergeMode = true;
     font_cfg.PixelSnapH = true;
-    font_cfg.GlyphMinAdvanceX = 18.0f;
-    font_cfg.GlyphOffset.y = fontSize / 6;
+    font_cfg.GlyphMinAdvanceX = iconSize;
+    font_cfg.GlyphOffset.y = (iconSize - fontSize) * 0.5f + 1.0f;
 
-    io.Fonts->AddFontFromMemoryTTF(const_cast<void *>(matsym_font_data_ptr), static_cast<int>(matsym_font_data_size), fontSize, &font_cfg);
+    io.Fonts->AddFontFromMemoryTTF(const_cast<void *>(matsym_font_data_ptr), static_cast<int>(matsym_font_data_size), iconSize, &font_cfg);
 
     io.IniFilename = imgui_ini_filename.c_str();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -340,7 +343,15 @@ bool gpu_window::update()
             if(io.WantCaptureMouse) {
                 break;
             }
-            on_mouse_move(event.motion.x, event.motion.y);
+            if(cursor_hidden) {
+                // In relative mouse mode (zoom), use accumulated position from deltas
+                // so we don't get clamped to window edges
+                relative_mouse_x += event.motion.xrel;
+                relative_mouse_y += event.motion.yrel;
+                on_mouse_move(relative_mouse_x, relative_mouse_y);
+            } else {
+                on_mouse_move(event.motion.x, event.motion.y);
+            }
         } break;
 
         case SDL_EVENT_MOUSE_WHEEL: {
