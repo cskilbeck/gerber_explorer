@@ -290,7 +290,7 @@ void gerber_explorer::gpu_render_layer(SDL_GPUCommandBuffer *cmd, gerber_layer &
         }
 
         // Draw layer fill
-        SDL_BindGPUGraphicsPipeline(pass, gpu_pipelines.layer_fill);
+        SDL_BindGPUGraphicsPipeline(pass, settings.wireframe ? gpu_pipelines.layer_fill_wireframe : gpu_pipelines.layer_fill);
 
         // Vertex uniforms: transform + draw_flags
         struct {

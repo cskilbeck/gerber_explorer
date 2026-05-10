@@ -500,6 +500,11 @@ namespace gpu
 
             layer_fill = dev.create_pipeline(pi);
             LOG_INFO("  layer_fill pipeline: {}", layer_fill != nullptr ? "OK" : "FAILED");
+
+            // Wireframe variant
+            pi.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_LINE;
+            layer_fill_wireframe = dev.create_pipeline(pi);
+            LOG_INFO("  layer_fill_wireframe pipeline: {}", layer_fill_wireframe != nullptr ? "OK" : "FAILED");
         }
 
         // ---- Blit pipeline (render to swapchain, premultiplied alpha) ----
@@ -598,6 +603,7 @@ namespace gpu
         dev.release_pipeline(color);
         dev.release_pipeline(color_lines);
         dev.release_pipeline(layer_fill);
+        dev.release_pipeline(layer_fill_wireframe);
         dev.release_pipeline(blit);
         dev.release_pipeline(blit_blend_premultiplied);
         dev.release_pipeline(selection);

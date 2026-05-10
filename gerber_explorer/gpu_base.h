@@ -123,6 +123,7 @@ namespace gpu
         SDL_GPUGraphicsPipeline *color{};
         SDL_GPUGraphicsPipeline *color_lines{};
         SDL_GPUGraphicsPipeline *layer_fill{};
+        SDL_GPUGraphicsPipeline *layer_fill_wireframe{};
         SDL_GPUGraphicsPipeline *blit{};
         SDL_GPUGraphicsPipeline *blit_blend_premultiplied{};
         SDL_GPUGraphicsPipeline *selection{};
